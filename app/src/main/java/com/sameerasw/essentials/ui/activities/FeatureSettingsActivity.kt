@@ -359,6 +359,9 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                 "App lock" ->
                                     !isAccessibilityEnabled ||
                                         (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
+                                "Conscious gate" ->
+                                    !isAccessibilityEnabled ||
+                                        (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
                                 "Freeze" ->
                                     !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
                                         context,
@@ -776,6 +779,9 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                             "App lock" ->
                                                                 !isAccessibilityEnabled ||
                                                                     (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
+                                                            "Conscious gate" ->
+                                                                !isAccessibilityEnabled ||
+                                                                    (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
                                                             "Freeze" ->
                                                                 !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
                                                                     context,
@@ -1032,6 +1038,13 @@ class FeatureSettingsActivity : AppCompatActivity() {
 
                                     "App lock" -> {
                                         AppLockSettingsUI(
+                                            viewModel = viewModel,
+                                            highlightKey = highlightSetting,
+                                        )
+                                    }
+
+                                    "Conscious gate" -> {
+                                        com.sameerasw.essentials.ui.features.consciousgate.ConsciousGateSettingsUI(
                                             viewModel = viewModel,
                                             highlightKey = highlightSetting,
                                         )
