@@ -64,6 +64,7 @@ import com.sameerasw.essentials.ui.core.cards.FeatureCard
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
 import com.sameerasw.essentials.ui.features.battery.BatteriesSettingsUI
+import com.sameerasw.essentials.ui.features.consciousgate.CONSCIOUS_GATE_FEATURE_ID
 import com.sameerasw.essentials.ui.features.security.AppLockSettingsUI
 import com.sameerasw.essentials.ui.features.system.AlwaysOnDisplaySettingsUI
 import com.sameerasw.essentials.ui.features.system.BatteryNotificationSettingsUI
@@ -359,7 +360,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                 "App lock" ->
                                     !isAccessibilityEnabled ||
                                         (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
-                                "Conscious gate" ->
+                                CONSCIOUS_GATE_FEATURE_ID ->
                                     !isAccessibilityEnabled ||
                                         (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
                                 "Freeze" ->
@@ -779,7 +780,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                             "App lock" ->
                                                                 !isAccessibilityEnabled ||
                                                                     (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
-                                                            "Conscious gate" ->
+                                                            CONSCIOUS_GATE_FEATURE_ID ->
                                                                 !isAccessibilityEnabled ||
                                                                     (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
                                                             "Freeze" ->
@@ -1043,7 +1044,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                         )
                                     }
 
-                                    "Conscious gate" -> {
+                                    CONSCIOUS_GATE_FEATURE_ID -> {
                                         com.sameerasw.essentials.ui.features.consciousgate.ConsciousGateSettingsUI(
                                             viewModel = viewModel,
                                             highlightKey = highlightSetting,
