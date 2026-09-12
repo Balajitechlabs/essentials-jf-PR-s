@@ -50,7 +50,6 @@ fun SometimesEssentialsSettingsSheet(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var changeNotificationLighting by remember { mutableStateOf(initialAction.changeNotificationLighting) }
     var notificationLightingEnabled by remember { mutableStateOf(initialAction.notificationLightingEnabled) }
@@ -96,7 +95,6 @@ fun SometimesEssentialsSettingsSheet(
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         dragHandle = null,
     ) {
         Column(

@@ -240,9 +240,9 @@ class StatusGlanceTouchHandler(
         if (controller != null) {
             val state = controller.playbackState?.state
             if (state == PlaybackState.STATE_PLAYING) {
-                controller.transportControls?.pause()
+                controller.transportControls.pause()
             } else {
-                controller.transportControls?.play()
+                controller.transportControls.play()
             }
         } else {
             dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
@@ -252,7 +252,7 @@ class StatusGlanceTouchHandler(
     private fun skipToNextTrack() {
         val controller = activeMediaControllerProvider?.invoke()
         if (controller != null) {
-            controller.transportControls?.skipToNext()
+            controller.transportControls.skipToNext()
         } else {
             dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT)
         }

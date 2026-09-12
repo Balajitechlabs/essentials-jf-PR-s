@@ -273,7 +273,11 @@ class ButtonRemapHandler(
     }
 
     private fun isAodShowing(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val display = service.display
+            display?.state == android.view.Display.STATE_DOZE || display?.state == android.view.Display.STATE_DOZE_SUSPEND
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            @Suppress("DEPRECATION")
             val display =
                 (service.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
             display.state == android.view.Display.STATE_DOZE || display.state == android.view.Display.STATE_DOZE_SUSPEND

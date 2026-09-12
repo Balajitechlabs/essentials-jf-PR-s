@@ -136,7 +136,6 @@ object CombinedActionExecutor {
 
                                     val effects = effectsBuilder.build()
 
-                                    "essentials_focus_mode"
                                     val existingRule =
                                         nm.automaticZenRules.values.find { it.name == "Essentials Focus" }
                                     val ruleKey =
@@ -686,7 +685,7 @@ object CombinedActionExecutor {
                             val taskInfo = task as? ActivityManager.RunningTaskInfo ?: continue
                             val topActivity = taskInfo.topActivity
                             if (topActivity != null && topActivity.packageName != context.packageName) {
-                                targetTaskId = taskInfo.id
+                                targetTaskId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) taskInfo.taskId else @Suppress("DEPRECATION") taskInfo.id
                                 break
                             }
                         }
@@ -694,7 +693,7 @@ object CombinedActionExecutor {
                         if (targetTaskId == -1 && tasks.isNotEmpty()) {
                             val firstTask = tasks.firstOrNull() as? ActivityManager.RunningTaskInfo
                             if (firstTask != null) {
-                                targetTaskId = firstTask.id
+                                targetTaskId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) firstTask.taskId else @Suppress("DEPRECATION") firstTask.id
                             }
                         }
 
@@ -912,7 +911,7 @@ object CombinedActionExecutor {
             val sessions = manager.getActiveSessions(componentName)
             val activeSession =
                 sessions
-                    ?.sortedWith(
+                    .sortedWith(
                         compareByDescending<MediaController> {
                             val state = it.playbackState?.state
                             state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING
@@ -920,7 +919,7 @@ object CombinedActionExecutor {
                             val state = it.playbackState?.state
                             state == PlaybackState.STATE_PAUSED
                         },
-                    )?.firstOrNull()
+                    ).firstOrNull()
 
             val packageName = activeSession?.packageName
             if (!packageName.isNullOrEmpty()) {

@@ -97,7 +97,6 @@ fun CustomSettingsSheet(
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
 
     var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
@@ -124,7 +123,6 @@ fun CustomSettingsSheet(
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
     ) {
         Column(
             modifier =
