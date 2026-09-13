@@ -72,6 +72,21 @@ class IslandOverlayView(context: Context) : View(context) {
     private val notificationIconClipPath = Path()
     private val notificationContentClipPath = Path()
 
+    private val queuedNotificationAlerts = mutableListOf<ActiveNotificationAlert>()
+    private val bubbleFractions = floatArrayOf(0f, 0f)
+    private val bubbleAnimators = arrayOfNulls<ValueAnimator>(2)
+    private val bubbleRects = arrayOf(RectF(), RectF())
+
+    private var isMerging: Boolean = false
+    private var mergeFraction: Float = 1.0f
+    private var mergeAnimator: ValueAnimator? = null
+    private var previousAlert: ActiveNotificationAlert? = null
+    private var mergeSourceBubbleLeft: Float = 0f
+    private var mergeSourceBubbleCenterX: Float = 0f
+    private var mergeSourceBubbleCenterY: Float = 0f
+    private var mergeSourcePillLeft: Float = 0f
+    private var mergeSourcePillRight: Float = 0f
+
     private val leftMarquee = MarqueeController()
     private val rightMarquee = MarqueeController()
     private val marqueeFadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -79,6 +94,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     var onDismissAnimationEnd: (() -> Unit)? = null
+    var onAlertsChanged: (() -> Unit)? = null
 
     private val notificationPillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -107,24 +123,152 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
-        activeNotificationAlert = alert
-        isNotificationAlertActive = true
 
-        notificationAnimator?.cancel()
-        val startVal = animatedNotificationFraction
-        notificationAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
-            duration = 480L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
+        if (!isNotificationAlertActive || activeNotificationAlert == null) {
+            activeNotificationAlert = alert
+            isNotificationAlertActive = true
+
+            notificationAnimator?.cancel()
+            val startVal = animatedNotificationFraction
+            notificationAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
+                duration = 480L
+                interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
+                addUpdateListener { anim ->
+                    animatedNotificationFraction = anim.animatedValue as Float
+                    invalidate()
+                }
+                start()
+            }
+            onAlertsChanged?.invoke()
+            return
+        }
+
+        if (activeNotificationAlert?.key == alert.key) {
+            activeNotificationAlert = alert
+            invalidate()
+            return
+        }
+
+        val existingIdx = queuedNotificationAlerts.indexOfFirst { it.key == alert.key }
+        if (existingIdx >= 0) {
+            queuedNotificationAlerts[existingIdx] = alert
+            invalidate()
+            return
+        }
+
+        if (queuedNotificationAlerts.size >= 2) {
+            queuedNotificationAlerts.removeAt(0)
+            bubbleFractions[0] = bubbleFractions[1]
+            bubbleFractions[1] = 0f
+        }
+
+        queuedNotificationAlerts.add(alert)
+        val bubbleIdx = queuedNotificationAlerts.size - 1
+        animateBubbleIn(bubbleIdx)
+        onAlertsChanged?.invoke()
+    }
+
+    private fun animateBubbleIn(index: Int) {
+        if (index !in 0..1) return
+        bubbleAnimators[index]?.cancel()
+        val startVal = bubbleFractions[index]
+        bubbleAnimators[index] = ValueAnimator.ofFloat(startVal, 1.0f).apply {
+            duration = 420L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.44f)
             addUpdateListener { anim ->
-                animatedNotificationFraction = anim.animatedValue as Float
+                bubbleFractions[index] = anim.animatedValue as Float
                 invalidate()
             }
             start()
         }
     }
 
+    fun advanceToNextNotification(): Boolean {
+        stopAllMarquees()
+        if (queuedNotificationAlerts.isNotEmpty()) {
+            val outgoingAlert = activeNotificationAlert
+            val incomingAlert = queuedNotificationAlerts.removeAt(0)
+
+            mergeSourcePillLeft = notificationPillRect.left
+            mergeSourcePillRight = notificationPillRect.right
+            mergeSourceBubbleLeft = if (bubbleRects[0].left > 0f) bubbleRects[0].left else (notificationPillRect.left - 40f * density)
+            mergeSourceBubbleCenterX = if (bubbleRects[0].centerX() > 0f) bubbleRects[0].centerX() else (mergeSourceBubbleLeft + 20f * density)
+            mergeSourceBubbleCenterY = if (bubbleRects[0].centerY() > 0f) bubbleRects[0].centerY() else notificationPillRect.centerY()
+
+            previousAlert = outgoingAlert
+            activeNotificationAlert = incomingAlert
+            isMerging = true
+            mergeFraction = 0f
+
+            if (queuedNotificationAlerts.isNotEmpty()) {
+                bubbleFractions[0] = bubbleFractions[1]
+                bubbleFractions[1] = 0f
+            } else {
+                bubbleFractions[0] = 0f
+                bubbleFractions[1] = 0f
+            }
+
+            mergeAnimator?.cancel()
+            mergeAnimator = ValueAnimator.ofFloat(0f, 1.0f).apply {
+                duration = 480L
+                interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.48f)
+                addUpdateListener { anim ->
+                    mergeFraction = anim.animatedValue as Float
+                    invalidate()
+                }
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        isMerging = false
+                        previousAlert = null
+                        mergeFraction = 1.0f
+                        invalidate()
+                    }
+                })
+                start()
+            }
+
+            onAlertsChanged?.invoke()
+            return true
+        } else {
+            dismissNotificationAlert()
+            return false
+        }
+    }
+
+    fun removeNotificationByKey(key: String): Boolean {
+        if (activeNotificationAlert?.key == key) {
+            return advanceToNextNotification()
+        }
+        val idx = queuedNotificationAlerts.indexOfFirst { it.key == key }
+        if (idx >= 0) {
+            queuedNotificationAlerts.removeAt(idx)
+            if (idx == 0 && queuedNotificationAlerts.isNotEmpty()) {
+                bubbleFractions[0] = bubbleFractions[1]
+                bubbleFractions[1] = 0f
+            } else {
+                bubbleFractions[idx] = 0f
+            }
+            invalidate()
+            onAlertsChanged?.invoke()
+            return true
+        }
+        return isNotificationAlertActive
+    }
+
     fun dismissNotificationAlert() {
         stopAllMarquees()
+        isMerging = false
+        previousAlert = null
+        mergeFraction = 1.0f
+        mergeAnimator?.cancel()
+        queuedNotificationAlerts.clear()
+        bubbleFractions[0] = 0f
+        bubbleFractions[1] = 0f
+        for (i in 0..1) {
+            bubbleAnimators[i]?.cancel()
+            bubbleAnimators[i] = null
+        }
+
         if (!isNotificationAlertActive && animatedNotificationFraction <= 0f) return
         notificationAnimator?.cancel()
         val startVal = animatedNotificationFraction
@@ -142,6 +286,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     animatedNotificationFraction = 0f
                     invalidate()
                     onDismissAnimationEnd?.invoke()
+                    onAlertsChanged?.invoke()
                 }
             })
             start()
@@ -156,16 +301,54 @@ class IslandOverlayView(context: Context) : View(context) {
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         notificationAnimator?.cancel()
+        mergeAnimator?.cancel()
+        for (i in 0..1) {
+            bubbleAnimators[i]?.cancel()
+        }
         stopAllMarquees()
     }
 
     fun getActiveNotificationAlert(): ActiveNotificationAlert? = activeNotificationAlert
 
+    fun getQueuedAlerts(): List<ActiveNotificationAlert> = queuedNotificationAlerts
+
     fun getNotificationPillBounds(): RectF = notificationPillRect
 
-    fun getNotificationTargetBounds(): RectF {
+    fun getTotalAlertsBounds(): RectF {
         val alert = activeNotificationAlert ?: return notificationPillRect
-        return computeNotificationTargetBounds(alert)
+        val mainBounds = computeNotificationTargetBounds(alert)
+        val numBubbles = queuedNotificationAlerts.size
+        if (numBubbles == 0) return mainBounds
+
+        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
+        val bubbleSize = targetPillHeight
+        val bubbleGap = 8f * density
+        val totalBubblesWidth = numBubbles * (bubbleSize + bubbleGap)
+
+        return RectF(
+            mainBounds.left - totalBubblesWidth,
+            mainBounds.top,
+            mainBounds.right,
+            mainBounds.bottom,
+        )
+    }
+
+    fun getAlertAt(x: Float, y: Float): ActiveNotificationAlert? {
+        for (i in queuedNotificationAlerts.indices) {
+            if (i in 0..1 && bubbleFractions[i] > 0.5f) {
+                if (bubbleRects[i].contains(x, y)) {
+                    return queuedNotificationAlerts[i]
+                }
+            }
+        }
+        if (notificationPillRect.contains(x, y)) {
+            return activeNotificationAlert
+        }
+        return null
+    }
+
+    fun getNotificationTargetBounds(): RectF {
+        return getTotalAlertsBounds()
     }
 
     private fun computeSenderAndMessage(alert: ActiveNotificationAlert): Pair<String, String> {
@@ -291,16 +474,42 @@ class IslandOverlayView(context: Context) : View(context) {
             val screenWidth = resources.displayMetrics.widthPixels.toFloat()
 
             val targetBounds = computeNotificationTargetBounds(alert)
-            val targetLeft = targetBounds.left
-            val targetRight = targetBounds.right
             val targetTop = targetBounds.top
             val targetBottom = targetBounds.bottom
+            val targetRight = targetBounds.right
+
+            val targetPillHeight = targetBottom - targetTop
+            val bubbleSize = targetPillHeight
+            val bubbleGap = 8f * density
+
+            var totalBubblesWidth = 0f
+            for (i in queuedNotificationAlerts.indices) {
+                if (i in 0..1) {
+                    val bFrac = bubbleFractions[i]
+                    totalBubblesWidth += (bubbleSize + bubbleGap) * bFrac
+                }
+            }
+
+            val fullTargetLeft = targetBounds.left
+            val adjustedTargetLeft = (fullTargetLeft + totalBubblesWidth).coerceAtMost(cameraCenterX - cameraRadiusPx - 20f * density)
 
             val initialLeft = cameraCenterX - cameraRadiusPx
             val initialRight = cameraCenterX + cameraRadiusPx
 
-            val currentLeft = initialLeft + (targetLeft - initialLeft) * fraction
-            val currentRight = initialRight + (targetRight - initialRight) * fraction
+            val normalLeft = initialLeft + (adjustedTargetLeft - initialLeft) * fraction
+            val currentLeft = if (isMerging && mergeSourcePillLeft > 0f) {
+                mergeSourcePillLeft + (adjustedTargetLeft - mergeSourcePillLeft) * mergeFraction
+            } else {
+                normalLeft
+            }
+
+            val normalRight = initialRight + (targetRight - initialRight) * fraction
+            val currentRight = if (isMerging && mergeSourcePillRight > 0f) {
+                mergeSourcePillRight + (targetRight - mergeSourcePillRight) * mergeFraction
+            } else {
+                normalRight
+            }
+
             val currentTop = targetTop
             val currentBottom = targetBottom
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
@@ -309,44 +518,93 @@ class IslandOverlayView(context: Context) : View(context) {
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
 
+            // Draw Liquid Main Pill
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillPaint)
 
             // Content alpha & scale transitions matching iOS Dynamic Island
             val contentAlphaProgress = ((fraction - 0.15f) / 0.65f).coerceIn(0f, 1f)
-            val contentAlpha = (contentAlphaProgress * 255).toInt()
+            val baseContentAlpha = (contentAlphaProgress * 255).toInt()
 
-            if (contentAlpha > 0) {
+            if (baseContentAlpha > 0) {
                 val contentSaveCount = canvas.save()
                 notificationContentClipPath.reset()
                 notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
                 canvas.clipPath(notificationContentClipPath)
 
-                val (sender, message) = computeSenderAndMessage(alert)
                 val textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
-
                 notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 notificationSenderPaint.textSize = textSize
-                val textAlphaProgress = ((fraction - 0.25f) / 0.60f).coerceIn(0f, 1f)
-                val textAlpha = (textAlphaProgress * 255).toInt()
-                notificationSenderPaint.alpha = textAlpha
-
                 notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
                 notificationBodyPaint.textSize = textSize
-                notificationBodyPaint.alpha = textAlpha
 
                 val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+                val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
+                val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
+
+                if (isMerging && previousAlert != null) {
+                    val outAlphaProgress = (1f - mergeFraction * 2.2f).coerceIn(0f, 1f)
+                    val outAlpha = (outAlphaProgress * 255).toInt()
+                    val slideOutX = mergeFraction * 32f * density
+
+                    if (outAlpha > 0) {
+                        val (prevSender, prevMessage) = computeSenderAndMessage(previousAlert!!)
+                        notificationSenderPaint.alpha = outAlpha
+                        notificationBodyPaint.alpha = outAlpha
+
+                        if (isCenterCamera) {
+                            val prevIconLeft = currentLeft + verticalPadding + slideOutX
+                            val prevIconTop = currentTop + verticalPadding
+                            val prevIconRect = RectF(prevIconLeft, prevIconTop, prevIconLeft + iconSize, prevIconTop + iconSize)
+                            val prevDisplayIcon = previousAlert!!.icon ?: previousAlert!!.appIcon
+
+                            if (prevDisplayIcon != null) {
+                                iconPaint.alpha = outAlpha
+                                canvas.save()
+                                notificationIconClipPath.reset()
+                                notificationIconClipPath.addRoundRect(prevIconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
+                                canvas.clipPath(notificationIconClipPath)
+                                canvas.drawBitmap(prevDisplayIcon, null, prevIconRect, iconPaint)
+                                canvas.restore()
+                            }
+
+                            val prevSenderStart = prevIconLeft + iconSize + 8f * density
+                            val prevSenderY = cameraCenterY + notificationSenderPaint.textSize * 0.35f
+                            canvas.drawText(prevSender, prevSenderStart, prevSenderY, notificationSenderPaint)
+
+                            val prevMsgStart = cameraCenterX + cameraRadiusPx + 10f * density + slideOutX
+                            val prevMsgY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
+                            if (prevMessage.isNotBlank()) {
+                                canvas.drawText(prevMessage, prevMsgStart, prevMsgY, notificationBodyPaint)
+                            }
+                        }
+                    }
+                }
+
+                val (sender, message) = computeSenderAndMessage(alert)
+                val inAlphaProgress = if (isMerging) {
+                    ((mergeFraction - 0.25f) / 0.65f).coerceIn(0f, 1f)
+                } else {
+                    ((fraction - 0.25f) / 0.60f).coerceIn(0f, 1f)
+                }
+                val inSlideX = if (isMerging) {
+                    (1f - mergeFraction) * -28f * density
+                } else {
+                    0f
+                }
+
+                val textAlpha = (inAlphaProgress * 255).toInt()
+                notificationSenderPaint.alpha = textAlpha
+                notificationBodyPaint.alpha = textAlpha
 
                 if (isCenterCamera) {
-                    val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
-                    val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
-                    val iconLeft = currentLeft + verticalPadding
+                    val iconLeft = currentLeft + verticalPadding + inSlideX
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                     val displayIcon = alert.icon ?: alert.appIcon
                     if (displayIcon != null) {
-                        iconPaint.alpha = contentAlpha
-                        val iconScale = 0.85f + 0.15f * contentAlphaProgress
+                        iconPaint.alpha = textAlpha
+                        val iconScale = 0.85f + 0.15f * inAlphaProgress
                         val iconCenterX = iconRect.centerX()
                         val iconCenterY = iconRect.centerY()
 
@@ -379,7 +637,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         }
 
                         // Right wing: Message text
-                        val msgStart = cameraCenterX + cameraRadiusPx + 10f * density
+                        val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
                         val msgEnd = currentRight - 14f * density
                         if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
                             drawMarqueeText(
@@ -397,17 +655,15 @@ class IslandOverlayView(context: Context) : View(context) {
                         }
                     }
                 } else {
-                    val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
-                    val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
                     val spaceFromCutout = 14f * density
-                    val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
+                    val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout + inSlideX
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                     val displayIcon = alert.icon ?: alert.appIcon
                     if (displayIcon != null) {
-                        iconPaint.alpha = contentAlpha
-                        val iconScale = 0.85f + 0.15f * contentAlphaProgress
+                        iconPaint.alpha = textAlpha
+                        val iconScale = 0.85f + 0.15f * inAlphaProgress
                         val iconCenterX = iconRect.centerX()
                         val iconCenterY = iconRect.centerY()
 
@@ -443,6 +699,103 @@ class IslandOverlayView(context: Context) : View(context) {
                 }
 
                 canvas.restoreToCount(contentSaveCount)
+            }
+
+            if (isMerging) {
+                val mergeBubbleAlphaProgress = (1f - mergeFraction * 1.8f).coerceIn(0f, 1f)
+                val mergeBubbleAlpha = (mergeBubbleAlphaProgress * 255).toInt()
+
+                if (mergeBubbleAlpha > 0) {
+                    val startBubbleLeft = mergeSourceBubbleLeft
+                    val targetMergeLeft = currentLeft - bubbleSize / 2f
+                    val bLeft = startBubbleLeft + (targetMergeLeft - startBubbleLeft) * mergeFraction
+                    val bRight = bLeft + bubbleSize
+                    val bRadius = bubbleSize / 2f
+                    val bRect = RectF(bLeft, currentTop, bRight, currentBottom)
+
+                    val bSaveCount = canvas.save()
+                    val bScale = 1f - 0.2f * mergeFraction
+                    canvas.scale(bScale, bScale, bRect.centerX(), bRect.centerY())
+
+                    notificationPillPaint.color = Color.BLACK
+                    notificationPillPaint.alpha = mergeBubbleAlpha
+                    canvas.drawRoundRect(bRect, bRadius, bRadius, notificationPillPaint)
+
+                    val mIcon = alert.icon ?: alert.appIcon
+                    if (mIcon != null) {
+                        val bIconSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
+                        val bIconPad = (bubbleSize - bIconSize) / 2f
+                        val bIconRect = RectF(
+                            bLeft + bIconPad,
+                            currentTop + bIconPad,
+                            bLeft + bIconPad + bIconSize,
+                            currentTop + bIconPad + bIconSize,
+                        )
+
+                        val bClipPath = Path().apply {
+                            addRoundRect(bIconRect, bIconSize * 0.28f, bIconSize * 0.28f, Path.Direction.CW)
+                        }
+                        canvas.save()
+                        canvas.clipPath(bClipPath)
+                        iconPaint.alpha = mergeBubbleAlpha
+                        canvas.drawBitmap(mIcon, null, bIconRect, iconPaint)
+                        canvas.restore()
+                    }
+
+                    canvas.restoreToCount(bSaveCount)
+                }
+            }
+
+            var runningLeft = currentLeft
+            for (i in queuedNotificationAlerts.indices) {
+                if (i in 0..1) {
+                    val queuedAlert = queuedNotificationAlerts[i]
+                    val bFrac = bubbleFractions[i]
+                    if (bFrac > 0.01f) {
+                        val slideOffset = if (isMerging) {
+                            (bubbleSize + bubbleGap) * (1f - mergeFraction)
+                        } else {
+                            0f
+                        }
+
+                        val bRight = runningLeft - bubbleGap - slideOffset
+                        val bLeft = bRight - bubbleSize
+                        runningLeft = bLeft
+
+                        bubbleRects[i].set(bLeft, currentTop, bRight, currentBottom)
+                        val bRadius = bubbleSize / 2f
+
+                        val bSaveCount = canvas.save()
+                        canvas.scale(bFrac, bFrac, bubbleRects[i].centerX(), bubbleRects[i].centerY())
+
+                        notificationPillPaint.color = Color.BLACK
+                        notificationPillPaint.alpha = (bFrac * 255).toInt().coerceIn(0, 255)
+                        canvas.drawRoundRect(bubbleRects[i], bRadius, bRadius, notificationPillPaint)
+
+                        val qIcon = queuedAlert.icon ?: queuedAlert.appIcon
+                        if (qIcon != null) {
+                            val bIconSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
+                            val bIconPad = (bubbleSize - bIconSize) / 2f
+                            val bIconRect = RectF(
+                                bLeft + bIconPad,
+                                currentTop + bIconPad,
+                                bLeft + bIconPad + bIconSize,
+                                currentTop + bIconPad + bIconSize,
+                            )
+
+                            val bClipPath = Path().apply {
+                                addRoundRect(bIconRect, bIconSize * 0.28f, bIconSize * 0.28f, Path.Direction.CW)
+                            }
+                            canvas.save()
+                            canvas.clipPath(bClipPath)
+                            iconPaint.alpha = (bFrac * 255).toInt().coerceIn(0, 255)
+                            canvas.drawBitmap(qIcon, null, bIconRect, iconPaint)
+                            canvas.restore()
+                        }
+
+                        canvas.restoreToCount(bSaveCount)
+                    }
+                }
             }
         }
     }
