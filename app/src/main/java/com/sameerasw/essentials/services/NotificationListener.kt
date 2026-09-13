@@ -118,37 +118,54 @@ class NotificationListener : NotificationListenerService() {
             }
         }
 
-        private val LABELED_OTP_REGEX = Regex(
-            """(?i)(?:otp|code|pin|passcode|verification\s*code|security\s*code)(?:\s+is)?[\s:=-]+([0-9]{4,8}|[0-9]{3}[-\s][0-9]{3}|[A-Z0-9]{5,8})\b"""
+        private val LABELED_PREFIX_REGEX = Regex(
+            """(?i)(?:otp|totp|hotp|pin|passcode|code|c[oó]digo|senha|m[aã]|verification(?:\s*code)?|security(?:\s*code)?|login(?:\s*code)?|auth(?:\s*code)?|confirmation(?:\s*code)?)(?:\s+is)?[\s:=-]+([0-9]{3}[-\s.][0-9]{3}|[0-9]{4}[-\s.][0-9]{4}|[0-9]{4,8}|[A-Z0-9]{5,8})\b"""
         )
-        private val USE_CODE_REGEX = Regex(
-            """(?i)\b(?:use|enter)\s+([0-9]{4,8})\s+(?:as|for|to)\b"""
+        private val GOOGLE_2FA_REGEX = Regex("""(?i)\b(G\s*-\s*[0-9]{6})\b""")
+        private val LABELED_SUFFIX_REGEX = Regex(
+            """(?i)\b([0-9]{3}[-\s.][0-9]{3}|[0-9]{4}[-\s.][0-9]{4}|[0-9]{4,8})\b\s*(?:is\s*(?:your|the)?\s*[\w\s]{0,25}?(?:code|otp|totp|pin|passcode|c[oó]digo|senha)|to\s*(?:verify|confirm|log\s*in|sign\s*in|authenticate))\b"""
         )
-        private val IS_YOUR_CODE_REGEX = Regex(
-            """\b([0-9]{4,8})\b(?=.*(?:is\s*your\s*(?:otp|code|pin|verification)|to\s*verify|for\s*verification))""",
-            RegexOption.IGNORE_CASE
+        private val ACTION_CODE_REGEX = Regex(
+            """(?i)\b(?:use|enter|input)\s+(?:(?:verification|security|login|auth|one-time|account)?\s*(?:code|otp|pin|passcode)\s+)?([0-9]{3}[-\s.][0-9]{3}|[0-9]{4}[-\s.][0-9]{4}|[0-9]{4,8})\b"""
         )
-        private val GOOGLE_2FA_REGEX = Regex("""\b(G-[0-9]{6})\b""")
+        private val LOOKAHEAD_CODE_REGEX = Regex(
+            """(?i)\b([0-9]{3}[-\s.][0-9]{3}|[0-9]{4}[-\s.][0-9]{4}|[0-9]{4,8})\b(?=.*(?:is\s*your|to\s*verify|for\s*verification|to\s*log\s*in|for\s*your))"""
+        )
+        private val FALLBACK_SPLIT_REGEX = Regex("""\b([0-9]{3}[-\s.][0-9]{3}|[0-9]{4}[-\s.][0-9]{4})\b""")
         private val FALLBACK_OTP_REGEX = Regex("""\b([0-9]{4,8})\b""")
 
         fun extractOtpCode(text: String): String? {
-            LABELED_OTP_REGEX.find(text)?.let { match ->
-                val raw = match.groupValues[1]
-                return raw.replace("-", "").replace(" ", "")
+            // 1. Prefix labeled: e.g. "Instagram code: 123 456", "OTP is 123456", "Security code: 123-456"
+            LABELED_PREFIX_REGEX.find(text)?.let { match ->
+                return sanitizeCode(match.groupValues[1])
             }
 
+            // 2. Google 2FA: e.g. "G-123456"
             GOOGLE_2FA_REGEX.find(text)?.let { match ->
-                return match.groupValues[1]
+                return sanitizeCode(match.groupValues[1])
             }
 
-            USE_CODE_REGEX.find(text)?.let { match ->
-                return match.groupValues[1]
+            // 3. Suffix labeled: e.g. "123 456 is your Instagram code", "123-456 is your WhatsApp code"
+            LABELED_SUFFIX_REGEX.find(text)?.let { match ->
+                return sanitizeCode(match.groupValues[1])
             }
 
-            IS_YOUR_CODE_REGEX.find(text)?.let { match ->
-                return match.groupValues[1]
+            // 4. Action: e.g. "Use 123 456 to verify", "Enter code 123456"
+            ACTION_CODE_REGEX.find(text)?.let { match ->
+                return sanitizeCode(match.groupValues[1])
             }
 
+            // 5. Lookahead: e.g. "123 456 ... is your code"
+            LOOKAHEAD_CODE_REGEX.find(text)?.let { match ->
+                return sanitizeCode(match.groupValues[1])
+            }
+
+            // 6. Split format fallback: e.g. "123 456" or "123-456"
+            FALLBACK_SPLIT_REGEX.find(text)?.let { match ->
+                return sanitizeCode(match.groupValues[1])
+            }
+
+            // 7. Standard 4-8 digit fallback (skipping calendar years 2020..2030)
             val matches = FALLBACK_OTP_REGEX.findAll(text).toList()
             for (match in matches) {
                 val candidate = match.groupValues[1]
@@ -159,6 +176,10 @@ class NotificationListener : NotificationListenerService() {
                 return candidate
             }
             return null
+        }
+
+        private fun sanitizeCode(raw: String): String {
+            return raw.replace("-", "").replace(" ", "").replace(".", "").trim()
         }
 
         fun getLatestProgressNotification(): ProgressNotificationData? =
@@ -1800,35 +1821,121 @@ class NotificationListener : NotificationListenerService() {
             }
         }
 
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val candidateText = when {
-            !bigText.isNullOrBlank() -> bigText
-            !text.isNullOrBlank() -> text
-            else -> return
+        // Collect all available text sources from the notification extras
+        val textList = mutableListOf<String>()
+        extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+        sbn.notification.tickerText?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+
+        val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+        if (lines != null) {
+            for (line in lines) {
+                line?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+            }
         }
 
-        if (candidateText.length < 4) return
+        @Suppress("DEPRECATION")
+        val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        if (messages != null) {
+            for (msg in messages) {
+                if (msg is android.os.Bundle) {
+                    msg.getCharSequence("text")?.toString()?.takeIf { it.isNotBlank() }?.let { textList.add(it) }
+                }
+            }
+        }
 
-        val lower = candidateText.lowercase(java.util.Locale.ROOT)
-        val hasOtpKeyword = lower.contains("otp") ||
-            lower.contains("code") ||
-            lower.contains("pin") ||
-            lower.contains("passcode") ||
-            lower.contains("verification") ||
-            lower.contains("verify") ||
-            lower.contains("one-time") ||
-            lower.contains("2fa") ||
-            lower.contains("security code")
+        if (textList.isEmpty()) return
+
+        val combinedText = textList.joinToString(" ")
+        if (combinedText.length < 4) return
+
+        val lowerCombined = combinedText.lowercase(java.util.Locale.ROOT)
+        val isAuthApp = sbn.packageName.contains("authenticator", ignoreCase = true) ||
+            sbn.packageName.contains("authy", ignoreCase = true) ||
+            sbn.packageName.contains("twofas", ignoreCase = true) ||
+            sbn.packageName.contains("aegis", ignoreCase = true) ||
+            sbn.packageName.contains("2fa", ignoreCase = true) ||
+            sbn.packageName.contains("otp", ignoreCase = true)
+
+        val hasOtpKeyword = isAuthApp ||
+            lowerCombined.contains("otp") ||
+            lowerCombined.contains("totp") ||
+            lowerCombined.contains("hotp") ||
+            lowerCombined.contains("code") ||
+            lowerCombined.contains("pin") ||
+            lowerCombined.contains("passcode") ||
+            lowerCombined.contains("password") ||
+            lowerCombined.contains("verification") ||
+            lowerCombined.contains("verify") ||
+            lowerCombined.contains("verifying") ||
+            lowerCombined.contains("verified") ||
+            lowerCombined.contains("one-time") ||
+            lowerCombined.contains("one time") ||
+            lowerCombined.contains("1-time") ||
+            lowerCombined.contains("2fa") ||
+            lowerCombined.contains("mfa") ||
+            lowerCombined.contains("two-factor") ||
+            lowerCombined.contains("two factor") ||
+            lowerCombined.contains("2-factor") ||
+            lowerCombined.contains("security") ||
+            lowerCombined.contains("login") ||
+            lowerCombined.contains("log in") ||
+            lowerCombined.contains("log-in") ||
+            lowerCombined.contains("sign in") ||
+            lowerCombined.contains("signin") ||
+            lowerCombined.contains("sign-in") ||
+            lowerCombined.contains("auth") ||
+            lowerCombined.contains("authentication") ||
+            lowerCombined.contains("authenticator") ||
+            lowerCombined.contains("confirm") ||
+            lowerCombined.contains("confirmation") ||
+            lowerCombined.contains("validation") ||
+            lowerCombined.contains("validate") ||
+            lowerCombined.contains("secret") ||
+            lowerCombined.contains("token") ||
+            lowerCombined.contains("código") ||
+            lowerCombined.contains("codigo") ||
+            lowerCombined.contains("senha") ||
+            lowerCombined.contains("mã")
 
         if (!hasOtpKeyword) return
 
-        val extractedCode = extractOtpCode(candidateText) ?: return
+        // Search for code in individual text chunks, then fallback to combined text
+        var extractedCode: String? = null
+        for (text in textList) {
+            val code = extractOtpCode(text)
+            if (code != null) {
+                extractedCode = code
+                break
+            }
+        }
+        if (extractedCode == null) {
+            extractedCode = extractOtpCode(combinedText)
+        }
+        if (extractedCode == null) return
+
+        val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+        val appLabel = try {
+            val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        } catch (_: Exception) {
+            sbn.packageName
+        }
+
+        val senderOrApp = if (rawTitle.isBlank() || rawTitle.replace(" ", "").replace("-", "") == extractedCode) {
+            appLabel
+        } else {
+            rawTitle
+        }
 
         val otpData = OtpNotificationData(
             code = extractedCode,
-            senderOrApp = title.ifBlank { sbn.packageName },
+            senderOrApp = senderOrApp,
             timestamp = System.currentTimeMillis(),
             packageName = sbn.packageName,
             notificationKey = sbn.key,
