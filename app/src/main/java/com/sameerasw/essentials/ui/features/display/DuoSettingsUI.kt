@@ -442,7 +442,6 @@ fun DuoSettingsUI(
                 iconRes = R.drawable.rounded_content_paste_24,
                 title = stringResource(R.string.duo_show_otp_glance_title),
                 isChecked = viewModel.isDuoShowOtpGlance.value,
-                isBeta = true,
                 enabled = !hasMissingOtpPermissions || viewModel.isDuoShowOtpGlance.value,
                 onCheckedChange = { checked ->
                     HapticUtil.performVirtualKeyHaptic(view)
