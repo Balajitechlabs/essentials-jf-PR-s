@@ -711,6 +711,11 @@ object FeatureRegistry {
                 searchableSettings =
                     listOf(
                         SearchSetting(
+                            R.string.island_max_width_title,
+                            R.string.island_max_width_desc,
+                            "island_max_width",
+                        ),
+                        SearchSetting(
                             R.string.island_suppress_system_heads_up_title,
                             R.string.island_suppress_system_heads_up_desc,
                             "island_suppress_system_heads_up",

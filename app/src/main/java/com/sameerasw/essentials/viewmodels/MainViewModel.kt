@@ -169,6 +169,7 @@ class MainViewModel : ViewModel() {
     val islandCameraOffsetX = mutableFloatStateOf(50f)
     val islandCameraOffsetY = mutableFloatStateOf(3f)
     val islandCameraSize = mutableFloatStateOf(1.0f)
+    val islandMaxWidth = mutableFloatStateOf(360f)
     val isIslandSuppressSystemHeadsUp = mutableStateOf(false)
     val isIslandHideWhenScreenOff = mutableStateOf(true)
     val islandTimeoutMs = mutableLongStateOf(4500L)
@@ -708,6 +709,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_ISLAND_CAMERA_SIZE ->
                         islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
+
+                    SettingsRepository.KEY_ISLAND_MAX_WIDTH ->
+                        islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
 
                     SettingsRepository.KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP ->
                         isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
@@ -2073,6 +2077,7 @@ class MainViewModel : ViewModel() {
         islandCameraOffsetX.floatValue = settingsRepository.getIslandCameraOffsetX()
         islandCameraOffsetY.floatValue = settingsRepository.getIslandCameraOffsetY()
         islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
+        islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
         isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
         isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
         islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
@@ -4826,6 +4831,11 @@ class MainViewModel : ViewModel() {
     fun setIslandCameraSize(value: Float) {
         islandCameraSize.floatValue = value
         settingsRepository.setIslandCameraSize(value)
+    }
+
+    fun setIslandMaxWidth(value: Float) {
+        islandMaxWidth.floatValue = value
+        settingsRepository.setIslandMaxWidth(value)
     }
 
     fun setIslandSuppressSystemHeadsUp(enabled: Boolean) {
