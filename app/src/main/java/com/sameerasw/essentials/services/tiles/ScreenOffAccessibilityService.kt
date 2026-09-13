@@ -40,6 +40,7 @@ import com.sameerasw.essentials.services.handlers.AppFlowHandler
 import com.sameerasw.essentials.services.handlers.ButtonRemapHandler
 import com.sameerasw.essentials.services.handlers.DuoOverlayHandler
 import com.sameerasw.essentials.services.handlers.FlashlightHandler
+import com.sameerasw.essentials.services.handlers.IslandOverlayHandler
 import com.sameerasw.essentials.services.handlers.NotificationLightingHandler
 import com.sameerasw.essentials.services.handlers.OmniGestureOverlayHandler
 import com.sameerasw.essentials.services.handlers.PocketModeHandler
@@ -74,6 +75,7 @@ class ScreenOffAccessibilityService :
     private lateinit var pocketModeHandler: PocketModeHandler
     private lateinit var smartPixelsHandler: com.sameerasw.essentials.services.handlers.SmartPixelsHandler
     private lateinit var duoOverlayHandler: DuoOverlayHandler
+    private lateinit var islandOverlayHandler: IslandOverlayHandler
     private lateinit var statusGlanceHandler: StatusGlanceHandler
 
     private var lightSensor: Sensor? = null
@@ -271,9 +273,7 @@ class ScreenOffAccessibilityService :
                 key == SettingsRepository.KEY_DUO_BATTERY_CRITICAL_COLOR ||
                 key == SettingsRepository.KEY_DUO_SHOW_NETWORKS ||
                 key == SettingsRepository.KEY_DUO_DIFFERENTIATE_WIFI ||
-                key == SettingsRepository.KEY_DUO_SHOW_TIME ||
                 key == SettingsRepository.KEY_DUO_SHOW_MEDIA ||
-                key == SettingsRepository.KEY_DUO_SHOW_PROGRESS ||
                 key == SettingsRepository.KEY_DUO_SHOW_FLASHLIGHT ||
                 key == SettingsRepository.KEY_DUO_HIDE_WHEN_SCREEN_OFF ||
                 key == SettingsRepository.KEY_DUO_HIDE_WHEN_SCREEN_OFF_ONLY_IDLE ||
@@ -285,14 +285,11 @@ class ScreenOffAccessibilityService :
                 key == SettingsRepository.KEY_DUO_SWIPE_DOWN_ACTION ||
                 key == SettingsRepository.KEY_DUO_SLIDE_MODE ||
                 key == SettingsRepository.KEY_DUO_SLIDE_TRACK ||
-                key == SettingsRepository.KEY_DUO_SHOW_NOTIFICATIONS ||
-                key == SettingsRepository.KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP ||
                 key == SettingsRepository.KEY_ENABLE_UNSUPPORTED_FEATURES
             ) {
-                if (key == SettingsRepository.KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP) {
-                    SettingsRepository(this).applyHeadsUpSuppression()
-                }
                 duoOverlayHandler.updateState()
+            } else if (key == SettingsRepository.KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP) {
+                SettingsRepository(this).applyHeadsUpSuppression()
             } else if (key?.startsWith("status_glance_") == true ||
                 key == SettingsRepository.KEY_STATUS_GLANCE_ENABLED ||
                 key == SettingsRepository.KEY_STATUS_GLANCE_USE_AUTO_DETECT ||
@@ -333,6 +330,7 @@ class ScreenOffAccessibilityService :
             com.sameerasw.essentials.services.handlers
                 .SmartPixelsHandler(this)
         duoOverlayHandler = DuoOverlayHandler(this)
+        islandOverlayHandler = IslandOverlayHandler(this)
         statusGlanceHandler = StatusGlanceHandler(this)
 
         flashlightHandler.register()
@@ -510,6 +508,7 @@ class ScreenOffAccessibilityService :
         omniGestureOverlayHandler.removeOverlay()
         smartPixelsHandler.destroy()
         duoOverlayHandler.destroy()
+        islandOverlayHandler.onDestroy()
         statusGlanceHandler.destroy()
         statusBarIconHandler.unregister()
         stopInputEventListener()
@@ -742,6 +741,7 @@ class ScreenOffAccessibilityService :
         super.onConfigurationChanged(newConfig)
         updateOmniOverlay() // Force refresh overlay on rotation
         duoOverlayHandler.onConfigurationChanged(newConfig)
+        islandOverlayHandler.onConfigurationChanged()
         statusGlanceHandler.onConfigurationChanged(newConfig)
         ambientGlanceHandler.onConfigurationChanged()
     }

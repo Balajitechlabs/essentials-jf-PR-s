@@ -86,7 +86,6 @@ class DuoOverlayHandler(
     private var currentCenterX = 0f
     private var currentCenterY = 0f
     private var currentCameraRadiusPx = 36f
-    private var isNotificationsListenerRegistered = false
 
     private val settingsRepository by lazy { SettingsRepository(service) }
     private val telephonyManager by lazy { service.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager }
@@ -883,10 +882,6 @@ class DuoOverlayHandler(
                 this.showMedia = settingsRepository.isDuoShowMediaEnabled()
                 this.showProgress = settingsRepository.isDuoShowProgressEnabled()
                 this.showFlashlight = settingsRepository.isDuoShowFlashlightEnabled()
-                this.showNotifications = settingsRepository.isDuoShowNotificationsEnabled()
-                this.onDismissAnimationEnd = {
-                    restoreTouchAnchor()
-                }
                 this.setCharging(this@DuoOverlayHandler.isChargingState, this@DuoOverlayHandler.isFastChargingState)
             }
 
@@ -922,8 +917,7 @@ class DuoOverlayHandler(
                 settingsRepository.getDuoLongPressAction() != null ||
                 settingsRepository.getDuoSwipeDownAction() != null ||
                 settingsRepository.getDuoSlideMode() != "none" ||
-                settingsRepository.isDuoSlideTrackEnabled() ||
-                settingsRepository.isDuoShowNotificationsEnabled()
+                settingsRepository.isDuoSlideTrackEnabled()
 
             if (isTouchEnabled) {
                 if (duoTouchHandler == null) {
@@ -935,12 +929,6 @@ class DuoOverlayHandler(
                     this.cameraCenterY = centerY
                     this.cameraRadiusPx = cameraRadiusPx
                     this.ringRadiusScale = settingsRepository.getDuoRingRadius()
-                    this.onNotificationDismissRequested = {
-                        dismissNotificationAlertInternal()
-                    }
-                    this.onNotificationTouchActive = {
-                        postponeNotificationDismiss()
-                    }
                 }
 
                 if (touchAnchorView == null) {
@@ -1013,12 +1001,6 @@ class DuoOverlayHandler(
                 registerTorchCallback()
             } else {
                 unregisterTorchCallback()
-            }
-
-            if (settingsRepository.isDuoShowNotificationsEnabled()) {
-                registerNotificationsListener()
-            } else {
-                unregisterNotificationsListener()
             }
         }
     }
@@ -1147,123 +1129,7 @@ class DuoOverlayHandler(
         }
     }
 
-    private val dismissNotificationRunnable = Runnable {
-        overlayView?.dismissNotificationAlert()
-        restoreTouchAnchor()
-    }
 
-    private val notificationAlertListener = object : NotificationListener.NotificationAlertListener {
-        override fun onNotificationAlertPosted(alert: ActiveNotificationAlert) {
-            if (!settingsRepository.isDuoShowNotificationsEnabled()) return
-            mainHandler.post {
-                overlayView?.showNotificationAlert(alert)
-                expandTouchAnchorForNotification()
-                mainHandler.removeCallbacks(dismissNotificationRunnable)
-                mainHandler.postDelayed(dismissNotificationRunnable, 4500L)
-            }
-        }
-
-        override fun onNotificationAlertRemoved(key: String) {
-            mainHandler.post {
-                if (overlayView?.getActiveNotificationAlert()?.key == key) {
-                    mainHandler.removeCallbacks(dismissNotificationRunnable)
-                    overlayView?.dismissNotificationAlert()
-                    restoreTouchAnchor()
-                }
-            }
-        }
-    }
-
-    private fun registerNotificationsListener() {
-        if (!isNotificationsListenerRegistered) {
-            NotificationListener.addNotificationAlertListener(notificationAlertListener)
-            isNotificationsListenerRegistered = true
-        }
-    }
-
-    private fun unregisterNotificationsListener() {
-        if (isNotificationsListenerRegistered) {
-            NotificationListener.removeNotificationAlertListener(notificationAlertListener)
-            isNotificationsListenerRegistered = false
-            mainHandler.removeCallbacks(dismissNotificationRunnable)
-            overlayView?.dismissNotificationAlert()
-            restoreTouchAnchor()
-        }
-    }
-
-    private fun expandTouchAnchorForNotification() {
-        val wm = windowManager ?: return
-        val density = service.resources.displayMetrics.density
-
-        if (duoTouchHandler == null) {
-            duoTouchHandler = DuoTouchHandler(service)
-        }
-        duoTouchHandler?.apply {
-            this.overlayView = this@DuoOverlayHandler.overlayView
-            this.cameraCenterX = currentCenterX
-            this.cameraCenterY = currentCenterY
-            this.cameraRadiusPx = currentCameraRadiusPx
-            this.ringRadiusScale = settingsRepository.getDuoRingRadius()
-            this.onNotificationDismissRequested = {
-                dismissNotificationAlertInternal()
-            }
-            this.onNotificationTouchActive = {
-                postponeNotificationDismiss()
-            }
-        }
-
-        if (touchAnchorView == null) {
-            touchAnchorView = View(service).apply {
-                setOnTouchListener { _, event ->
-                    duoTouchHandler?.onTouchEvent(event) ?: false
-                }
-            }
-        }
-
-        val targetBounds = overlayView?.getNotificationTargetBounds()
-        val pillLeft = targetBounds?.left ?: (currentCenterX - 60f * density)
-        val pillRight = targetBounds?.right ?: (currentCenterX + 160f * density)
-        val pillTop = targetBounds?.top ?: (currentCenterY - 22f * density)
-        val pillBottom = targetBounds?.bottom ?: (currentCenterY + 22f * density)
-
-        val padH = 12f * density
-        val padV = 10f * density
-
-        val touchWidth = ((pillRight - pillLeft) + padH * 2).toInt()
-        val touchHeight = ((pillBottom - pillTop) + padV * 2).toInt()
-
-        val touchParams = WindowManager.LayoutParams(
-            touchWidth,
-            touchHeight,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = (pillLeft - padH).toInt()
-            y = (pillTop - padV).toInt()
-        }
-
-        if (!isTouchAnchorAdded) {
-            try {
-                wm.addView(touchAnchorView, touchParams)
-                isTouchAnchorAdded = true
-            } catch (e: Exception) {
-                Log.e("DuoOverlayHandler", "Failed to add Duo touch anchor for notification", e)
-            }
-        } else {
-            try {
-                wm.updateViewLayout(touchAnchorView, touchParams)
-            } catch (e: Exception) {
-                Log.e("DuoOverlayHandler", "Failed to update Duo touch anchor for notification", e)
-            }
-        }
-    }
 
     private fun restoreTouchAnchor() {
         val wm = windowManager ?: return
@@ -1306,16 +1172,6 @@ class DuoOverlayHandler(
         try {
             wm.updateViewLayout(anchor, touchParams)
         } catch (_: Exception) {}
-    }
-
-    fun postponeNotificationDismiss() {
-        mainHandler.removeCallbacks(dismissNotificationRunnable)
-        mainHandler.postDelayed(dismissNotificationRunnable, 4500L)
-    }
-
-    fun dismissNotificationAlertInternal() {
-        mainHandler.removeCallbacks(dismissNotificationRunnable)
-        overlayView?.dismissNotificationAlert()
     }
 
     private fun registerBatteryReceiver() {
@@ -1463,7 +1319,6 @@ class DuoOverlayHandler(
             unregisterMediaSessionListener()
             unregisterProgressNotificationListener()
             unregisterTorchCallback()
-            unregisterNotificationsListener()
         }
     }
 

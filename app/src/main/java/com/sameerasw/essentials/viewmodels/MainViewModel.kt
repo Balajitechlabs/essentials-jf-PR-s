@@ -35,6 +35,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
@@ -153,8 +154,6 @@ class MainViewModel : ViewModel() {
     val isDuoShowMedia = mutableStateOf(true)
     val isDuoShowProgress = mutableStateOf(true)
     val isDuoShowFlashlight = mutableStateOf(true)
-    val isDuoShowNotifications = mutableStateOf(false)
-    val isDuoSuppressSystemHeadsUp = mutableStateOf(false)
     val isDuoHideWhenScreenOff = mutableStateOf(true)
     val isDuoHideWhenScreenOffOnlyIdle = mutableStateOf(false)
     val isDuoUseMaterialYou = mutableStateOf(true)
@@ -166,6 +165,17 @@ class MainViewModel : ViewModel() {
     val duoSlideMode = mutableStateOf("none")
     val isDuoSlideTrack = mutableStateOf(false)
     val isDuoSlideInvertDirection = mutableStateOf(false)
+
+    val isIslandEnabled = mutableStateOf(false)
+    val isIslandAutoDetect = mutableStateOf(true)
+    val islandCameraOffsetX = mutableFloatStateOf(50f)
+    val islandCameraOffsetY = mutableFloatStateOf(3f)
+    val islandCameraSize = mutableFloatStateOf(1.0f)
+    val isIslandSuppressSystemHeadsUp = mutableStateOf(false)
+    val isIslandHideWhenScreenOff = mutableStateOf(true)
+    val islandTimeoutMs = mutableLongStateOf(4500L)
+    val isIslandTapActionEnabled = mutableStateOf(true)
+    val isIslandSwipeUpActionEnabled = mutableStateOf(true)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -660,12 +670,6 @@ class MainViewModel : ViewModel() {
                     SettingsRepository.KEY_DUO_SHOW_FLASHLIGHT ->
                         isDuoShowFlashlight.value = settingsRepository.isDuoShowFlashlightEnabled()
 
-                    SettingsRepository.KEY_DUO_SHOW_NOTIFICATIONS ->
-                        isDuoShowNotifications.value = settingsRepository.isDuoShowNotificationsEnabled()
-
-                    SettingsRepository.KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP ->
-                        isDuoSuppressSystemHeadsUp.value = settingsRepository.isDuoSuppressSystemHeadsUpEnabled()
-
                     SettingsRepository.KEY_DUO_HIDE_WHEN_SCREEN_OFF ->
                         isDuoHideWhenScreenOff.value = settingsRepository.isDuoHideWhenScreenOffEnabled()
 
@@ -698,6 +702,36 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_DUO_SLIDE_INVERT_DIRECTION ->
                         isDuoSlideInvertDirection.value = settingsRepository.isDuoSlideInvertDirectionEnabled()
+
+                    SettingsRepository.KEY_ISLAND_ENABLED ->
+                        isIslandEnabled.value = settingsRepository.isIslandEnabled()
+
+                    SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT ->
+                        isIslandAutoDetect.value = settingsRepository.isIslandAutoDetectEnabled()
+
+                    SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X ->
+                        islandCameraOffsetX.floatValue = settingsRepository.getIslandCameraOffsetX()
+
+                    SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_Y ->
+                        islandCameraOffsetY.floatValue = settingsRepository.getIslandCameraOffsetY()
+
+                    SettingsRepository.KEY_ISLAND_CAMERA_SIZE ->
+                        islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
+
+                    SettingsRepository.KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP ->
+                        isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
+
+                    SettingsRepository.KEY_ISLAND_HIDE_WHEN_SCREEN_OFF ->
+                        isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
+
+                    SettingsRepository.KEY_ISLAND_TIMEOUT_MS ->
+                        islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
+
+                    SettingsRepository.KEY_ISLAND_TAP_ACTION_ENABLED ->
+                        isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
+
+                    SettingsRepository.KEY_ISLAND_SWIPE_UP_ACTION_ENABLED ->
+                        isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
 
                     SettingsRepository.KEY_STATUS_GLANCE_ENABLED ->
                         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
@@ -2034,8 +2068,6 @@ class MainViewModel : ViewModel() {
         isDuoShowMedia.value = settingsRepository.isDuoShowMediaEnabled()
         isDuoShowProgress.value = settingsRepository.isDuoShowProgressEnabled()
         isDuoShowFlashlight.value = settingsRepository.isDuoShowFlashlightEnabled()
-        isDuoShowNotifications.value = settingsRepository.isDuoShowNotificationsEnabled()
-        isDuoSuppressSystemHeadsUp.value = settingsRepository.isDuoSuppressSystemHeadsUpEnabled()
         isDuoHideWhenScreenOff.value = settingsRepository.isDuoHideWhenScreenOffEnabled()
         isDuoHideWhenScreenOffOnlyIdle.value = settingsRepository.isDuoHideWhenScreenOffOnlyIdleEnabled()
         isDuoUseMaterialYou.value = settingsRepository.isDuoUseMaterialYouEnabled()
@@ -2047,6 +2079,16 @@ class MainViewModel : ViewModel() {
         duoSlideMode.value = settingsRepository.getDuoSlideMode()
         isDuoSlideTrack.value = settingsRepository.isDuoSlideTrackEnabled()
         isDuoSlideInvertDirection.value = settingsRepository.isDuoSlideInvertDirectionEnabled()
+        isIslandEnabled.value = settingsRepository.isIslandEnabled()
+        isIslandAutoDetect.value = settingsRepository.isIslandAutoDetectEnabled()
+        islandCameraOffsetX.floatValue = settingsRepository.getIslandCameraOffsetX()
+        islandCameraOffsetY.floatValue = settingsRepository.getIslandCameraOffsetY()
+        islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
+        isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
+        isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
+        islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
+        isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
+        isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -4809,14 +4851,54 @@ class MainViewModel : ViewModel() {
         settingsRepository.setDuoShowFlashlightEnabled(enabled)
     }
 
-    fun setDuoShowNotifications(enabled: Boolean) {
-        isDuoShowNotifications.value = enabled
-        settingsRepository.setDuoShowNotificationsEnabled(enabled)
+    fun setIslandEnabled(enabled: Boolean) {
+        isIslandEnabled.value = enabled
+        settingsRepository.setIslandEnabled(enabled)
     }
 
-    fun setDuoSuppressSystemHeadsUp(enabled: Boolean) {
-        isDuoSuppressSystemHeadsUp.value = enabled
-        settingsRepository.setDuoSuppressSystemHeadsUpEnabled(enabled)
+    fun setIslandAutoDetect(enabled: Boolean) {
+        isIslandAutoDetect.value = enabled
+        settingsRepository.setIslandAutoDetectEnabled(enabled)
+    }
+
+    fun setIslandCameraOffsetX(value: Float) {
+        islandCameraOffsetX.floatValue = value
+        settingsRepository.setIslandCameraOffsetX(value)
+    }
+
+    fun setIslandCameraOffsetY(value: Float) {
+        islandCameraOffsetY.floatValue = value
+        settingsRepository.setIslandCameraOffsetY(value)
+    }
+
+    fun setIslandCameraSize(value: Float) {
+        islandCameraSize.floatValue = value
+        settingsRepository.setIslandCameraSize(value)
+    }
+
+    fun setIslandSuppressSystemHeadsUp(enabled: Boolean) {
+        isIslandSuppressSystemHeadsUp.value = enabled
+        settingsRepository.setIslandSuppressSystemHeadsUpEnabled(enabled)
+    }
+
+    fun setIslandHideWhenScreenOff(enabled: Boolean) {
+        isIslandHideWhenScreenOff.value = enabled
+        settingsRepository.setIslandHideWhenScreenOffEnabled(enabled)
+    }
+
+    fun setIslandTimeoutMs(value: Long) {
+        islandTimeoutMs.longValue = value
+        settingsRepository.setIslandTimeoutMs(value)
+    }
+
+    fun setIslandTapActionEnabled(enabled: Boolean) {
+        isIslandTapActionEnabled.value = enabled
+        settingsRepository.setIslandTapActionEnabled(enabled)
+    }
+
+    fun setIslandSwipeUpActionEnabled(enabled: Boolean) {
+        isIslandSwipeUpActionEnabled.value = enabled
+        settingsRepository.setIslandSwipeUpActionEnabled(enabled)
     }
 
     fun setDuoHideWhenScreenOff(enabled: Boolean) {

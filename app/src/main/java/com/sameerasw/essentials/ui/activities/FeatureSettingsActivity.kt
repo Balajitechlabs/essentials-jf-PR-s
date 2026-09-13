@@ -74,6 +74,7 @@ import com.sameerasw.essentials.ui.features.system.CalendarSyncSettingsUI
 import com.sameerasw.essentials.ui.features.display.AodWallpaperPreviewCard
 import com.sameerasw.essentials.ui.features.display.AodWallpaperSettingsUI
 import com.sameerasw.essentials.ui.features.display.DuoSettingsUI
+import com.sameerasw.essentials.ui.features.display.IslandSettingsUI
 import com.sameerasw.essentials.ui.features.display.StatusGlanceSettingsUI
 import com.sameerasw.essentials.ui.features.system.DynamicNightLightSettingsUI
 import com.sameerasw.essentials.ui.features.system.EssentialsOnDisplaySettingsUI
@@ -639,6 +640,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                         listOf(
                                                             "Statusbar icons",
                                                             "Duo",
+                                                            "Island",
                                                             "Status glance",
                                                         ),
                                                         listOf(
@@ -1186,6 +1188,14 @@ class FeatureSettingsActivity : AppCompatActivity() {
 
                                     "Duo" -> {
                                         DuoSettingsUI(
+                                            viewModel = viewModel,
+                                            modifier = Modifier.padding(top = 16.dp),
+                                            highlightSetting = highlightSetting,
+                                        )
+                                    }
+
+                                    "Island" -> {
+                                        IslandSettingsUI(
                                             viewModel = viewModel,
                                             modifier = Modifier.padding(top = 16.dp),
                                             highlightSetting = highlightSetting,
