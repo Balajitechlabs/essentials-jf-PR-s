@@ -183,52 +183,79 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    fun advanceToNextNotification(): Boolean {
+    fun getQueuedAlertIndexAt(x: Float, y: Float): Int {
+        for (i in queuedNotificationAlerts.indices) {
+            if (i in 0..1 && bubbleFractions[i] > 0.3f) {
+                val pad = 6f * density
+                val touchRect = RectF(
+                    bubbleRects[i].left - pad,
+                    bubbleRects[i].top - pad,
+                    bubbleRects[i].right + pad,
+                    bubbleRects[i].bottom + pad,
+                )
+                if (touchRect.contains(x, y)) {
+                    return i
+                }
+            }
+        }
+        return -1
+    }
+
+    fun switchToQueuedNotification(index: Int): Boolean {
+        if (index !in queuedNotificationAlerts.indices) return false
         stopAllMarquees()
-        if (queuedNotificationAlerts.isNotEmpty()) {
-            val outgoingAlert = activeNotificationAlert
-            val incomingAlert = queuedNotificationAlerts.removeAt(0)
 
-            mergeSourcePillLeft = notificationPillRect.left
-            mergeSourcePillRight = notificationPillRect.right
-            mergeSourceBubbleLeft = if (bubbleRects[0].left > 0f) bubbleRects[0].left else (notificationPillRect.left - 40f * density)
-            mergeSourceBubbleCenterX = if (bubbleRects[0].centerX() > 0f) bubbleRects[0].centerX() else (mergeSourceBubbleLeft + 20f * density)
-            mergeSourceBubbleCenterY = if (bubbleRects[0].centerY() > 0f) bubbleRects[0].centerY() else notificationPillRect.centerY()
+        val outgoingAlert = activeNotificationAlert
+        val incomingAlert = queuedNotificationAlerts.removeAt(index)
 
-            previousAlert = outgoingAlert
-            activeNotificationAlert = incomingAlert
-            isMerging = true
-            mergeFraction = 0f
+        mergeSourcePillLeft = notificationPillRect.left
+        mergeSourcePillRight = notificationPillRect.right
+        mergeSourceBubbleLeft = if (bubbleRects[index].left > 0f) bubbleRects[index].left else (notificationPillRect.left - 40f * density)
+        mergeSourceBubbleCenterX = if (bubbleRects[index].centerX() > 0f) bubbleRects[index].centerX() else (mergeSourceBubbleLeft + 20f * density)
+        mergeSourceBubbleCenterY = if (bubbleRects[index].centerY() > 0f) bubbleRects[index].centerY() else notificationPillRect.centerY()
 
-            if (queuedNotificationAlerts.isNotEmpty()) {
-                bubbleFractions[0] = bubbleFractions[1]
-                bubbleFractions[1] = 0f
-            } else {
+        previousAlert = outgoingAlert
+        activeNotificationAlert = incomingAlert
+        isMerging = true
+        mergeFraction = 0f
+
+        if (index == 0 && queuedNotificationAlerts.isNotEmpty()) {
+            bubbleFractions[0] = bubbleFractions[1]
+            bubbleFractions[1] = 0f
+        } else {
+            bubbleFractions[index] = 0f
+            if (queuedNotificationAlerts.isEmpty()) {
                 bubbleFractions[0] = 0f
                 bubbleFractions[1] = 0f
             }
+        }
 
-            mergeAnimator?.cancel()
-            mergeAnimator = ValueAnimator.ofFloat(0f, 1.0f).apply {
-                duration = 480L
-                interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.48f)
-                addUpdateListener { anim ->
-                    mergeFraction = anim.animatedValue as Float
+        mergeAnimator?.cancel()
+        mergeAnimator = ValueAnimator.ofFloat(0f, 1.0f).apply {
+            duration = 480L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.48f)
+            addUpdateListener { anim ->
+                mergeFraction = anim.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    isMerging = false
+                    previousAlert = null
+                    mergeFraction = 1.0f
                     invalidate()
                 }
-                addListener(object : android.animation.AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: android.animation.Animator) {
-                        isMerging = false
-                        previousAlert = null
-                        mergeFraction = 1.0f
-                        invalidate()
-                    }
-                })
-                start()
-            }
+            })
+            start()
+        }
 
-            onAlertsChanged?.invoke()
-            return true
+        onAlertsChanged?.invoke()
+        return true
+    }
+
+    fun advanceToNextNotification(): Boolean {
+        if (queuedNotificationAlerts.isNotEmpty()) {
+            return switchToQueuedNotification(0)
         } else {
             dismissNotificationAlert()
             return false
