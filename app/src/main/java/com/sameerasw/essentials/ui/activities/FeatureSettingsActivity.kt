@@ -71,6 +71,7 @@ import com.sameerasw.essentials.ui.features.system.ButtonRemapSettingsUI
 import com.sameerasw.essentials.ui.features.system.CaffeinateSettingsUI
 import com.sameerasw.essentials.ui.features.system.CalendarSyncSettingsUI
 import com.sameerasw.essentials.ui.features.display.DuoSettingsUI
+import com.sameerasw.essentials.ui.features.display.IslandSettingsUI
 import com.sameerasw.essentials.ui.features.display.StatusGlanceSettingsUI
 import com.sameerasw.essentials.ui.features.system.DynamicNightLightSettingsUI
 import com.sameerasw.essentials.ui.features.system.EssentialsOnDisplaySettingsUI
@@ -619,6 +620,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                             "Statusbar icons",
                                                             "Status glance",
                                                             "Duo",
+                                                            "Island",
                                                             "Maps power saving mode",
                                                             "Lock screen clock",
                                                         ),
@@ -1155,6 +1157,14 @@ class FeatureSettingsActivity : AppCompatActivity() {
 
                                     "Duo" -> {
                                         DuoSettingsUI(
+                                            viewModel = viewModel,
+                                            modifier = Modifier.padding(top = 16.dp),
+                                            highlightSetting = highlightSetting,
+                                        )
+                                    }
+
+                                    "Island" -> {
+                                        IslandSettingsUI(
                                             viewModel = viewModel,
                                             modifier = Modifier.padding(top = 16.dp),
                                             highlightSetting = highlightSetting,

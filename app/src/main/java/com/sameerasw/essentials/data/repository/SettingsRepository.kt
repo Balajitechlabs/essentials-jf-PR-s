@@ -386,8 +386,6 @@ class SettingsRepository(
         const val KEY_DUO_SHOW_MEDIA = "duo_show_media"
         const val KEY_DUO_SHOW_PROGRESS = "duo_show_progress"
         const val KEY_DUO_SHOW_FLASHLIGHT = "duo_show_flashlight"
-        const val KEY_DUO_SHOW_NOTIFICATIONS = "duo_show_notifications"
-        const val KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP = "duo_suppress_system_heads_up"
         const val KEY_DUO_HIDE_WHEN_SCREEN_OFF = "duo_hide_when_screen_off"
         const val KEY_DUO_HIDE_WHEN_SCREEN_OFF_ONLY_IDLE = "duo_hide_when_screen_off_only_idle"
         const val KEY_DUO_USE_MATERIAL_YOU = "duo_use_material_you"
@@ -399,6 +397,18 @@ class SettingsRepository(
         const val KEY_DUO_SLIDE_MODE = "duo_slide_mode"
         const val KEY_DUO_SLIDE_TRACK = "duo_slide_track"
         const val KEY_DUO_SLIDE_INVERT_DIRECTION = "duo_slide_invert_direction"
+
+        // Island
+        const val KEY_ISLAND_ENABLED = "island_enabled"
+        const val KEY_ISLAND_USE_AUTO_DETECT = "island_use_auto_detect"
+        const val KEY_ISLAND_CAMERA_OFFSET_X = "island_camera_offset_x"
+        const val KEY_ISLAND_CAMERA_OFFSET_Y = "island_camera_offset_y"
+        const val KEY_ISLAND_CAMERA_SIZE = "island_camera_size"
+        const val KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP = "island_suppress_system_heads_up"
+        const val KEY_ISLAND_HIDE_WHEN_SCREEN_OFF = "island_hide_when_screen_off"
+        const val KEY_ISLAND_TIMEOUT_MS = "island_timeout_ms"
+        const val KEY_ISLAND_TAP_ACTION_ENABLED = "island_tap_action_enabled"
+        const val KEY_ISLAND_SWIPE_UP_ACTION_ENABLED = "island_swipe_up_action_enabled"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3210,31 +3220,6 @@ class SettingsRepository(
     fun isDuoShowFlashlightEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_FLASHLIGHT, true)
     fun setDuoShowFlashlightEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_FLASHLIGHT, enabled)
 
-    fun isDuoShowNotificationsEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_NOTIFICATIONS, false)
-    fun setDuoShowNotificationsEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_NOTIFICATIONS, enabled)
-
-    fun isDuoSuppressSystemHeadsUpEnabled(): Boolean = getBoolean(KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP, false)
-    fun setDuoSuppressSystemHeadsUpEnabled(enabled: Boolean) {
-        putBoolean(KEY_DUO_SUPPRESS_SYSTEM_HEADS_UP, enabled)
-        applyHeadsUpSuppression(enabled)
-    }
-
-    fun applyHeadsUpSuppression(suppress: Boolean = isDuoSuppressSystemHeadsUpEnabled()) {
-        val targetValue = if (suppress) 0 else 1
-        try {
-            android.provider.Settings.Global.putInt(
-                context.contentResolver,
-                "heads_up_notifications_enabled",
-                targetValue,
-            )
-        } catch (_: SecurityException) {
-            com.sameerasw.essentials.utils.ShellUtils.runCommand(
-                context,
-                "settings put global heads_up_notifications_enabled $targetValue",
-            )
-        } catch (_: Exception) {}
-    }
-
     fun isDuoHideWhenScreenOffEnabled(): Boolean = getBoolean(KEY_DUO_HIDE_WHEN_SCREEN_OFF, true)
     fun setDuoHideWhenScreenOffEnabled(enabled: Boolean) = putBoolean(KEY_DUO_HIDE_WHEN_SCREEN_OFF, enabled)
 
@@ -3267,6 +3252,56 @@ class SettingsRepository(
 
     fun isDuoSlideInvertDirectionEnabled(): Boolean = getBoolean(KEY_DUO_SLIDE_INVERT_DIRECTION, false)
     fun setDuoSlideInvertDirection(enabled: Boolean) = putBoolean(KEY_DUO_SLIDE_INVERT_DIRECTION, enabled)
+
+    // Island
+    fun isIslandEnabled(): Boolean = getBoolean(KEY_ISLAND_ENABLED, false)
+    fun setIslandEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_ENABLED, enabled)
+
+    fun isIslandAutoDetectEnabled(): Boolean = getBoolean(KEY_ISLAND_USE_AUTO_DETECT, true)
+    fun setIslandAutoDetectEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_USE_AUTO_DETECT, enabled)
+
+    fun getIslandCameraOffsetX(): Float = getFloat(KEY_ISLAND_CAMERA_OFFSET_X, 50f)
+    fun setIslandCameraOffsetX(value: Float) = putFloat(KEY_ISLAND_CAMERA_OFFSET_X, value)
+
+    fun getIslandCameraOffsetY(): Float = getFloat(KEY_ISLAND_CAMERA_OFFSET_Y, 3f)
+    fun setIslandCameraOffsetY(value: Float) = putFloat(KEY_ISLAND_CAMERA_OFFSET_Y, value)
+
+    fun getIslandCameraSize(): Float = getFloat(KEY_ISLAND_CAMERA_SIZE, 1.0f)
+    fun setIslandCameraSize(value: Float) = putFloat(KEY_ISLAND_CAMERA_SIZE, value)
+
+    fun isIslandSuppressSystemHeadsUpEnabled(): Boolean = getBoolean(KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP, false)
+    fun setIslandSuppressSystemHeadsUpEnabled(enabled: Boolean) {
+        putBoolean(KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP, enabled)
+        applyHeadsUpSuppression(enabled)
+    }
+
+    fun isIslandHideWhenScreenOffEnabled(): Boolean = getBoolean(KEY_ISLAND_HIDE_WHEN_SCREEN_OFF, true)
+    fun setIslandHideWhenScreenOffEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_HIDE_WHEN_SCREEN_OFF, enabled)
+
+    fun getIslandTimeoutMs(): Long = getLong(KEY_ISLAND_TIMEOUT_MS, 4500L)
+    fun setIslandTimeoutMs(value: Long) = putLong(KEY_ISLAND_TIMEOUT_MS, value)
+
+    fun isIslandTapActionEnabled(): Boolean = getBoolean(KEY_ISLAND_TAP_ACTION_ENABLED, true)
+    fun setIslandTapActionEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_TAP_ACTION_ENABLED, enabled)
+
+    fun isIslandSwipeUpActionEnabled(): Boolean = getBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, true)
+    fun setIslandSwipeUpActionEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, enabled)
+
+    fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
+        val targetValue = if (suppress) 0 else 1
+        try {
+            android.provider.Settings.Global.putInt(
+                context.contentResolver,
+                "heads_up_notifications_enabled",
+                targetValue,
+            )
+        } catch (_: SecurityException) {
+            com.sameerasw.essentials.utils.ShellUtils.runCommand(
+                context,
+                "settings put global heads_up_notifications_enabled $targetValue",
+            )
+        } catch (_: Exception) {}
+    }
 
     // Status Glance
     fun isStatusGlanceEnabled(): Boolean = getBoolean(KEY_STATUS_GLANCE_ENABLED, false)

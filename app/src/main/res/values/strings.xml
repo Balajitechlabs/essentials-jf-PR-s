@@ -2497,10 +2497,6 @@
     <string name="duo_show_media_title">Media playback</string>
     <string name="duo_show_progress_title">Progress notifications</string>
     <string name="duo_show_flashlight_title">Flashlight</string>
-    <string name="duo_show_notifications_title">Notifications</string>
-    <string name="duo_show_notifications_desc">Show incoming alerts in an island pill around the camera</string>
-    <string name="duo_suppress_system_heads_up_title">Suppress system pop-ups</string>
-    <string name="duo_suppress_system_heads_up_desc">Prevent default Android heads-up banners from dropping down</string>
     <string name="duo_section_behavior">Behavior</string>
     <string name="duo_material_you_title">Use Material You colors</string>
     <string name="duo_hide_when_screen_off_title">Hide when screen off</string>
@@ -2597,6 +2593,30 @@
     <string name="action_backup_app_list">Backup app list</string>
     <string name="msg_backup_app_list_success">App list backed up successfully</string>
     <string name="msg_backup_app_list_failed">Failed to back up app list</string>
+
+    <!-- Island -->
+    <string name="island_title">Island</string>
+    <string name="island_desc">Dynamic island</string>
+    <string name="island_enable_title">Enable Island</string>
+    <string name="island_enable_desc">Display dynaic island</string>
+    <string name="island_section_position">Position and dimensions</string>
+    <string name="island_auto_detect_title">Auto-detect camera</string>
+    <string name="island_auto_detect_desc">Automatically locate the front camera cutout</string>
+    <string name="island_camera_offset_x_title">Horizontal position</string>
+    <string name="island_camera_offset_y_title">Vertical position</string>
+    <string name="island_camera_size_title">Camera size</string>
+    <string name="island_section_behavior">Behavior</string>
+    <string name="island_suppress_system_heads_up_title">Suppress system pop-ups</string>
+    <string name="island_suppress_system_heads_up_desc">Prevent default Android heads-up banners</string>
+    <string name="island_hide_when_screen_off_title">Hide when screen off</string>
+    <string name="island_hide_when_screen_off_desc">Do not show when screen is locked or off</string>
+    <string name="island_timeout_title">Display duration</string>
+    <string name="island_section_actions">Actions</string>
+    <string name="island_action_tap_title">Single tap</string>
+    <string name="island_action_tap_desc">Open app</string>
+    <string name="island_action_swipe_up_title">Swipe up</string>
+    <string name="island_action_swipe_up_desc">Dismiss</string>
+
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
     <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
