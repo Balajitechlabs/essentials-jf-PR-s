@@ -218,6 +218,7 @@ class IslandOverlayHandler(
             screenHeight = size.y
         }
 
+        val sizeScale = settingsRepository.getIslandCameraSize()
         val useAutoDetect = settingsRepository.isIslandAutoDetectEnabled()
         var detectedCutout = false
 
@@ -235,7 +236,8 @@ class IslandOverlayHandler(
                         val topCutout = rects.find { it.top == 0 } ?: rects.first()
                         cameraCenterX = topCutout.centerX().toFloat()
                         cameraCenterY = topCutout.centerY().toFloat()
-                        cameraRadiusPx = (topCutout.width().coerceAtMost(topCutout.height()) / 2f).coerceAtLeast(24f)
+                        val baseRadius = (topCutout.width().coerceAtMost(topCutout.height()) / 2f).coerceAtLeast(12f * service.resources.displayMetrics.density)
+                        cameraRadiusPx = baseRadius * sizeScale
                         detectedCutout = true
                     }
                 }
@@ -245,11 +247,10 @@ class IslandOverlayHandler(
         if (!detectedCutout) {
             val offsetXPercent = settingsRepository.getIslandCameraOffsetX()
             val offsetYPercent = settingsRepository.getIslandCameraOffsetY()
-            val sizeScale = settingsRepository.getIslandCameraSize()
 
             cameraCenterX = (offsetXPercent / 100f) * screenWidth
             cameraCenterY = (offsetYPercent / 100f) * screenHeight
-            cameraRadiusPx = (36f * service.resources.displayMetrics.density) * sizeScale
+            cameraRadiusPx = (16f * service.resources.displayMetrics.density) * sizeScale
         }
 
         overlayView?.cameraCenterX = cameraCenterX
