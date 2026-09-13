@@ -205,7 +205,7 @@ class ButtonRemapHandler(
             return true
         }
 
-        return false
+        return true
     }
 
     fun handleExternalVolumeLongPress(intent: Intent) {
