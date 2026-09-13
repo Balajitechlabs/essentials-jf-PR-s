@@ -73,8 +73,23 @@ class IslandOverlayHandler(
     }
 
     private val dismissNotificationRunnable = Runnable {
-        overlayView?.dismissNotificationAlert()
-        restoreTouchAnchor()
+        handleNotificationTimeout()
+    }
+
+    private fun handleNotificationTimeout() {
+        val hasNext = overlayView?.advanceToNextNotification() ?: false
+        if (hasNext) {
+            expandTouchAnchorForNotification()
+            scheduleDismissTimer()
+        } else {
+            restoreTouchAnchor()
+        }
+    }
+
+    private fun scheduleDismissTimer() {
+        val timeout = settingsRepository.getIslandTimeoutMs()
+        mainHandler.removeCallbacks(dismissNotificationRunnable)
+        mainHandler.postDelayed(dismissNotificationRunnable, timeout)
     }
 
     private val notificationAlertListener = object : NotificationListener.NotificationAlertListener {
@@ -86,18 +101,18 @@ class IslandOverlayHandler(
                 ensureOverlayAttached()
                 overlayView?.showNotificationAlert(alert)
                 expandTouchAnchorForNotification()
-                val timeout = settingsRepository.getIslandTimeoutMs()
-                mainHandler.removeCallbacks(dismissNotificationRunnable)
-                mainHandler.postDelayed(dismissNotificationRunnable, timeout)
+                scheduleDismissTimer()
             }
         }
 
         override fun onNotificationAlertRemoved(key: String) {
             mainHandler.post {
-                if (overlayView?.getActiveNotificationAlert()?.key == key) {
+                val isStillActive = overlayView?.removeNotificationByKey(key) ?: false
+                if (!isStillActive) {
                     mainHandler.removeCallbacks(dismissNotificationRunnable)
-                    overlayView?.dismissNotificationAlert()
                     restoreTouchAnchor()
+                } else {
+                    expandTouchAnchorForNotification()
                 }
             }
         }
@@ -114,9 +129,14 @@ class IslandOverlayHandler(
         service.registerReceiver(screenReceiver, filter)
 
         touchHandler.onNotificationDismissRequested = {
-            mainHandler.removeCallbacks(dismissNotificationRunnable)
-            overlayView?.dismissNotificationAlert()
-            restoreTouchAnchor()
+            val hasNext = overlayView?.advanceToNextNotification() ?: false
+            if (hasNext) {
+                expandTouchAnchorForNotification()
+                scheduleDismissTimer()
+            } else {
+                mainHandler.removeCallbacks(dismissNotificationRunnable)
+                restoreTouchAnchor()
+            }
         }
 
         updateOverlay()
