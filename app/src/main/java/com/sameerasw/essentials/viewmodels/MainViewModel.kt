@@ -4062,7 +4062,7 @@ class MainViewModel : ViewModel() {
             val sessions = manager.getActiveSessions(componentName)
             val activeSession =
                 sessions
-                    ?.sortedWith(
+                    .sortedWith(
                         compareByDescending<android.media.session.MediaController> {
                             val state = it.playbackState?.state
                             state == android.media.session.PlaybackState.STATE_PLAYING ||
@@ -4071,7 +4071,7 @@ class MainViewModel : ViewModel() {
                             val state = it.playbackState?.state
                             state == android.media.session.PlaybackState.STATE_PAUSED
                         },
-                    )?.firstOrNull()
+                    ).firstOrNull()
 
             if (activeSession != null) {
                 val metadata = activeSession.metadata
@@ -6101,10 +6101,18 @@ class MainViewModel : ViewModel() {
 
         val windowManager =
             context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-        val metrics = android.util.DisplayMetrics()
-        windowManager.defaultDisplay.getRealMetrics(metrics)
-        val centerX = metrics.widthPixels / 2
-        val centerY = metrics.heightPixels / 2
+        val (widthPx, heightPx) =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bounds = windowManager.currentWindowMetrics.bounds
+                Pair(bounds.width(), bounds.height())
+            } else {
+                val metrics = android.util.DisplayMetrics()
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay.getRealMetrics(metrics)
+                Pair(metrics.widthPixels, metrics.heightPixels)
+            }
+        val centerX = widthPx / 2
+        val centerY = heightPx / 2
 
         val command =
             if (notificationLightingSystemMode.intValue == 0) {
@@ -6112,8 +6120,8 @@ class MainViewModel : ViewModel() {
             } else if (notificationLightingSystemMode.intValue == 1) {
                 "cmd statusbar auth-ripple custom $centerX $centerY"
             } else {
-                val posX = (notificationLightingIndicatorX.value / 100f * metrics.widthPixels).toInt()
-                val posY = (notificationLightingIndicatorY.value / 100f * metrics.heightPixels).toInt()
+                val posX = (notificationLightingIndicatorX.value / 100f * widthPx).toInt()
+                val posY = (notificationLightingIndicatorY.value / 100f * heightPx).toInt()
                 "cmd statusbar auth-ripple custom $posX $posY"
             }
 
@@ -6760,6 +6768,7 @@ class MainViewModel : ViewModel() {
 
     private fun isCaffeinateServiceRunning(context: Context): Boolean {
         val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {
             if (CaffeinateWakeLockService::class.java.name == service.service.className) {
                 return true
@@ -7681,9 +7690,9 @@ class MainViewModel : ViewModel() {
     }
 
     data class FreezeBackupData(
-        val apps: List<AppSelection>,
-        val tags: List<com.sameerasw.essentials.domain.model.AppTag> = emptyList(),
-        val appTagMap: Map<String, List<String>> = emptyMap(),
+        val apps: List<AppSelection>? = null,
+        val tags: List<com.sameerasw.essentials.domain.model.AppTag>? = null,
+        val appTagMap: Map<String, List<String>>? = null,
     )
 
     /**

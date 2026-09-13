@@ -58,13 +58,11 @@ fun SoundModeSettingsSheet(
     onSave: (Action.SoundMode) -> Unit,
 ) {
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var selectedMode by remember { mutableStateOf(initialAction.mode) }
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
     ) {
         Column(
             modifier =

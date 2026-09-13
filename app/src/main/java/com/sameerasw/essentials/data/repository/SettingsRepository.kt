@@ -1461,8 +1461,9 @@ class SettingsRepository(
     ): Boolean {
         return try {
             val json = inputStream.bufferedReader().use { it.readText() }
+            val type = object : TypeToken<Map<String, Map<String, Map<String, Any>>>>() {}.type
             val allConfigs: Map<String, Map<String, Map<String, Any>>> =
-                gson.fromJson(json, Map::class.java) as Map<String, Map<String, Map<String, Any>>>
+                gson.fromJson(json, type) ?: emptyMap()
 
             allConfigs.forEach { (fileName, prefWrapper) ->
                 val p = context.getSharedPreferences(fileName, Context.MODE_PRIVATE)

@@ -375,7 +375,6 @@ class YourAndroidActivity : ComponentActivity() {
                         title = stringResource(R.string.tab_your_android),
                         onBackClick = {
                             finish()
-                            overridePendingTransition(R.anim.anim_stay, R.anim.anim_slide_out_top)
                         },
                         floatingActionButton = {
                             Box {
@@ -511,7 +510,16 @@ class YourAndroidActivity : ComponentActivity() {
 
     override fun finish() {
         super.finish()
-        overridePendingTransition(R.anim.anim_stay, R.anim.anim_slide_out_top)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(
+                OVERRIDE_TRANSITION_CLOSE,
+                R.anim.anim_stay,
+                R.anim.anim_slide_out_top,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(R.anim.anim_stay, R.anim.anim_slide_out_top)
+        }
     }
 }
 

@@ -60,7 +60,6 @@ fun FreezeTagSettingsSheet(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val modeOptions = listOf("Freeze", "Unfreeze")
     var selectedMode by remember { mutableStateOf(initialAction.mode) }
@@ -68,7 +67,6 @@ fun FreezeTagSettingsSheet(
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
     ) {
         Column(
             modifier =

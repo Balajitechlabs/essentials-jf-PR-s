@@ -58,7 +58,6 @@ fun DeviceEffectsSettingsSheet(
     onSave: (Action.DeviceEffects) -> Unit,
 ) {
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var enabled by remember { mutableStateOf(initialAction.enabled) }
     var grayscale by remember { mutableStateOf(initialAction.grayscale) }
@@ -68,7 +67,6 @@ fun DeviceEffectsSettingsSheet(
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         dragHandle = null,
     ) {
         Column(

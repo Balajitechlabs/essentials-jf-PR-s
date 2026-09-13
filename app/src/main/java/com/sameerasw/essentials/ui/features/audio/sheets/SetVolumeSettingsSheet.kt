@@ -53,7 +53,6 @@ fun SetVolumeSettingsSheet(
     onSave: (Action.SetVolume) -> Unit,
 ) {
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var selectedChannel by remember { mutableStateOf(initialAction.channel) }
     var selectedLevel by remember { mutableIntStateOf(initialAction.level) }
@@ -62,7 +61,6 @@ fun SetVolumeSettingsSheet(
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
     ) {
         Column(
             modifier =

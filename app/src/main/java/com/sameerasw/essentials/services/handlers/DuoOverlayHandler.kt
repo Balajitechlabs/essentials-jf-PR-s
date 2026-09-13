@@ -890,6 +890,7 @@ class DuoOverlayHandler(
                 }
 
                 val diameter = (((cameraRadiusPx + 20f * density) * 2 * settingsRepository.getDuoRingRadius()).toInt()).coerceAtLeast((44f * density).toInt())
+                @Suppress("DEPRECATION")
                 val touchParams = WindowManager.LayoutParams(
                     diameter,
                     diameter,

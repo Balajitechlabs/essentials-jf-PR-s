@@ -55,13 +55,11 @@ fun DimWallpaperSettingsSheet(
     onSave: (Action.DimWallpaper) -> Unit,
 ) {
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var dimAmount by remember { mutableFloatStateOf(initialAction.dimAmount) }
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         dragHandle = null,
     ) {
         Column(

@@ -56,14 +56,12 @@ fun ScreenOffSettingsSheet(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var selectedMethod by remember { mutableStateOf(initialAction.method) }
     var selectedHaptic by remember { mutableStateOf(initialAction.haptic) }
 
     EssentialsBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
     ) {
         Column(
             modifier =

@@ -1565,4 +1565,11 @@
     <string name="smart_pixels_disable_on_cast_title">螢幕投影的時候不啟用</string>
     <string name="smart_pixels_disable_on_cast_desc">投影或螢幕錄影時自動將像素網格疊加層暫停</string>
     <string name="feat_allow_overlays_in_settings_title">在設定中允許畫面疊加顯示</string>
+    <string name="perm_storage_title">完整文件访问权限</string>
+    <string name="perm_storage_desc">读取您的当前壁纸对于合规权限来说是不可访问的，Essentials需要而外的储存权限</string>
+    <string name="perm_bubbles_title">悬浮球</string>
+    <string name="perm_bubbles_desc">允许网页预览通过悬浮在其他应用上的悬浮会话打开</string>
+    <string name="perm_bubbles_instructions">在应用通知设置中设置气泡在所有会话中均可出现，或通过Shizuku/Root授权</string>
+    <string name="feat_sim_names_title">运营商名称</string>
+    <string name="feat_sim_names_desc">给激活的SIM卡重命名显示的运营商名称</string>
 </resources>

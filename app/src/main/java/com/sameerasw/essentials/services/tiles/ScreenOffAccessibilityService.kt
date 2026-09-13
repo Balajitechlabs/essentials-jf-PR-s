@@ -17,6 +17,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
+import androidx.core.content.ContextCompat
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -114,6 +115,7 @@ class ScreenOffAccessibilityService :
             try {
                 val info = packageManager.getApplicationInfo(packageName, 0)
                 val isLegacyGame =
+                    @Suppress("DEPRECATION")
                     (info.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
                 val isCategoryMatch =
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -816,7 +818,7 @@ class ScreenOffAccessibilityService :
                     }
 
                 if (hapticType != HapticFeedbackType.NONE) {
-                    val vibrator = getSystemService(VIBRATOR_SERVICE) as? Vibrator
+                    val vibrator = ContextCompat.getSystemService(this, Vibrator::class.java)
                     vibrator?.let { performHapticFeedback(it, hapticType) }
                 }
                 performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
