@@ -353,9 +353,9 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                 "Smart pixels" -> !isAccessibilityEnabled
                                 "Snooze system notifications" -> !isNotificationListenerEnabled
                                 "Screen locked security" ->
-                                    !isAccessibilityEnabled ||
-                                        !isWriteSecureSettingsEnabled ||
-                                        !viewModel.isDeviceAdminEnabled.value
+                                    !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
+                                        context,
+                                    )
                                 "App lock" ->
                                     !isAccessibilityEnabled ||
                                         (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)
@@ -769,9 +769,9 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                             "Smart pixels" -> !isAccessibilityEnabled
                                                             "Snooze system notifications" -> !isNotificationListenerEnabled
                                                             "Screen locked security" ->
-                                                                !isAccessibilityEnabled ||
-                                                                    !isWriteSecureSettingsEnabled ||
-                                                                    !viewModel.isDeviceAdminEnabled.value
+                                                                !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
+                                                                    context,
+                                                                )
                                                             "App lock" ->
                                                                 !isAccessibilityEnabled ||
                                                                     (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else false)

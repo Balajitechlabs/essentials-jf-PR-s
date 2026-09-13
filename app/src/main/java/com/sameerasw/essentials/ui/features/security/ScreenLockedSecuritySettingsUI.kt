@@ -9,8 +9,6 @@
 
 package com.sameerasw.essentials.ui.features.system
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,10 +28,11 @@ import androidx.fragment.app.FragmentActivity
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
-import com.sameerasw.essentials.ui.core.sheets.PermissionItem
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.BiometricHelper
+import com.sameerasw.essentials.utils.PermissionUIHelper
+import com.sameerasw.essentials.utils.ShellUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
 
 @Composable
@@ -45,49 +44,19 @@ fun ScreenLockedSecuritySettingsUI(
     val context = LocalContext.current
     var showPermissionSheet by remember { mutableStateOf(false) }
 
-    if (showPermissionSheet) {
-        val isShizukuAvailable = viewModel.isShizukuAvailable.value
-        val isShizukuGranted = viewModel.isShizukuPermissionGranted.value
-        val isRootAvailable = viewModel.isRootAvailable.value
-        val isRootGranted = viewModel.isRootPermissionGranted.value
-        val isShellGranted =
-            (isShizukuAvailable && isShizukuGranted) || (isRootAvailable && isRootGranted)
+    val isShellGranted = ShellUtils.hasPermission(context)
 
-        PermissionsBottomSheet(
-            onDismissRequest = { showPermissionSheet = false },
-            featureTitle = R.string.screen_locked_security_title,
-            permissions =
-                listOf(
-                    PermissionItem(
-                        iconRes = R.drawable.rounded_adb_24,
-                        title = if (!isShizukuAvailable) R.string.perm_shizuku_title else R.string.perm_shizuku_grant_title,
-                        description = if (!isShizukuAvailable) R.string.perm_shizuku_desc else R.string.perm_shizuku_grant_desc,
-                        dependentFeatures = listOf(R.string.screen_locked_security_title),
-                        actionLabel =
-                            if (!isShizukuAvailable) {
-                                R.string.perm_shizuku_install_action
-                            } else if (isShellGranted) {
-                                R.string.perm_action_granted
-                            } else {
-                                R.string.perm_action_grant
-                            },
-                        action = {
-                            if (!isShizukuAvailable) {
-                                val intent =
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        Uri.parse("https://github.com/thedjchi/Shizuku"),
-                                    )
-                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                context.startActivity(intent)
-                            } else {
-                                viewModel.requestShizukuPermission()
-                            }
-                        },
-                        isGranted = isShellGranted,
-                    ),
-                ),
-        )
+    if (showPermissionSheet) {
+        val permKey = if (ShellUtils.isRootEnabled(context)) "ROOT" else "SHIZUKU"
+        val permissionItems = PermissionUIHelper.getPermissionItems(listOf(permKey), context, viewModel)
+
+        if (permissionItems.isNotEmpty()) {
+            PermissionsBottomSheet(
+                onDismissRequest = { showPermissionSheet = false },
+                featureTitle = stringResource(R.string.feat_screen_locked_security_title),
+                permissions = permissionItems,
+            )
+        }
     }
 
     Column(
@@ -109,12 +78,6 @@ fun ScreenLockedSecuritySettingsUI(
             spacing = 2.dp,
             cornerRadius = 24.dp,
         ) {
-            val isShizukuGranted =
-                viewModel.isShizukuAvailable.value && viewModel.isShizukuPermissionGranted.value
-            val isRootGranted =
-                viewModel.isRootAvailable.value && viewModel.isRootPermissionGranted.value
-            val isShellGranted = isShizukuGranted || isRootGranted
-
             IconToggleItem(
                 title = stringResource(R.string.screen_locked_security_title),
                 description = stringResource(R.string.screen_locked_security_desc),

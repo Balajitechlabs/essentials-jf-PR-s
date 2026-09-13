@@ -1438,17 +1438,19 @@ object FeatureRegistry {
                 category = R.string.cat_protection,
                 description = R.string.screen_locked_security_desc,
                 aboutDescription = R.string.about_desc_screen_locked_security,
-                permissionKeys =
-                    if (ShellUtils.isRootEnabled(EssentialsApp.context)) {
-                        listOf(
-                            "ROOT",
-                        )
-                    } else {
-                        listOf("SHIZUKU")
-                    },
                 parentFeatureId = "Security",
                 animationRes = R.raw.lock_animation,
             ) {
+                override val permissionKeys: List<String>
+                    get() =
+                        if (ShellUtils.isRootEnabled(EssentialsApp.context)) {
+                            listOf(
+                                "ROOT",
+                            )
+                        } else {
+                            listOf("SHIZUKU")
+                        }
+
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isScreenLockedSecurityEnabled.value
 
                 override fun isToggleEnabled(
