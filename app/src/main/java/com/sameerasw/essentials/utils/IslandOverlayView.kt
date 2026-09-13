@@ -247,10 +247,10 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private fun computeNotificationTargetBounds(alert: ActiveNotificationAlert): RectF {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        val targetPillHeight = (cameraRadiusPx * 2f + 18f * density).coerceIn(38f * density, 44f * density)
+        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
         val targetTop = cameraCenterY - targetPillHeight / 2f
         val targetBottom = cameraCenterY + targetPillHeight / 2f
-        val iconSize = (targetPillHeight - 16f * density).coerceIn(20f * density, 24f * density)
+        val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
 
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
@@ -259,7 +259,7 @@ class IslandOverlayView(context: Context) : View(context) {
             val iconMarginLeft = 10f * density
             val minDistLeft = cameraRadiusPx + spaceFromCutout + iconSize + iconMarginLeft
 
-            notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
+            notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
             val distRightNeeded = cameraRadiusPx + spaceFromCutout + textWidth + 18f * density
@@ -290,7 +290,7 @@ class IslandOverlayView(context: Context) : View(context) {
             val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
             val maxAvailableTextWidth = (maxRight - textLeft - 18f * density).coerceAtLeast(50f * density)
 
-            notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
+            notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
             val distNeeded = textLeft + textWidth + 18f * density
@@ -325,120 +325,113 @@ class IslandOverlayView(context: Context) : View(context) {
             val targetTop = targetBounds.top
             val targetBottom = targetBounds.bottom
 
-            val initialRadius = cameraRadiusPx + 4f * density
-            val initialLeft = cameraCenterX - initialRadius
-            val initialRight = cameraCenterX + initialRadius
-            val initialTop = cameraCenterY - initialRadius
-            val initialBottom = cameraCenterY + initialRadius
+            val initialLeft = cameraCenterX - cameraRadiusPx
+            val initialRight = cameraCenterX + cameraRadiusPx
 
             val currentLeft = initialLeft + (targetLeft - initialLeft) * fraction
             val currentRight = initialRight + (targetRight - initialRight) * fraction
-            val currentTop = initialTop + (targetTop - initialTop) * fraction
-            val currentBottom = initialBottom + (targetBottom - initialBottom) * fraction
+            val currentTop = targetTop
+            val currentBottom = targetBottom
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
             val cornerRadius = (currentBottom - currentTop) / 2f
 
             notificationPillPaint.color = Color.BLACK
-            notificationPillPaint.alpha = (255 * fraction).toInt()
+            notificationPillPaint.alpha = 255
 
             val finalStroke = 1.5f * density
             notificationPillBorderPaint.color = accentColor
             notificationPillBorderPaint.strokeWidth = finalStroke
-            val borderAlpha = ((180 + 75 * (1f - fraction)) * fraction.coerceAtLeast(0.15f)).toInt().coerceIn(0, 255)
-            notificationPillBorderPaint.alpha = borderAlpha
+            notificationPillBorderPaint.alpha = 255
 
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillPaint)
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillBorderPaint)
 
-            if (fraction > 0.35f) {
-                val contentSaveCount = canvas.save()
-                notificationContentClipPath.reset()
-                notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
-                canvas.clipPath(notificationContentClipPath)
+            val contentSaveCount = canvas.save()
+            notificationContentClipPath.reset()
+            notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
+            canvas.clipPath(notificationContentClipPath)
 
-                val contentAlpha = ((fraction - 0.35f) / 0.65f).coerceIn(0f, 1f)
-                val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+            val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
-                if (isCenterCamera) {
-                    val iconSize = (currentBottom - currentTop - 16f * density).coerceIn(20f * density, 24f * density)
-                    val iconLeft = currentLeft + 10f * density
-                    val iconTop = cameraCenterY - iconSize / 2f
-                    val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+            if (isCenterCamera) {
+                val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
+                val iconLeft = currentLeft + 10f * density
+                val iconTop = cameraCenterY - iconSize / 2f
+                val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
-                    if (alert.icon != null) {
-                        iconPaint.alpha = (255 * contentAlpha).toInt()
-                        notificationIconClipPath.reset()
-                        notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
-                        canvas.save()
-                        canvas.clipPath(notificationIconClipPath)
-                        canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
-                        canvas.restore()
-                    }
-
-                    val spaceFromCutout = 20f * density
-                    val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-                    val maxAvailableTextWidth = (currentRight - textLeft - 14f * density).coerceAtLeast(40f * density)
-
-                    notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
-                    notificationBodyPaint.color = Color.WHITE
-                    notificationBodyPaint.alpha = (250 * contentAlpha).toInt()
-
-                    val displayText = computeNotificationDisplayText(alert)
-                    val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
-
-                    drawMarqueeNotificationText(
-                        canvas = canvas,
-                        text = displayText,
-                        textLeft = textLeft,
-                        textY = textY,
-                        currentTop = currentTop,
-                        currentRight = currentRight,
-                        currentBottom = currentBottom,
-                        cornerRadius = cornerRadius,
-                        maxAvailableTextWidth = maxAvailableTextWidth,
-                    )
-                } else {
-                    val iconSize = (currentBottom - currentTop - 16f * density).coerceIn(22f * density, 26f * density)
-                    val spaceFromCutout = 24f * density
-                    val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-                    val iconTop = cameraCenterY - iconSize / 2f
-                    val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
-
-                    if (alert.icon != null) {
-                        iconPaint.alpha = (255 * contentAlpha).toInt()
-                        notificationIconClipPath.reset()
-                        notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
-                        canvas.save()
-                        canvas.clipPath(notificationIconClipPath)
-                        canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
-                        canvas.restore()
-                    }
-
-                    val textLeft = iconLeft + iconSize + 14f * density
-                    val maxAvailableTextWidth = (currentRight - textLeft - 18f * density).coerceAtLeast(50f * density)
-
-                    notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
-                    notificationBodyPaint.color = Color.WHITE
-                    notificationBodyPaint.alpha = (250 * contentAlpha).toInt()
-
-                    val displayText = computeNotificationDisplayText(alert)
-                    val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
-
-                    drawMarqueeNotificationText(
-                        canvas = canvas,
-                        text = displayText,
-                        textLeft = textLeft,
-                        textY = textY,
-                        currentTop = currentTop,
-                        currentRight = currentRight,
-                        currentBottom = currentBottom,
-                        cornerRadius = cornerRadius,
-                        maxAvailableTextWidth = maxAvailableTextWidth,
-                    )
+                if (alert.icon != null) {
+                    iconPaint.alpha = 255
+                    notificationIconClipPath.reset()
+                    notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
+                    canvas.save()
+                    canvas.clipPath(notificationIconClipPath)
+                    canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
+                    canvas.restore()
                 }
 
-                canvas.restoreToCount(contentSaveCount)
+                val spaceFromCutout = 20f * density
+                val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
+                val maxAvailableTextWidth = (currentRight - textLeft - 14f * density).coerceAtLeast(40f * density)
+
+                notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
+                notificationBodyPaint.color = Color.WHITE
+                notificationBodyPaint.alpha = 255
+
+                val displayText = computeNotificationDisplayText(alert)
+                val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
+
+                drawMarqueeNotificationText(
+                    canvas = canvas,
+                    text = displayText,
+                    textLeft = textLeft,
+                    textY = textY,
+                    currentTop = currentTop,
+                    currentRight = currentRight,
+                    currentBottom = currentBottom,
+                    cornerRadius = cornerRadius,
+                    maxAvailableTextWidth = maxAvailableTextWidth,
+                )
+            } else {
+                val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
+                val spaceFromCutout = 24f * density
+                val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
+                val iconTop = cameraCenterY - iconSize / 2f
+                val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+
+                if (alert.icon != null) {
+                    iconPaint.alpha = 255
+                    notificationIconClipPath.reset()
+                    notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
+                    canvas.save()
+                    canvas.clipPath(notificationIconClipPath)
+                    canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
+                    canvas.restore()
+                }
+
+                val textLeft = iconLeft + iconSize + 14f * density
+                val maxAvailableTextWidth = (currentRight - textLeft - 18f * density).coerceAtLeast(50f * density)
+
+                notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
+                notificationBodyPaint.color = Color.WHITE
+                notificationBodyPaint.alpha = 255
+
+                val displayText = computeNotificationDisplayText(alert)
+                val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
+
+                drawMarqueeNotificationText(
+                    canvas = canvas,
+                    text = displayText,
+                    textLeft = textLeft,
+                    textY = textY,
+                    currentTop = currentTop,
+                    currentRight = currentRight,
+                    currentBottom = currentBottom,
+                    cornerRadius = cornerRadius,
+                    maxAvailableTextWidth = maxAvailableTextWidth,
+                )
             }
+
+            canvas.restoreToCount(contentSaveCount)
         }
     }
 
