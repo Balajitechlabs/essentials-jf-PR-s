@@ -4918,6 +4918,9 @@ class MainViewModel : ViewModel() {
             contentIntent = null,
             timestamp = System.currentTimeMillis(),
             appColor = android.graphics.Color.parseColor("#4285F4"),
+            senderName = context.getString(com.sameerasw.essentials.R.string.island_preview_title),
+            appName = "Essentials",
+            appIcon = appIcon,
         )
         com.sameerasw.essentials.services.NotificationListener.notifyAlertPosted(alert)
     }
