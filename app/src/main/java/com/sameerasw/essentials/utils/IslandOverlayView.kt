@@ -27,6 +27,8 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.OvershootInterpolator
+import androidx.core.content.res.ResourcesCompat
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import kotlin.math.abs
 
@@ -87,15 +89,17 @@ class IslandOverlayView(context: Context) : View(context) {
         color = Color.BLACK
     }
 
-    private val notificationPillBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f * density
-        color = Color.WHITE
+    private val googleSansFlexTypeface: Typeface? by lazy {
+        try {
+            ResourcesCompat.getFont(context, R.font.google_sans_flex)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private val notificationBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -251,14 +255,15 @@ class IslandOverlayView(context: Context) : View(context) {
         val targetTop = cameraCenterY - targetPillHeight / 2f
         val targetBottom = cameraCenterY + targetPillHeight / 2f
         val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
+        val verticalPadding = (targetPillHeight - iconSize) / 2f
 
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
         if (isCenterCamera) {
-            val spaceFromCutout = 20f * density
-            val iconMarginLeft = 10f * density
-            val minDistLeft = cameraRadiusPx + spaceFromCutout + iconSize + iconMarginLeft
+            val spaceFromCutout = 14f * density
+            val minDistLeft = cameraRadiusPx + spaceFromCutout + iconSize + verticalPadding
 
+            notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
             notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
@@ -281,15 +286,16 @@ class IslandOverlayView(context: Context) : View(context) {
 
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         } else {
-            val targetLeft = (cameraCenterX - cameraRadiusPx - 8f * density).coerceAtLeast(8f * density)
-            val spaceFromCutout = 24f * density
+            val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
+            val spaceFromCutout = 16f * density
             val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-            val textLeft = iconLeft + iconSize + 14f * density
+            val textLeft = iconLeft + iconSize + 12f * density
 
             val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
             val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
             val maxAvailableTextWidth = (maxRight - textLeft - 18f * density).coerceAtLeast(50f * density)
 
+            notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
             notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
@@ -338,13 +344,7 @@ class IslandOverlayView(context: Context) : View(context) {
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
 
-            val finalStroke = 1.5f * density
-            notificationPillBorderPaint.color = accentColor
-            notificationPillBorderPaint.strokeWidth = finalStroke
-            notificationPillBorderPaint.alpha = 255
-
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillPaint)
-            canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillBorderPaint)
 
             val contentSaveCount = canvas.save()
             notificationContentClipPath.reset()
@@ -355,8 +355,9 @@ class IslandOverlayView(context: Context) : View(context) {
 
             if (isCenterCamera) {
                 val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
-                val iconLeft = currentLeft + 10f * density
-                val iconTop = cameraCenterY - iconSize / 2f
+                val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
+                val iconLeft = currentLeft + verticalPadding
+                val iconTop = currentTop + verticalPadding
                 val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                 if (alert.icon != null) {
@@ -369,10 +370,11 @@ class IslandOverlayView(context: Context) : View(context) {
                     canvas.restore()
                 }
 
-                val spaceFromCutout = 20f * density
+                val spaceFromCutout = 14f * density
                 val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
                 val maxAvailableTextWidth = (currentRight - textLeft - 14f * density).coerceAtLeast(40f * density)
 
+                notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
                 notificationBodyPaint.color = Color.WHITE
                 notificationBodyPaint.alpha = 255
@@ -385,6 +387,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     text = displayText,
                     textLeft = textLeft,
                     textY = textY,
+                    fadeStartPos = cameraCenterX + cameraRadiusPx + 4f * density,
                     currentTop = currentTop,
                     currentRight = currentRight,
                     currentBottom = currentBottom,
@@ -393,9 +396,10 @@ class IslandOverlayView(context: Context) : View(context) {
                 )
             } else {
                 val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
-                val spaceFromCutout = 24f * density
+                val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
+                val spaceFromCutout = 16f * density
                 val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-                val iconTop = cameraCenterY - iconSize / 2f
+                val iconTop = currentTop + verticalPadding
                 val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                 if (alert.icon != null) {
@@ -408,9 +412,10 @@ class IslandOverlayView(context: Context) : View(context) {
                     canvas.restore()
                 }
 
-                val textLeft = iconLeft + iconSize + 14f * density
+                val textLeft = iconLeft + iconSize + 12f * density
                 val maxAvailableTextWidth = (currentRight - textLeft - 18f * density).coerceAtLeast(50f * density)
 
+                notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
                 notificationBodyPaint.color = Color.WHITE
                 notificationBodyPaint.alpha = 255
@@ -423,6 +428,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     text = displayText,
                     textLeft = textLeft,
                     textY = textY,
+                    fadeStartPos = iconLeft + iconSize + 2f * density,
                     currentTop = currentTop,
                     currentRight = currentRight,
                     currentBottom = currentBottom,
@@ -440,6 +446,7 @@ class IslandOverlayView(context: Context) : View(context) {
         text: String,
         textLeft: Float,
         textY: Float,
+        fadeStartPos: Float,
         currentTop: Float,
         currentRight: Float,
         currentBottom: Float,
@@ -451,7 +458,7 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         if (isMarqueeNeeded && animatedNotificationFraction >= 0.95f) {
-            val fadeStart = (textLeft - 3f * density).coerceAtLeast(0f)
+            val fadeStart = fadeStartPos.coerceAtLeast(0f)
             val fadeWidth = 14f * density
             val marqueeBounds = RectF(fadeStart, currentTop, currentRight, currentBottom)
             val saveLayerCount = canvas.saveLayer(marqueeBounds, null)
