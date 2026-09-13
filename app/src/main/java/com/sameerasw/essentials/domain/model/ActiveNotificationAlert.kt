@@ -21,4 +21,7 @@ data class ActiveNotificationAlert(
     val contentIntent: PendingIntent?,
     val timestamp: Long = System.currentTimeMillis(),
     val appColor: Int? = null,
+    val senderName: String? = null,
+    val appName: String? = null,
+    val appIcon: Bitmap? = null,
 )

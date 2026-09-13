@@ -10,12 +10,15 @@
 package com.sameerasw.essentials.services
 
 import android.app.Notification
+import android.app.Person
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
@@ -1760,16 +1763,86 @@ class NotificationListener : NotificationListenerService() {
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
             ?: ""
 
-        var bitmap: Bitmap? = null
-        try {
-            val largeIcon = notif.getLargeIcon()
-            if (largeIcon != null) {
-                val drawable = largeIcon.loadDrawable(this)
-                if (drawable != null) {
-                    bitmap = AppUtil.drawableToBitmap(drawable)
+        val appName = try {
+            val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        } catch (_: Exception) {
+            null
+        }
+
+        var senderName: String? = null
+        var personAvatar: Bitmap? = null
+
+        // In MessagingStyle notifications, EXTRA_MESSAGING_PERSON is the local user ("You").
+        // The actual incoming sender is in EXTRA_MESSAGES or EXTRA_CONVERSATION_TITLE / title.
+        @Suppress("DEPRECATION")
+        val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        if (!messages.isNullOrEmpty()) {
+            val lastMsg = messages.lastOrNull() as? Bundle
+            if (lastMsg != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val senderPerson = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        lastMsg.getParcelable("sender_person", Person::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        lastMsg.getParcelable<Person>("sender_person")
+                    }
+                    if (senderPerson != null) {
+                        if (!senderPerson.name.isNullOrBlank()) {
+                            val name = senderPerson.name.toString()
+                            if (!name.equals("You", ignoreCase = true)) {
+                                senderName = name
+                            }
+                        }
+                        val pIcon = senderPerson.icon
+                        if (pIcon != null) {
+                            try {
+                                val d = pIcon.loadDrawable(this)
+                                if (d != null) {
+                                    personAvatar = AppUtil.drawableToBitmap(d)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+                if (senderName.isNullOrBlank()) {
+                    val senderCharSeq = lastMsg.getCharSequence("sender")?.toString()
+                    if (!senderCharSeq.isNullOrBlank() && !senderCharSeq.equals("You", ignoreCase = true)) {
+                        senderName = senderCharSeq
+                    }
                 }
             }
+        }
+
+        if (senderName.isNullOrBlank()) {
+            val convTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()
+            if (!convTitle.isNullOrBlank() && !convTitle.equals("You", ignoreCase = true)) {
+                senderName = convTitle
+            }
+        }
+
+        if (senderName.isNullOrBlank() && title.isNotBlank() && !title.equals("You", ignoreCase = true)) {
+            senderName = title
+        }
+
+        var appIcon: Bitmap? = null
+        try {
+            val appIconDrawable = packageManager.getApplicationIcon(sbn.packageName)
+            appIcon = AppUtil.drawableToBitmap(appIconDrawable)
         } catch (_: Exception) {}
+
+        var bitmap: Bitmap? = personAvatar
+        if (bitmap == null) {
+            try {
+                val largeIcon = notif.getLargeIcon()
+                if (largeIcon != null) {
+                    val drawable = largeIcon.loadDrawable(this)
+                    if (drawable != null) {
+                        bitmap = AppUtil.drawableToBitmap(drawable)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
 
         if (bitmap == null) {
             try {
@@ -1784,10 +1857,7 @@ class NotificationListener : NotificationListenerService() {
         }
 
         if (bitmap == null) {
-            try {
-                val appIconDrawable = packageManager.getApplicationIcon(sbn.packageName)
-                bitmap = AppUtil.drawableToBitmap(appIconDrawable)
-            } catch (_: Exception) {}
+            bitmap = appIcon
         }
 
         var appColor: Int? = null
@@ -1814,6 +1884,9 @@ class NotificationListener : NotificationListenerService() {
             icon = bitmap,
             contentIntent = notif.contentIntent,
             appColor = appColor,
+            senderName = senderName,
+            appName = appName,
+            appIcon = appIcon,
         )
     }
 }
