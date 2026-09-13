@@ -144,6 +144,15 @@ class IslandOverlayHandler(
             scheduleDismissTimer()
         }
 
+        touchHandler.onNotificationExpandToggled = { isExpanded ->
+            expandTouchAnchorForNotification()
+            if (isExpanded) {
+                mainHandler.removeCallbacks(dismissNotificationRunnable)
+            } else {
+                scheduleDismissTimer()
+            }
+        }
+
         updateOverlay()
     }
 
@@ -190,6 +199,7 @@ class IslandOverlayHandler(
         if (overlayView == null) {
             overlayView = IslandOverlayView(service).apply {
                 this.isIslandEnabled = settingsRepository.isIslandEnabled()
+                this.touchHandler = this@IslandOverlayHandler.touchHandler
                 this.onDismissAnimationEnd = {
                     restoreTouchAnchor()
                 }
@@ -210,16 +220,18 @@ class IslandOverlayHandler(
             } catch (e: Exception) {
                 Log.e("IslandOverlayHandler", "Failed to add Island overlay", e)
             }
+        } else {
+            overlayView?.touchHandler = touchHandler
         }
 
         if (touchAnchorView == null) {
             touchAnchorView = View(service).apply {
-                touchHandler.overlayView = this@IslandOverlayHandler.overlayView
                 setOnTouchListener { _, event ->
                     touchHandler.onTouchEvent(event)
                 }
             }
         }
+        touchHandler.overlayView = overlayView
 
         updateOverlayPosition()
     }
@@ -290,13 +302,15 @@ class IslandOverlayHandler(
         val anchor = touchAnchorView ?: return
         val ov = overlayView ?: return
 
+        touchHandler.overlayView = ov
+
         val targetBounds = ov.getNotificationTargetBounds()
         val density = service.resources.displayMetrics.density
         val padH = 16f * density
         val padV = 10f * density
 
-        val touchWidth = ((targetBounds.right - targetBounds.left) + padH * 2).toInt()
-        val touchHeight = ((targetBounds.bottom - targetBounds.top) + padV * 2).toInt()
+        val touchWidth = ((targetBounds.right - targetBounds.left) + padH * 2).toInt().coerceAtLeast((48f * density).toInt())
+        val touchHeight = ((targetBounds.bottom - targetBounds.top) + padV * 2).toInt().coerceAtLeast((48f * density).toInt())
 
         val touchParams = WindowManager.LayoutParams(
             touchWidth,
@@ -311,8 +325,11 @@ class IslandOverlayHandler(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = (targetBounds.left - padH).toInt()
-            y = (targetBounds.top - padV).toInt()
+            x = (targetBounds.left - padH).toInt().coerceAtLeast(0)
+            y = (targetBounds.top - padV).toInt().coerceAtLeast(0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         if (!isTouchAnchorAdded) {
