@@ -1346,20 +1346,34 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                     finish()
                                 }
                             },
-                            fabIconRes = if (isStandbyMultiSelecting) R.drawable.rounded_mobiledata_arrows_24 else null,
-                            fabAction =
-                                if (isStandbyMultiSelecting) {
-                                    { isStandbyMoveSheetVisible = true }
-                                } else {
-                                    null
+                            fabIconRes =
+                                when {
+                                    isStandbyMultiSelecting -> R.drawable.rounded_mobiledata_arrows_24
+                                    featureId == "Island" -> R.drawable.rounded_play_arrow_24
+                                    else -> null
                                 },
-                            fabContentDescription = if (isStandbyMultiSelecting) stringResource(R.string.action_move_bucket) else null,
+                            fabAction =
+                                when {
+                                    isStandbyMultiSelecting -> { { isStandbyMoveSheetVisible = true } }
+                                    featureId == "Island" -> {
+                                        {
+                                            viewModel.triggerIslandPreview(context)
+                                        }
+                                    }
+                                    else -> null
+                                },
+                            fabContentDescription =
+                                when {
+                                    isStandbyMultiSelecting -> stringResource(R.string.action_move_bucket)
+                                    featureId == "Island" -> stringResource(R.string.action_preview)
+                                    else -> null
+                                },
                             modifier =
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .zIndex(1f),
                             onHelpClick =
-                                if (isStandbyMultiSelecting) {
+                                if (isStandbyMultiSelecting || featureId == "Island") {
                                     null
                                 } else {
                                     {
