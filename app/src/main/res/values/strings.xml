@@ -2617,6 +2617,9 @@
     <string name="island_action_swipe_up_title">Swipe up</string>
     <string name="island_action_swipe_up_desc">Dismiss</string>
 
+    <string name="island_preview_title">Island</string>
+    <string name="island_preview_sample">Dynamic notifications preview</string>
+
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
     <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
