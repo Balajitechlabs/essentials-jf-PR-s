@@ -79,11 +79,15 @@ class IslandTouchHandler(
                         dismissNotification()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.DOUBLE)
                     } else if (totalDist < touchSlopPx * 2.5f && elapsed < 800L && settingsRepository.isIslandTapActionEnabled()) {
-                        val alert = overlayView?.getActiveNotificationAlert()
+                        val alert = overlayView?.getAlertAt(x, y) ?: overlayView?.getActiveNotificationAlert()
                         if (alert != null) {
                             launchNotificationApp(alert)
+                            if (alert.key == overlayView?.getActiveNotificationAlert()?.key) {
+                                dismissNotification()
+                            } else {
+                                overlayView?.removeNotificationByKey(alert.key)
+                            }
                         }
-                        dismissNotification()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                     }
                 }
