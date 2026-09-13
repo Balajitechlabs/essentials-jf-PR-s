@@ -176,6 +176,21 @@ fun IslandSettingsUI(
                 increment = 0.05f,
                 iconRes = R.drawable.rounded_arrows_outward_24,
                 valueFormatter = { "%.2fx".format(it) },
+                modifier = Modifier.highlight(highlightSetting == "island_camera_size"),
+            )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_max_width_title),
+                value = viewModel.islandMaxWidth.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandMaxWidth(it)
+                },
+                valueRange = 150f..500f,
+                increment = 10f,
+                iconRes = R.drawable.rounded_arrows_outward_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_max_width"),
             )
         }
 

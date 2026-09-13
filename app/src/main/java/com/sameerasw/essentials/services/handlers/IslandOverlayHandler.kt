@@ -255,6 +255,7 @@ class IslandOverlayHandler(
         overlayView?.cameraCenterX = cameraCenterX
         overlayView?.cameraCenterY = cameraCenterY
         overlayView?.cameraRadiusPx = cameraRadiusPx
+        overlayView?.maxWidthDp = settingsRepository.getIslandMaxWidth()
         overlayView?.invalidate()
     }
 
@@ -344,7 +345,8 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_Y,
-            SettingsRepository.KEY_ISLAND_CAMERA_SIZE -> updateOverlayPosition()
+            SettingsRepository.KEY_ISLAND_CAMERA_SIZE,
+            SettingsRepository.KEY_ISLAND_MAX_WIDTH -> updateOverlayPosition()
         }
     }
 }

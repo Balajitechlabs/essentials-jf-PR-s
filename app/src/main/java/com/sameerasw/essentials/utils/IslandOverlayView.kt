@@ -19,6 +19,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
@@ -41,6 +43,12 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
     var cameraRadiusPx: Float = 36f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var maxWidthDp: Float = 360f
         set(value) {
             field = value
             invalidate()
@@ -172,27 +180,32 @@ class IslandOverlayView(context: Context) : View(context) {
         val targetPillHeight = (cameraRadiusPx * 2f + 18f * density).coerceIn(38f * density, 44f * density)
         val targetTop = cameraCenterY - targetPillHeight / 2f
         val targetBottom = cameraCenterY + targetPillHeight / 2f
-        val iconSize = (targetPillHeight - 16f * density).coerceIn(22f * density, 26f * density)
+        val iconSize = (targetPillHeight - 16f * density).coerceIn(20f * density, 24f * density)
 
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
         if (isCenterCamera) {
-            val spaceFromCutoutLeft = 30f * density
-            val leftWingWidth = iconSize + spaceFromCutoutLeft + 12f * density
-            val targetLeft = (cameraCenterX - cameraRadiusPx - leftWingWidth).coerceAtLeast(8f * density)
-
-            val spaceFromCutout = 26f * density
-            val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-
-            val maxRight = (screenWidth - 66f * density).coerceAtMost(cameraCenterX + 165f * density)
-            val maxAvailableTextWidth = (maxRight - textLeft - 18f * density).coerceAtLeast(50f * density)
+            val spaceFromCutout = 20f * density
+            val iconMarginLeft = 10f * density
+            val minDistLeft = cameraRadiusPx + spaceFromCutout + iconSize + iconMarginLeft
 
             notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
-
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
-            val neededContentWidth = (textWidth + 12f * density).coerceIn(80f * density, maxAvailableTextWidth)
-            val targetRight = (textLeft + neededContentWidth + 18f * density).coerceAtMost(maxRight)
+            val distRightNeeded = cameraRadiusPx + spaceFromCutout + textWidth + 16f * density
+
+            val widestDist = maxOf(minDistLeft, distRightNeeded)
+
+            val maxScreenHalfWidth = minOf(
+                cameraCenterX - 8f * density,
+                screenWidth - cameraCenterX - 8f * density,
+            ).coerceAtLeast(minDistLeft)
+
+            val maxAllowedHalfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth)
+            val halfWidth = widestDist.coerceIn(minDistLeft, maxAllowedHalfWidth)
+
+            val targetLeft = cameraCenterX - halfWidth
+            val targetRight = cameraCenterX + halfWidth
 
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         } else {
@@ -201,11 +214,11 @@ class IslandOverlayView(context: Context) : View(context) {
             val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
             val textLeft = iconLeft + iconSize + 14f * density
 
-            val maxRight = (screenWidth - 48f * density).coerceAtMost(cameraCenterX + 280f * density)
+            val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+            val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
             val maxAvailableTextWidth = (maxRight - textLeft - 18f * density).coerceAtLeast(50f * density)
 
             notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
-
             val displayText = computeNotificationDisplayText(alert)
             val textWidth = notificationBodyPaint.measureText(displayText)
             val neededContentWidth = (textWidth + 12f * density).coerceIn(80f * density, maxAvailableTextWidth)
@@ -281,20 +294,20 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.restore()
                     }
 
-                    val spaceFromCutout = 26f * density
+                    val spaceFromCutout = 20f * density
                     val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-                    val maxAvailableTextWidth = (currentRight - textLeft - 18f * density).coerceAtLeast(50f * density)
+                    val maxAvailableTextWidth = (currentRight - textLeft - 16f * density).coerceAtLeast(40f * density)
 
                     notificationBodyPaint.textSize = (16f * density).coerceIn(14f, 18f)
                     notificationBodyPaint.color = Color.WHITE
                     notificationBodyPaint.alpha = (250 * contentAlpha).toInt()
 
                     val displayText = computeNotificationDisplayText(alert)
-                    val ellipText = android.text.TextUtils.ellipsize(
+                    val ellipText = TextUtils.ellipsize(
                         displayText,
-                        android.text.TextPaint(notificationBodyPaint),
+                        TextPaint(notificationBodyPaint),
                         maxAvailableTextWidth,
-                        android.text.TextUtils.TruncateAt.END,
+                        TextUtils.TruncateAt.END,
                     ).toString()
 
                     val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
@@ -324,11 +337,11 @@ class IslandOverlayView(context: Context) : View(context) {
                     notificationBodyPaint.alpha = (250 * contentAlpha).toInt()
 
                     val displayText = computeNotificationDisplayText(alert)
-                    val ellipText = android.text.TextUtils.ellipsize(
+                    val ellipText = TextUtils.ellipsize(
                         displayText,
-                        android.text.TextPaint(notificationBodyPaint),
+                        TextPaint(notificationBodyPaint),
                         maxAvailableTextWidth,
-                        android.text.TextUtils.TruncateAt.END,
+                        TextUtils.TruncateAt.END,
                     ).toString()
 
                     val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f

@@ -2605,6 +2605,8 @@
     <string name="island_camera_offset_x_title">Horizontal position</string>
     <string name="island_camera_offset_y_title">Vertical position</string>
     <string name="island_camera_size_title">Camera size</string>
+    <string name="island_max_width_title">Maximum width</string>
+    <string name="island_max_width_desc">Limit expanded width across the screen</string>
     <string name="island_section_behavior">Behavior</string>
     <string name="island_suppress_system_heads_up_title">Suppress system pop-ups</string>
     <string name="island_suppress_system_heads_up_desc">Prevent default Android heads-up banners</string>
