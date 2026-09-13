@@ -29,6 +29,7 @@ class IslandTouchHandler(
     var overlayView: IslandOverlayView? = null
 
     var onNotificationDismissRequested: (() -> Unit)? = null
+    var onNotificationSwitched: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -79,16 +80,21 @@ class IslandTouchHandler(
                         dismissNotification()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.DOUBLE)
                     } else if (totalDist < touchSlopPx * 2.5f && elapsed < 800L && settingsRepository.isIslandTapActionEnabled()) {
-                        val alert = overlayView?.getAlertAt(x, y) ?: overlayView?.getActiveNotificationAlert()
-                        if (alert != null) {
-                            launchNotificationApp(alert)
-                            if (alert.key == overlayView?.getActiveNotificationAlert()?.key) {
-                                dismissNotification()
-                            } else {
-                                overlayView?.removeNotificationByKey(alert.key)
+                        val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
+                        if (queuedIdx >= 0) {
+                            val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
+                            if (switched) {
+                                onNotificationSwitched?.invoke()
+                                HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
                             }
+                        } else {
+                            val alert = overlayView?.getActiveNotificationAlert()
+                            if (alert != null) {
+                                launchNotificationApp(alert)
+                                dismissNotification()
+                            }
+                            HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                         }
-                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                     }
                 }
 

@@ -139,6 +139,11 @@ class IslandOverlayHandler(
             }
         }
 
+        touchHandler.onNotificationSwitched = {
+            expandTouchAnchorForNotification()
+            scheduleDismissTimer()
+        }
+
         updateOverlay()
     }
 
