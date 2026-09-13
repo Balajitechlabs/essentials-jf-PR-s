@@ -22,11 +22,18 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextUtils
+import android.view.MotionEvent
 import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.core.content.res.ResourcesCompat
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
+import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.exp
@@ -35,6 +42,30 @@ import kotlin.math.sqrt
 
 class IslandOverlayView(context: Context) : View(context) {
     private val density = resources.displayMetrics.density
+
+    var touchHandler: IslandTouchHandler? = null
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isNotificationAlertActive) return false
+        val x = event.x
+        val y = event.y
+
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            val totalBounds = getTotalAlertsBounds()
+            val pad = 16f * density
+            val expandedRect = RectF(
+                totalBounds.left - pad,
+                totalBounds.top - pad,
+                totalBounds.right + pad,
+                totalBounds.bottom + pad,
+            )
+            if (!expandedRect.contains(x, y)) {
+                return false
+            }
+        }
+
+        return touchHandler?.onTouchEvent(event) ?: super.onTouchEvent(event)
+    }
 
     var cameraCenterX: Float = 0f
         set(value) {
@@ -91,6 +122,69 @@ class IslandOverlayView(context: Context) : View(context) {
     private val rightMarquee = MarqueeController()
     private val marqueeFadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+    }
+
+    var dragTranslationX: Float = 0f
+        private set
+    var dragTranslationY: Float = 0f
+        private set
+    var dragScale: Float = 1.0f
+        private set
+
+    var dragCollapseFraction: Float = 0f
+        private set
+
+    fun updateDragCollapseFraction(fraction: Float) {
+        dragCollapseFraction = fraction.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    fun resetDragOffset() {
+        dragCollapseFraction = 0f
+        dragTranslationX = 0f
+        dragTranslationY = 0f
+        dragScale = 1.0f
+        invalidate()
+    }
+
+    fun animateDragDismissCollapse(onEnd: () -> Unit) {
+        val startVal = dragCollapseFraction
+        val anim = ValueAnimator.ofFloat(startVal, 1.0f).apply {
+            duration = 200L
+            interpolator = AppleDismissInterpolator(responseTimeSec = 0.20f)
+            addUpdateListener {
+                dragCollapseFraction = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    resetDragOffset()
+                    onEnd()
+                }
+            })
+            start()
+        }
+    }
+
+    fun animateDragSnapBack() {
+        val startVal = dragCollapseFraction
+        val startX = dragTranslationX
+        val startY = dragTranslationY
+        val startScale = dragScale
+
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 320L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.35f)
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                dragCollapseFraction = startVal * (1f - f)
+                dragTranslationX = startX * (1f - f)
+                dragTranslationY = startY * (1f - f)
+                dragScale = startScale + (1.0f - startScale) * f
+                invalidate()
+            }
+            start()
+        }
     }
 
     var onDismissAnimationEnd: (() -> Unit)? = null
@@ -253,6 +347,183 @@ class IslandOverlayView(context: Context) : View(context) {
         return true
     }
 
+    var isExpanded: Boolean = false
+        private set
+    var expandedFraction: Float = 0f
+        private set
+    private var expansionAnimator: ValueAnimator? = null
+
+    private var onExpandedStateChanged: ((Boolean) -> Unit)? = null
+
+    fun setOnExpandedStateChangedListener(listener: ((Boolean) -> Unit)?) {
+        onExpandedStateChanged = listener
+    }
+
+    fun toggleExpansion(): Boolean {
+        if (!isNotificationAlertActive || activeNotificationAlert == null) return false
+        setExpandedState(!isExpanded)
+        return isExpanded
+    }
+
+    fun setExpandedState(expand: Boolean) {
+        if (isExpanded == expand) return
+        isExpanded = expand
+        stopAllMarquees()
+
+        expansionAnimator?.cancel()
+        val startVal = expandedFraction
+        val targetVal = if (expand) 1.0f else 0.0f
+        expansionAnimator = ValueAnimator.ofFloat(startVal, targetVal).apply {
+            duration = if (expand) 420L else 320L
+            interpolator = if (expand) {
+                AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.46f)
+            } else {
+                AppleSpringInterpolator(dampingRatio = 0.78f, responseTimeSec = 0.36f)
+            }
+            addUpdateListener { anim ->
+                expandedFraction = anim.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+        onExpandedStateChanged?.invoke(expand)
+        onAlertsChanged?.invoke()
+    }
+
+    private fun computeExpandedHeight(alert: ActiveNotificationAlert, width: Float): Float {
+        val basePillHeight = cameraRadiusPx * 2f + 14f * density
+        val (_, message) = computeSenderAndMessage(alert)
+        if (message.isBlank()) {
+            return basePillHeight
+        }
+
+        val textSize = (basePillHeight * 0.38f).coerceIn(14f * density, 18f * density)
+        val bodyTextPaint = TextPaint().apply {
+            set(notificationBodyPaint)
+            typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+            setTextSize(textSize)
+        }
+        val innerPadding = 16f * density
+        val textWidth = (width - innerPadding * 2).toInt().coerceAtLeast(50)
+
+        val layout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            StaticLayout.Builder.obtain(message, 0, message.length, bodyTextPaint, textWidth)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .setLineSpacing(2f * density, 1.0f)
+                .setMaxLines(4)
+                .setEllipsize(TextUtils.TruncateAt.END)
+                .build()
+        } else {
+            @Suppress("DEPRECATION")
+            StaticLayout(
+                message,
+                bodyTextPaint,
+                textWidth,
+                Layout.Alignment.ALIGN_NORMAL,
+                1.0f,
+                2f * density,
+                true,
+            )
+        }
+
+        val textHeight = layout.height.toFloat()
+        val headerSpacing = 2f * density
+        val bottomPad = 12f * density
+        val totalHeight = basePillHeight + headerSpacing + textHeight + bottomPad
+        return totalHeight.coerceAtLeast(basePillHeight)
+    }
+
+    private fun computeCollapsedTargetBounds(alert: ActiveNotificationAlert): RectF {
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
+        val targetTop = cameraCenterY - targetPillHeight / 2f
+        val targetBottom = cameraCenterY + targetPillHeight / 2f
+        val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
+        val verticalPadding = (targetPillHeight - iconSize) / 2f
+
+        val (sender, message) = computeSenderAndMessage(alert)
+        val textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
+        notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        notificationSenderPaint.textSize = textSize
+        notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+        notificationBodyPaint.textSize = textSize
+
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+
+        if (isCenterCamera) {
+            val senderWidth = notificationSenderPaint.measureText(sender)
+            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(message) else 0f
+
+            val distLeftNeeded = cameraRadiusPx + 10f * density + senderWidth + 8f * density + iconSize + verticalPadding
+            val distRightNeeded = cameraRadiusPx + 10f * density + messageWidth + 16f * density
+            val minHalfWidth = cameraRadiusPx + iconSize + 24f * density
+
+            val maxScreenHalfWidth = minOf(
+                cameraCenterX - 8f * density,
+                screenWidth - cameraCenterX - 8f * density,
+            ).coerceAtLeast(minHalfWidth)
+
+            val maxAllowedHalfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth)
+            val halfWidthNeeded = maxOf(distLeftNeeded, distRightNeeded)
+            val halfWidth = halfWidthNeeded.coerceIn(minHalfWidth, maxAllowedHalfWidth)
+
+            val targetLeft = cameraCenterX - halfWidth
+            val targetRight = cameraCenterX + halfWidth
+
+            return RectF(targetLeft, targetTop, targetRight, targetBottom)
+        } else {
+            val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
+            val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
+            val senderLeft = iconLeft + iconSize + 8f * density
+            val senderWidth = notificationSenderPaint.measureText(sender)
+            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(" • $message") else 0f
+
+            val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+            val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
+            val distNeeded = senderLeft + senderWidth + messageWidth + 18f * density
+            val targetRight = distNeeded.coerceIn(targetLeft + 80f * density, maxRight)
+
+            return RectF(targetLeft, targetTop, targetRight, targetBottom)
+        }
+    }
+
+    private fun computeNotificationTargetBounds(alert: ActiveNotificationAlert): RectF {
+        val collapsedBounds = computeCollapsedTargetBounds(alert)
+        if (expandedFraction <= 0.001f && !isExpanded) {
+            return collapsedBounds
+        }
+
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+
+        val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+        val expTargetLeft: Float
+        val expTargetRight: Float
+
+        if (isCenterCamera) {
+            val expHalfWidth = (maxAllowedWidthPx / 2f).coerceAtMost(minOf(cameraCenterX - 8f * density, screenWidth - cameraCenterX - 8f * density))
+            expTargetLeft = cameraCenterX - expHalfWidth
+            expTargetRight = cameraCenterX + expHalfWidth
+        } else {
+            val basePillHeight = cameraRadiusPx * 2f + 14f * density
+            val iconSize = (basePillHeight - 14f * density).coerceAtLeast(16f * density)
+            val verticalPadding = (basePillHeight - iconSize) / 2f
+            expTargetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
+            expTargetRight = (expTargetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
+        }
+
+        val expandedWidth = expTargetRight - expTargetLeft
+        val expandedHeight = computeExpandedHeight(alert, expandedWidth)
+        val expTargetTop = collapsedBounds.top
+        val expTargetBottom = expTargetTop + expandedHeight
+
+        val expLeft = collapsedBounds.left + (expTargetLeft - collapsedBounds.left) * expandedFraction
+        val expRight = collapsedBounds.right + (expTargetRight - collapsedBounds.right) * expandedFraction
+        val expBottom = collapsedBounds.bottom + (expTargetBottom - collapsedBounds.bottom) * expandedFraction
+
+        return RectF(expLeft, expTargetTop, expRight, expBottom)
+    }
+
     fun advanceToNextNotification(): Boolean {
         if (queuedNotificationAlerts.isNotEmpty()) {
             return switchToQueuedNotification(0)
@@ -284,6 +555,9 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun dismissNotificationAlert() {
         stopAllMarquees()
+        isExpanded = false
+        expandedFraction = 0f
+        expansionAnimator?.cancel()
         isMerging = false
         previousAlert = null
         mergeFraction = 1.0f
@@ -329,6 +603,7 @@ class IslandOverlayView(context: Context) : View(context) {
         super.onDetachedFromWindow()
         notificationAnimator?.cancel()
         mergeAnimator?.cancel()
+        expansionAnimator?.cancel()
         for (i in 0..1) {
             bubbleAnimators[i]?.cancel()
         }
@@ -347,8 +622,8 @@ class IslandOverlayView(context: Context) : View(context) {
         val numBubbles = queuedNotificationAlerts.size
         if (numBubbles == 0) return mainBounds
 
-        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
-        val bubbleSize = targetPillHeight
+        val basePillHeight = cameraRadiusPx * 2f + 14f * density
+        val bubbleSize = basePillHeight
         val bubbleGap = 8f * density
         val totalBubblesWidth = numBubbles * (bubbleSize + bubbleGap)
 
@@ -438,60 +713,6 @@ class IslandOverlayView(context: Context) : View(context) {
         return Pair(sender, message)
     }
 
-    private fun computeNotificationTargetBounds(alert: ActiveNotificationAlert): RectF {
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
-        val targetTop = cameraCenterY - targetPillHeight / 2f
-        val targetBottom = cameraCenterY + targetPillHeight / 2f
-        val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
-        val verticalPadding = (targetPillHeight - iconSize) / 2f
-
-        val (sender, message) = computeSenderAndMessage(alert)
-        val textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
-        notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        notificationSenderPaint.textSize = textSize
-        notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
-        notificationBodyPaint.textSize = textSize
-
-        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
-
-        if (isCenterCamera) {
-            val senderWidth = notificationSenderPaint.measureText(sender)
-            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(message) else 0f
-
-            val distLeftNeeded = cameraRadiusPx + 10f * density + senderWidth + 8f * density + iconSize + verticalPadding
-            val distRightNeeded = cameraRadiusPx + 10f * density + messageWidth + 16f * density
-            val minHalfWidth = cameraRadiusPx + iconSize + 24f * density
-
-            val maxScreenHalfWidth = minOf(
-                cameraCenterX - 8f * density,
-                screenWidth - cameraCenterX - 8f * density,
-            ).coerceAtLeast(minHalfWidth)
-
-            val maxAllowedHalfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth)
-            val halfWidthNeeded = maxOf(distLeftNeeded, distRightNeeded)
-            val halfWidth = halfWidthNeeded.coerceIn(minHalfWidth, maxAllowedHalfWidth)
-
-            val targetLeft = cameraCenterX - halfWidth
-            val targetRight = cameraCenterX + halfWidth
-
-            return RectF(targetLeft, targetTop, targetRight, targetBottom)
-        } else {
-            val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
-            val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
-            val senderLeft = iconLeft + iconSize + 8f * density
-            val senderWidth = notificationSenderPaint.measureText(sender)
-            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(" • $message") else 0f
-
-            val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
-            val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
-            val distNeeded = senderLeft + senderWidth + messageWidth + 18f * density
-            val targetRight = distNeeded.coerceIn(targetLeft + 80f * density, maxRight)
-
-            return RectF(targetLeft, targetTop, targetRight, targetBottom)
-        }
-    }
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -500,13 +721,21 @@ class IslandOverlayView(context: Context) : View(context) {
             val fraction = animatedNotificationFraction
             val screenWidth = resources.displayMetrics.widthPixels.toFloat()
 
+            val canvasSaveCount = canvas.save()
+            if (dragTranslationX != 0f || dragTranslationY != 0f || dragScale != 1.0f) {
+                val pivotX = notificationPillRect.centerX().takeIf { it > 0f } ?: cameraCenterX
+                val pivotY = notificationPillRect.centerY().takeIf { it > 0f } ?: cameraCenterY
+                canvas.translate(dragTranslationX, dragTranslationY)
+                canvas.scale(dragScale, dragScale, pivotX, pivotY)
+            }
+
             val targetBounds = computeNotificationTargetBounds(alert)
             val targetTop = targetBounds.top
             val targetBottom = targetBounds.bottom
             val targetRight = targetBounds.right
 
-            val targetPillHeight = targetBottom - targetTop
-            val bubbleSize = targetPillHeight
+            val basePillHeight = cameraRadiusPx * 2f + 14f * density
+            val bubbleSize = basePillHeight
             val bubbleGap = 8f * density
 
             var totalBubblesWidth = 0f
@@ -524,31 +753,32 @@ class IslandOverlayView(context: Context) : View(context) {
             val initialRight = cameraCenterX + cameraRadiusPx
 
             val normalLeft = initialLeft + (adjustedTargetLeft - initialLeft) * fraction
-            val currentLeft = if (isMerging && mergeSourcePillLeft > 0f) {
+            val baseLeft = if (isMerging && mergeSourcePillLeft > 0f) {
                 mergeSourcePillLeft + (adjustedTargetLeft - mergeSourcePillLeft) * mergeFraction
             } else {
                 normalLeft
             }
+            val currentLeft = baseLeft + (initialLeft - baseLeft) * dragCollapseFraction
 
             val normalRight = initialRight + (targetRight - initialRight) * fraction
-            val currentRight = if (isMerging && mergeSourcePillRight > 0f) {
+            val baseRight = if (isMerging && mergeSourcePillRight > 0f) {
                 mergeSourcePillRight + (targetRight - mergeSourcePillRight) * mergeFraction
             } else {
                 normalRight
             }
+            val currentRight = baseRight - (baseRight - initialRight) * dragCollapseFraction
 
             val currentTop = targetTop
             val currentBottom = targetBottom
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
-            val cornerRadius = (currentBottom - currentTop) / 2f
+            val baseCornerRadius = basePillHeight / 2f
+            val cornerRadius = baseCornerRadius + (24f * density - baseCornerRadius) * expandedFraction
 
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
 
-            // Draw Liquid Main Pill
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillPaint)
 
-            // Content alpha & scale transitions matching iOS Dynamic Island
             val contentAlphaProgress = ((fraction - 0.15f) / 0.65f).coerceIn(0f, 1f)
             val baseContentAlpha = (contentAlphaProgress * 255).toInt()
 
@@ -558,15 +788,15 @@ class IslandOverlayView(context: Context) : View(context) {
                 notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
                 canvas.clipPath(notificationContentClipPath)
 
-                val textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
+                val textSize = (basePillHeight * 0.38f).coerceIn(13f * density, 20f * density)
                 notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 notificationSenderPaint.textSize = textSize
                 notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
                 notificationBodyPaint.textSize = textSize
 
                 val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
-                val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
-                val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
+                val iconSize = (basePillHeight - 14f * density).coerceAtLeast(16f * density)
+                val verticalPadding = (basePillHeight - iconSize) / 2f
 
                 if (isMerging && previousAlert != null) {
                     val outAlphaProgress = (1f - mergeFraction * 2.2f).coerceIn(0f, 1f)
@@ -645,7 +875,6 @@ class IslandOverlayView(context: Context) : View(context) {
                     }
 
                     if (textAlpha > 0) {
-                        // Left wing: Sender name
                         val senderStart = iconLeft + iconSize + 8f * density
                         val senderEnd = cameraCenterX - cameraRadiusPx - 8f * density
                         if (senderEnd > senderStart + 10f * density) {
@@ -657,28 +886,31 @@ class IslandOverlayView(context: Context) : View(context) {
                                 clipLeft = senderStart,
                                 clipRight = senderEnd,
                                 currentTop = currentTop,
-                                currentBottom = currentBottom,
+                                currentBottom = currentTop + basePillHeight,
                                 isRightPillEdge = false,
                                 cornerRadius = cornerRadius,
                             )
                         }
 
-                        // Right wing: Message text
-                        val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
-                        val msgEnd = currentRight - 14f * density
-                        if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
-                            drawMarqueeText(
-                                canvas = canvas,
-                                text = message,
-                                paint = notificationBodyPaint,
-                                marqueeController = rightMarquee,
-                                clipLeft = msgStart,
-                                clipRight = msgEnd,
-                                currentTop = currentTop,
-                                currentBottom = currentBottom,
-                                isRightPillEdge = true,
-                                cornerRadius = cornerRadius,
-                            )
+                        val collapsedRightAlpha = (textAlpha * (1f - expandedFraction * 2.5f).coerceIn(0f, 1f)).toInt()
+                        if (collapsedRightAlpha > 0) {
+                            notificationBodyPaint.alpha = collapsedRightAlpha
+                            val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
+                            val msgEnd = currentRight - 14f * density
+                            if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
+                                drawMarqueeText(
+                                    canvas = canvas,
+                                    text = message,
+                                    paint = notificationBodyPaint,
+                                    marqueeController = rightMarquee,
+                                    clipLeft = msgStart,
+                                    clipRight = msgEnd,
+                                    currentTop = currentTop,
+                                    currentBottom = currentTop + basePillHeight,
+                                    isRightPillEdge = true,
+                                    cornerRadius = cornerRadius,
+                                )
+                            }
                         }
                     }
                 } else {
@@ -706,22 +938,70 @@ class IslandOverlayView(context: Context) : View(context) {
                     if (textAlpha > 0) {
                         val textStart = iconLeft + iconSize + 8f * density
                         val textEnd = currentRight - 14f * density
-                        val combinedText = if (message.isNotBlank()) "$sender • $message" else sender
+                        val collapsedRightAlpha = (textAlpha * (1f - expandedFraction * 2.5f).coerceIn(0f, 1f)).toInt()
 
-                        if (textEnd > textStart + 10f * density) {
-                            drawMarqueeText(
-                                canvas = canvas,
-                                text = combinedText,
-                                paint = notificationSenderPaint,
-                                marqueeController = rightMarquee,
-                                clipLeft = textStart,
-                                clipRight = textEnd,
-                                currentTop = currentTop,
-                                currentBottom = currentBottom,
-                                isRightPillEdge = true,
-                                cornerRadius = cornerRadius,
+                        if (collapsedRightAlpha > 0) {
+                            notificationSenderPaint.alpha = collapsedRightAlpha
+                            val combinedText = if (message.isNotBlank()) "$sender • $message" else sender
+                            if (textEnd > textStart + 10f * density) {
+                                drawMarqueeText(
+                                    canvas = canvas,
+                                    text = combinedText,
+                                    paint = notificationSenderPaint,
+                                    marqueeController = rightMarquee,
+                                    clipLeft = textStart,
+                                    clipRight = textEnd,
+                                    currentTop = currentTop,
+                                    currentBottom = currentTop + basePillHeight,
+                                    isRightPillEdge = true,
+                                    cornerRadius = cornerRadius,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (expandedFraction > 0.01f && message.isNotBlank()) {
+                    val expandedContentAlpha = ((expandedFraction - 0.20f) / 0.80f).coerceIn(0f, 1f)
+                    val expAlpha = (expandedContentAlpha * 255).toInt()
+                    if (expAlpha > 0) {
+                        val textSize = (basePillHeight * 0.38f).coerceIn(14f * density, 18f * density)
+                        val bodyTextPaint = TextPaint().apply {
+                            set(notificationBodyPaint)
+                            typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+                            setTextSize(textSize)
+                            setAlpha(expAlpha)
+                        }
+                        val innerPadding = 16f * density
+                        val bodyLeft = currentLeft + innerPadding
+                        val headerSpacing = 2f * density
+                        val bodyTop = currentTop + basePillHeight + headerSpacing + (1f - expandedFraction) * -8f * density
+                        val bodyWidth = (currentRight - currentLeft - innerPadding * 2).toInt().coerceAtLeast(50)
+
+                        val bodyLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            StaticLayout.Builder.obtain(message, 0, message.length, bodyTextPaint, bodyWidth)
+                                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                                .setLineSpacing(2f * density, 1.0f)
+                                .setMaxLines(4)
+                                .setEllipsize(TextUtils.TruncateAt.END)
+                                .build()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            StaticLayout(
+                                message,
+                                bodyTextPaint,
+                                bodyWidth,
+                                Layout.Alignment.ALIGN_NORMAL,
+                                1.0f,
+                                2f * density,
+                                true,
                             )
                         }
+
+                        canvas.save()
+                        canvas.translate(bodyLeft, bodyTop)
+                        bodyLayout.draw(canvas)
+                        canvas.restore()
                     }
                 }
 
@@ -824,6 +1104,8 @@ class IslandOverlayView(context: Context) : View(context) {
                     }
                 }
             }
+
+            canvas.restoreToCount(canvasSaveCount)
         }
     }
 

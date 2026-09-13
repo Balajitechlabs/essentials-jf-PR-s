@@ -20,6 +20,7 @@ import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
+import kotlin.math.abs
 import kotlin.math.hypot
 
 class IslandTouchHandler(
@@ -30,17 +31,31 @@ class IslandTouchHandler(
 
     var onNotificationDismissRequested: (() -> Unit)? = null
     var onNotificationSwitched: (() -> Unit)? = null
+    var onNotificationExpandToggled: ((Boolean) -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
     private var downTime: Long = 0L
     private var isTouchActive: Boolean = false
+    private var isLongPressed: Boolean = false
+    private var isDragging: Boolean = false
+
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val longPressRunnable = Runnable {
+        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true) {
+            isLongPressed = true
+            HapticUtil.performRumbleHaptic(service)
+            val isNowExpanded = overlayView?.toggleExpansion() ?: false
+            onNotificationExpandToggled?.invoke(isNowExpanded)
+            HapticUtil.performStrongTickHaptic(service)
+        }
+    }
 
     private val density: Float
         get() = service.resources.displayMetrics.density
 
     private val touchSlopPx: Float
-        get() = 12f * density
+        get() = 10f * density
 
     fun onTouchEvent(event: MotionEvent): Boolean {
         val x = event.rawX
@@ -52,16 +67,50 @@ class IslandTouchHandler(
                 downY = y
                 downTime = SystemClock.uptimeMillis()
                 isTouchActive = true
+                isLongPressed = false
+                isDragging = false
+                mainHandler.removeCallbacks(longPressRunnable)
+                mainHandler.postDelayed(longPressRunnable, 360L)
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
                 if (!isTouchActive) return false
+                val dx = x - downX
+                val dy = y - downY
+                val dist = hypot(dx, dy)
+
+                if (dist > touchSlopPx) {
+                    mainHandler.removeCallbacks(longPressRunnable)
+                    if (!isLongPressed) {
+                        isDragging = true
+                        val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
+                        val dragDistTowardsCamera = when {
+                            downX < cameraX -> dx.coerceAtLeast(0f)
+                            downX > cameraX -> (-dx).coerceAtLeast(0f)
+                            else -> abs(dx)
+                        }
+                        val maxDragDist = 140f * density
+                        val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
+
+                        overlayView?.updateDragCollapseFraction(dragFraction)
+                    }
+                }
                 return true
             }
 
             MotionEvent.ACTION_UP -> {
+                mainHandler.removeCallbacks(longPressRunnable)
                 if (!isTouchActive) return false
+
+                if (isLongPressed) {
+                    isTouchActive = false
+                    isLongPressed = false
+                    isDragging = false
+                    overlayView?.resetDragOffset()
+                    return true
+                }
+
                 val elapsed = SystemClock.uptimeMillis() - downTime
                 val dx = x - downX
                 val dy = y - downY
@@ -69,23 +118,36 @@ class IslandTouchHandler(
 
                 val isNotifActive = overlayView?.isNotificationAlertActive == true
                 if (isNotifActive) {
-                    val isSwipeUp = dy < -touchSlopPx
-                    val isSwipeDown = dy > touchSlopPx * 1.5f
+                    val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
+                    val isSwipeUp = dy < -touchSlopPx * 1.5f && abs(dy) > abs(dx)
+                    val isSwipeTowardCamera = when {
+                        downX < cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        downX > cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        else -> false
+                    }
 
-                    if (isSwipeUp && settingsRepository.isIslandSwipeUpActionEnabled()) {
-                        dismissNotification()
-                        HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
-                    } else if (isSwipeDown) {
-                        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
-                        dismissNotification()
-                        HapticUtil.performHapticForService(service, HapticFeedbackType.DOUBLE)
-                    } else if (totalDist < touchSlopPx * 2.5f && elapsed < 800L && settingsRepository.isIslandTapActionEnabled()) {
+                    if (isSwipeUp || isSwipeTowardCamera) {
+                        HapticUtil.performRumbleHaptic(service)
+                        HapticUtil.performStrongTickHaptic(service)
+
+                        overlayView?.animateDragDismissCollapse {
+                            val hasNext = overlayView?.advanceToNextNotification() ?: false
+                            if (hasNext) {
+                                onNotificationSwitched?.invoke()
+                            } else {
+                                dismissNotification()
+                            }
+                        }
+                    } else if (isDragging) {
+                        overlayView?.animateDragSnapBack()
+                    } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L && settingsRepository.isIslandTapActionEnabled()) {
+                        overlayView?.resetDragOffset()
                         val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
                         if (queuedIdx >= 0) {
                             val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
                             if (switched) {
                                 onNotificationSwitched?.invoke()
-                                HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
+                                HapticUtil.performStrongTickHaptic(service)
                             }
                         } else {
                             val alert = overlayView?.getActiveNotificationAlert()
@@ -95,15 +157,25 @@ class IslandTouchHandler(
                             }
                             HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                         }
+                    } else {
+                        overlayView?.animateDragSnapBack()
                     }
+                } else {
+                    overlayView?.resetDragOffset()
                 }
 
                 isTouchActive = false
+                isLongPressed = false
+                isDragging = false
                 return true
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                mainHandler.removeCallbacks(longPressRunnable)
+                overlayView?.animateDragSnapBack()
                 isTouchActive = false
+                isLongPressed = false
+                isDragging = false
                 return false
             }
         }
