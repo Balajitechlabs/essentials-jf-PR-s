@@ -72,13 +72,8 @@ class IslandOverlayView(context: Context) : View(context) {
     private val notificationIconClipPath = Path()
     private val notificationContentClipPath = Path()
 
-    // Marquee state
-    private var marqueeOffset: Float = 0f
-    private var marqueeAnimator: ValueAnimator? = null
-    private var isMarqueeNeeded: Boolean = false
-    private var lastMarqueeText: String = ""
-    private var lastMaxTextWidth: Float = 0f
-    private val marqueeClipPath = Path()
+    private val leftMarquee = MarqueeController()
+    private val rightMarquee = MarqueeController()
     private val marqueeFadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
     }
@@ -98,9 +93,14 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    private val notificationBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val notificationSenderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    }
+
+    private val notificationBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -114,7 +114,7 @@ class IslandOverlayView(context: Context) : View(context) {
         val startVal = animatedNotificationFraction
         notificationAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
             duration = 480L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.68f, responseTimeSec = 0.48f)
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
             addUpdateListener { anim ->
                 animatedNotificationFraction = anim.animatedValue as Float
                 invalidate()
@@ -124,13 +124,13 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun dismissNotificationAlert() {
-        stopMarquee()
+        stopAllMarquees()
         if (!isNotificationAlertActive && animatedNotificationFraction <= 0f) return
         notificationAnimator?.cancel()
         val startVal = animatedNotificationFraction
         notificationAnimator = ValueAnimator.ofFloat(startVal, 0.0f).apply {
-            duration = 300L
-            interpolator = AppleDismissInterpolator(responseTimeSec = 0.30f)
+            duration = 280L
+            interpolator = AppleDismissInterpolator(responseTimeSec = 0.28f)
             addUpdateListener { anim ->
                 animatedNotificationFraction = anim.animatedValue as Float
                 invalidate()
@@ -148,58 +148,15 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    private fun checkAndStartMarquee(text: String, maxTextWidth: Float) {
-        val textWidth = notificationBodyPaint.measureText(text)
-        val needed = (textWidth - maxTextWidth) > 1.5f * density && maxTextWidth > 0f
-
-        if (needed) {
-            if (!isMarqueeNeeded || text != lastMarqueeText || abs(maxTextWidth - lastMaxTextWidth) > 1f) {
-                isMarqueeNeeded = true
-                lastMarqueeText = text
-                lastMaxTextWidth = maxTextWidth
-                marqueeAnimator?.cancel()
-                marqueeOffset = 0f
-
-                val marqueeGap = 28f * density
-                val totalDistance = textWidth + marqueeGap
-                val speedDpPerSec = 30f
-                val durationMs = ((totalDistance / density) / speedDpPerSec * 1000L).toLong().coerceAtLeast(2000L)
-
-                marqueeAnimator = ValueAnimator.ofFloat(0f, totalDistance).apply {
-                    duration = durationMs
-                    interpolator = LinearInterpolator()
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.RESTART
-                    startDelay = 1200L
-                    addUpdateListener {
-                        marqueeOffset = it.animatedValue as Float
-                        invalidate()
-                    }
-                    start()
-                }
-            }
-        } else {
-            if (isMarqueeNeeded || text != lastMarqueeText) {
-                stopMarquee()
-                lastMarqueeText = text
-                lastMaxTextWidth = maxTextWidth
-            }
-        }
-    }
-
-    private fun stopMarquee() {
-        isMarqueeNeeded = false
-        lastMarqueeText = ""
-        lastMaxTextWidth = 0f
-        marqueeAnimator?.cancel()
-        marqueeAnimator = null
-        marqueeOffset = 0f
+    private fun stopAllMarquees() {
+        leftMarquee.stop()
+        rightMarquee.stop()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         notificationAnimator?.cancel()
-        stopMarquee()
+        stopAllMarquees()
     }
 
     fun getActiveNotificationAlert(): ActiveNotificationAlert? = activeNotificationAlert
@@ -211,43 +168,64 @@ class IslandOverlayView(context: Context) : View(context) {
         return computeNotificationTargetBounds(alert)
     }
 
-    private fun computeNotificationDisplayText(alert: ActiveNotificationAlert): String {
-        val appName = try {
+    private fun computeSenderAndMessage(alert: ActiveNotificationAlert): Pair<String, String> {
+        val appName = alert.appName?.trim() ?: try {
             val pm = context.packageManager
             val appInfo = pm.getApplicationInfo(alert.packageName, 0)
-            pm.getApplicationLabel(appInfo).toString()
+            pm.getApplicationLabel(appInfo).toString().trim()
         } catch (_: Exception) {
             ""
         }
 
-        val cleanTitle = when {
-            appName.isNotBlank() && alert.title.startsWith("$appName: ", ignoreCase = true) ->
-                alert.title.substring(appName.length + 2).trim()
-            appName.isNotBlank() && alert.title.startsWith("$appName - ", ignoreCase = true) ->
-                alert.title.substring(appName.length + 3).trim()
-            appName.isNotBlank() && alert.title.startsWith("$appName • ", ignoreCase = true) ->
-                alert.title.substring(appName.length + 3).trim()
-            else -> alert.title.trim()
+        var sender = alert.senderName?.trim() ?: ""
+        if (sender.isBlank() || sender.equals("You", ignoreCase = true)) {
+            val cleanTitle = when {
+                appName.isNotBlank() && alert.title.startsWith("$appName: ", ignoreCase = true) ->
+                    alert.title.substring(appName.length + 2).trim()
+                appName.isNotBlank() && alert.title.startsWith("$appName - ", ignoreCase = true) ->
+                    alert.title.substring(appName.length + 3).trim()
+                appName.isNotBlank() && alert.title.startsWith("$appName • ", ignoreCase = true) ->
+                    alert.title.substring(appName.length + 3).trim()
+                else -> alert.title.trim()
+            }
+
+            val isTitleAppName = cleanTitle.isBlank() ||
+                cleanTitle.equals("You", ignoreCase = true) ||
+                (appName.isNotBlank() && cleanTitle.equals(appName, ignoreCase = true)) ||
+                cleanTitle.equals(alert.packageName, ignoreCase = true) ||
+                cleanTitle.equals("WhatsApp", ignoreCase = true) ||
+                cleanTitle.equals("Messages", ignoreCase = true) ||
+                cleanTitle.equals("Telegram", ignoreCase = true) ||
+                cleanTitle.equals("Gmail", ignoreCase = true) ||
+                cleanTitle.equals("Instagram", ignoreCase = true) ||
+                cleanTitle.equals("Slack", ignoreCase = true) ||
+                cleanTitle.equals("Discord", ignoreCase = true) ||
+                cleanTitle.equals("Essentials", ignoreCase = true)
+
+            sender = if (isTitleAppName) {
+                if (appName.isNotBlank()) appName else cleanTitle
+            } else {
+                cleanTitle
+            }
         }
 
-        val isTitleAppName = cleanTitle.isBlank() ||
-            (appName.isNotBlank() && cleanTitle.equals(appName, ignoreCase = true)) ||
-            cleanTitle.equals(alert.packageName, ignoreCase = true) ||
-            cleanTitle.equals("WhatsApp", ignoreCase = true) ||
-            cleanTitle.equals("Messages", ignoreCase = true) ||
-            cleanTitle.equals("Telegram", ignoreCase = true) ||
-            cleanTitle.equals("Gmail", ignoreCase = true) ||
-            cleanTitle.equals("Instagram", ignoreCase = true) ||
-            cleanTitle.equals("Slack", ignoreCase = true) ||
-            cleanTitle.equals("Discord", ignoreCase = true) ||
-            cleanTitle.equals("Essentials", ignoreCase = true)
-
-        return when {
-            alert.text.isBlank() -> cleanTitle
-            isTitleAppName -> alert.text.trim()
-            alert.text.startsWith(cleanTitle, ignoreCase = true) -> alert.text.trim()
-            else -> "$cleanTitle: ${alert.text.trim()}"
+        if (sender.isBlank() || sender.equals("You", ignoreCase = true)) {
+            sender = if (appName.isNotBlank()) appName else "Notification"
         }
+
+        var message = alert.text.trim()
+        if (message.isBlank()) {
+            val cleanTitle = alert.title.trim()
+            if (!cleanTitle.equals(sender, ignoreCase = true) && !cleanTitle.equals(appName, ignoreCase = true) && !cleanTitle.equals("You", ignoreCase = true)) {
+                message = cleanTitle
+            }
+        } else {
+            if (sender.isNotBlank() && message.startsWith("$sender: ", ignoreCase = true)) {
+                message = message.substring(sender.length + 2).trim()
+            }
+        }
+
+        return Pair(sender, message)
     }
 
     private fun computeNotificationTargetBounds(alert: ActiveNotificationAlert): RectF {
@@ -258,29 +236,31 @@ class IslandOverlayView(context: Context) : View(context) {
         val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
         val verticalPadding = (targetPillHeight - iconSize) / 2f
 
+        val (sender, message) = computeSenderAndMessage(alert)
+        val textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
+        notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        notificationSenderPaint.textSize = textSize
+        notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+        notificationBodyPaint.textSize = textSize
+
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
         if (isCenterCamera) {
-            val spaceFromCutout = 14f * density
-            val minDistLeft = cameraRadiusPx + spaceFromCutout + iconSize + verticalPadding
+            val senderWidth = notificationSenderPaint.measureText(sender)
+            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(message) else 0f
 
-            notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
-            val displayText = computeNotificationDisplayText(alert)
-            val textWidth = notificationBodyPaint.measureText(displayText)
-            val distRightNeeded = cameraRadiusPx + spaceFromCutout + textWidth + 18f * density
+            val distLeftNeeded = cameraRadiusPx + 10f * density + senderWidth + 8f * density + iconSize + verticalPadding
+            val distRightNeeded = cameraRadiusPx + 10f * density + messageWidth + 16f * density
+            val minHalfWidth = cameraRadiusPx + iconSize + 24f * density
 
             val maxScreenHalfWidth = minOf(
                 cameraCenterX - 8f * density,
                 screenWidth - cameraCenterX - 8f * density,
-            ).coerceAtLeast(minDistLeft)
+            ).coerceAtLeast(minHalfWidth)
 
             val maxAllowedHalfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth)
-            val halfWidth = if (distRightNeeded > maxAllowedHalfWidth) {
-                maxAllowedHalfWidth
-            } else {
-                maxOf(minDistLeft, distRightNeeded).coerceIn(minDistLeft, maxAllowedHalfWidth)
-            }
+            val halfWidthNeeded = maxOf(distLeftNeeded, distRightNeeded)
+            val halfWidth = halfWidthNeeded.coerceIn(minHalfWidth, maxAllowedHalfWidth)
 
             val targetLeft = cameraCenterX - halfWidth
             val targetRight = cameraCenterX + halfWidth
@@ -288,24 +268,15 @@ class IslandOverlayView(context: Context) : View(context) {
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         } else {
             val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
-            val spaceFromCutout = 16f * density
-            val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-            val textLeft = iconLeft + iconSize + 12f * density
+            val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
+            val senderLeft = iconLeft + iconSize + 8f * density
+            val senderWidth = notificationSenderPaint.measureText(sender)
+            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(" • $message") else 0f
 
             val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
             val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
-            val maxAvailableTextWidth = (maxRight - textLeft - 18f * density).coerceAtLeast(50f * density)
-
-            notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            notificationBodyPaint.textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
-            val displayText = computeNotificationDisplayText(alert)
-            val textWidth = notificationBodyPaint.measureText(displayText)
-            val distNeeded = textLeft + textWidth + 18f * density
-            val targetRight = if (distNeeded > maxRight) {
-                maxRight
-            } else {
-                distNeeded.coerceIn(targetLeft + 80f * density, maxRight)
-            }
+            val distNeeded = senderLeft + senderWidth + messageWidth + 18f * density
+            val targetRight = distNeeded.coerceIn(targetLeft + 80f * density, maxRight)
 
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         }
@@ -350,6 +321,19 @@ class IslandOverlayView(context: Context) : View(context) {
                 notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
                 canvas.clipPath(notificationContentClipPath)
 
+                val (sender, message) = computeSenderAndMessage(alert)
+                val textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
+
+                notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                notificationSenderPaint.textSize = textSize
+                val textAlphaProgress = ((fraction - 0.25f) / 0.60f).coerceIn(0f, 1f)
+                val textAlpha = (textAlphaProgress * 255).toInt()
+                notificationSenderPaint.alpha = textAlpha
+
+                notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+                notificationBodyPaint.textSize = textSize
+                notificationBodyPaint.alpha = textAlpha
+
                 val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
                 if (isCenterCamera) {
@@ -359,7 +343,8 @@ class IslandOverlayView(context: Context) : View(context) {
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
-                    if (alert.icon != null) {
+                    val displayIcon = alert.icon ?: alert.appIcon
+                    if (displayIcon != null) {
                         iconPaint.alpha = contentAlpha
                         val iconScale = 0.85f + 0.15f * contentAlphaProgress
                         val iconCenterX = iconRect.centerX()
@@ -370,46 +355,57 @@ class IslandOverlayView(context: Context) : View(context) {
                         notificationIconClipPath.reset()
                         notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
                         canvas.clipPath(notificationIconClipPath)
-                        canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
+                        canvas.drawBitmap(displayIcon, null, iconRect, iconPaint)
                         canvas.restore()
                     }
 
-                    val spaceFromCutout = 14f * density
-                    val textLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
-                    val maxAvailableTextWidth = (currentRight - textLeft - 14f * density).coerceAtLeast(40f * density)
+                    if (textAlpha > 0) {
+                        // Left wing: Sender name
+                        val senderStart = iconLeft + iconSize + 8f * density
+                        val senderEnd = cameraCenterX - cameraRadiusPx - 8f * density
+                        if (senderEnd > senderStart + 10f * density) {
+                            drawMarqueeText(
+                                canvas = canvas,
+                                text = sender,
+                                paint = notificationSenderPaint,
+                                marqueeController = leftMarquee,
+                                clipLeft = senderStart,
+                                clipRight = senderEnd,
+                                currentTop = currentTop,
+                                currentBottom = currentBottom,
+                                isRightPillEdge = false,
+                                cornerRadius = cornerRadius,
+                            )
+                        }
 
-                    notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                    notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
-                    notificationBodyPaint.color = Color.WHITE
-                    val textAlphaProgress = ((fraction - 0.25f) / 0.60f).coerceIn(0f, 1f)
-                    notificationBodyPaint.alpha = (textAlphaProgress * 255).toInt()
-
-                    if (notificationBodyPaint.alpha > 0) {
-                        val displayText = computeNotificationDisplayText(alert)
-                        val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
-
-                        drawMarqueeNotificationText(
-                            canvas = canvas,
-                            text = displayText,
-                            textLeft = textLeft,
-                            textY = textY,
-                            fadeStartPos = cameraCenterX + cameraRadiusPx + 4f * density,
-                            currentTop = currentTop,
-                            currentRight = currentRight,
-                            currentBottom = currentBottom,
-                            cornerRadius = cornerRadius,
-                            maxAvailableTextWidth = maxAvailableTextWidth,
-                        )
+                        // Right wing: Message text
+                        val msgStart = cameraCenterX + cameraRadiusPx + 10f * density
+                        val msgEnd = currentRight - 14f * density
+                        if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
+                            drawMarqueeText(
+                                canvas = canvas,
+                                text = message,
+                                paint = notificationBodyPaint,
+                                marqueeController = rightMarquee,
+                                clipLeft = msgStart,
+                                clipRight = msgEnd,
+                                currentTop = currentTop,
+                                currentBottom = currentBottom,
+                                isRightPillEdge = true,
+                                cornerRadius = cornerRadius,
+                            )
+                        }
                     }
                 } else {
                     val iconSize = (currentBottom - currentTop - 14f * density).coerceAtLeast(16f * density)
                     val verticalPadding = (currentBottom - currentTop - iconSize) / 2f
-                    val spaceFromCutout = 16f * density
+                    val spaceFromCutout = 14f * density
                     val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
-                    if (alert.icon != null) {
+                    val displayIcon = alert.icon ?: alert.appIcon
+                    if (displayIcon != null) {
                         iconPaint.alpha = contentAlpha
                         val iconScale = 0.85f + 0.15f * contentAlphaProgress
                         val iconCenterX = iconRect.centerX()
@@ -420,35 +416,29 @@ class IslandOverlayView(context: Context) : View(context) {
                         notificationIconClipPath.reset()
                         notificationIconClipPath.addRoundRect(iconRect, iconSize * 0.28f, iconSize * 0.28f, Path.Direction.CW)
                         canvas.clipPath(notificationIconClipPath)
-                        canvas.drawBitmap(alert.icon, null, iconRect, iconPaint)
+                        canvas.drawBitmap(displayIcon, null, iconRect, iconPaint)
                         canvas.restore()
                     }
 
-                    val textLeft = iconLeft + iconSize + 12f * density
-                    val maxAvailableTextWidth = (currentRight - textLeft - 18f * density).coerceAtLeast(50f * density)
+                    if (textAlpha > 0) {
+                        val textStart = iconLeft + iconSize + 8f * density
+                        val textEnd = currentRight - 14f * density
+                        val combinedText = if (message.isNotBlank()) "$sender • $message" else sender
 
-                    notificationBodyPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                    notificationBodyPaint.textSize = ((targetBottom - targetTop) * 0.38f).coerceIn(13f * density, 20f * density)
-                    notificationBodyPaint.color = Color.WHITE
-                    val textAlphaProgress = ((fraction - 0.25f) / 0.60f).coerceIn(0f, 1f)
-                    notificationBodyPaint.alpha = (textAlphaProgress * 255).toInt()
-
-                    if (notificationBodyPaint.alpha > 0) {
-                        val displayText = computeNotificationDisplayText(alert)
-                        val textY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
-
-                        drawMarqueeNotificationText(
-                            canvas = canvas,
-                            text = displayText,
-                            textLeft = textLeft,
-                            textY = textY,
-                            fadeStartPos = iconLeft + iconSize + 2f * density,
-                            currentTop = currentTop,
-                            currentRight = currentRight,
-                            currentBottom = currentBottom,
-                            cornerRadius = cornerRadius,
-                            maxAvailableTextWidth = maxAvailableTextWidth,
-                        )
+                        if (textEnd > textStart + 10f * density) {
+                            drawMarqueeText(
+                                canvas = canvas,
+                                text = combinedText,
+                                paint = notificationSenderPaint,
+                                marqueeController = rightMarquee,
+                                clipLeft = textStart,
+                                clipRight = textEnd,
+                                currentTop = currentTop,
+                                currentBottom = currentBottom,
+                                isRightPillEdge = true,
+                                cornerRadius = cornerRadius,
+                            )
+                        }
                     }
                 }
 
@@ -457,60 +447,130 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    private fun drawMarqueeNotificationText(
+    private fun drawMarqueeText(
         canvas: Canvas,
         text: String,
-        textLeft: Float,
-        textY: Float,
-        fadeStartPos: Float,
+        paint: Paint,
+        marqueeController: MarqueeController,
+        clipLeft: Float,
+        clipRight: Float,
         currentTop: Float,
-        currentRight: Float,
         currentBottom: Float,
+        isRightPillEdge: Boolean,
         cornerRadius: Float,
-        maxAvailableTextWidth: Float,
     ) {
+        val availableWidth = (clipRight - clipLeft).coerceAtLeast(10f * density)
         if (animatedNotificationFraction >= 0.98f) {
-            checkAndStartMarquee(text, maxAvailableTextWidth)
+            marqueeController.update(text, availableWidth, paint, density) {
+                invalidate()
+            }
         }
 
-        if (isMarqueeNeeded && animatedNotificationFraction >= 0.98f) {
-            val fadeStart = fadeStartPos.coerceAtLeast(0f)
-            val fadeWidth = 14f * density
-            val marqueeBounds = RectF(fadeStart, currentTop, currentRight, currentBottom)
+        val textY = cameraCenterY + paint.textSize * 0.35f
+
+        if (marqueeController.isNeeded && animatedNotificationFraction >= 0.98f) {
+            val marqueeBounds = RectF(clipLeft, currentTop, clipRight, currentBottom)
             val saveLayerCount = canvas.saveLayer(marqueeBounds, null)
 
-            marqueeClipPath.reset()
-            val radii = floatArrayOf(
-                0f, 0f,
-                cornerRadius, cornerRadius,
-                cornerRadius, cornerRadius,
-                0f, 0f,
-            )
-            marqueeClipPath.addRoundRect(
-                marqueeBounds,
-                radii,
-                Path.Direction.CW,
-            )
+            val marqueeClipPath = Path()
+            if (isRightPillEdge) {
+                val radii = floatArrayOf(
+                    0f, 0f,
+                    cornerRadius, cornerRadius,
+                    cornerRadius, cornerRadius,
+                    0f, 0f,
+                )
+                marqueeClipPath.addRoundRect(marqueeBounds, radii, Path.Direction.CW)
+            } else {
+                marqueeClipPath.addRect(marqueeBounds, Path.Direction.CW)
+            }
             canvas.clipPath(marqueeClipPath)
 
             val marqueeGap = 28f * density
-            val textWidthMeasure = notificationBodyPaint.measureText(text)
-            val x1 = textLeft - marqueeOffset
+            val textWidthMeasure = paint.measureText(text)
+            val x1 = clipLeft - marqueeController.offset
             val x2 = x1 + textWidthMeasure + marqueeGap
-            canvas.drawText(text, x1, textY, notificationBodyPaint)
-            canvas.drawText(text, x2, textY, notificationBodyPaint)
+            canvas.drawText(text, x1, textY, paint)
+            canvas.drawText(text, x2, textY, paint)
 
-            marqueeFadePaint.shader = LinearGradient(
-                fadeStart, 0f, fadeStart + fadeWidth, 0f,
-                Color.TRANSPARENT, Color.BLACK,
-                Shader.TileMode.CLAMP,
-            )
-            canvas.drawRect(fadeStart, currentTop, fadeStart + fadeWidth, currentBottom, marqueeFadePaint)
+            val totalWidth = clipRight - clipLeft
+            val fadeWidth = 12f * density
+            if (totalWidth > fadeWidth * 2) {
+                val fLeft = (fadeWidth / totalWidth).coerceIn(0f, 0.45f)
+                val fRight = 1f - fLeft
+                marqueeFadePaint.shader = LinearGradient(
+                    clipLeft, 0f, clipRight, 0f,
+                    intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK, Color.TRANSPARENT),
+                    floatArrayOf(0f, fLeft, fRight, 1f),
+                    Shader.TileMode.CLAMP,
+                )
+                canvas.drawRect(marqueeBounds, marqueeFadePaint)
+            }
 
             canvas.restoreToCount(saveLayerCount)
         } else {
-            canvas.drawText(text, textLeft, textY, notificationBodyPaint)
+            canvas.save()
+            val textClipRect = RectF(clipLeft, currentTop, clipRight, currentBottom)
+            canvas.clipRect(textClipRect)
+            canvas.drawText(text, clipLeft, textY, paint)
+            canvas.restore()
         }
+    }
+}
+
+private class MarqueeController {
+    var offset: Float = 0f
+    var isNeeded: Boolean = false
+    var lastText: String = ""
+    var lastWidth: Float = 0f
+    private var animator: ValueAnimator? = null
+
+    fun update(text: String, maxTextWidth: Float, textPaint: Paint, density: Float, onInvalidate: () -> Unit) {
+        val textWidth = textPaint.measureText(text)
+        val needed = (textWidth - maxTextWidth) > 1.5f * density && maxTextWidth > 0f
+
+        if (needed) {
+            if (!isNeeded || text != lastText || abs(maxTextWidth - lastWidth) > 1f) {
+                isNeeded = true
+                lastText = text
+                lastWidth = maxTextWidth
+                animator?.cancel()
+                offset = 0f
+
+                val marqueeGap = 28f * density
+                val totalDistance = textWidth + marqueeGap
+                val speedDpPerSec = 30f
+                val durationMs = ((totalDistance / density) / speedDpPerSec * 1000L).toLong().coerceAtLeast(2000L)
+
+                animator = ValueAnimator.ofFloat(0f, totalDistance).apply {
+                    duration = durationMs
+                    interpolator = LinearInterpolator()
+                    repeatCount = ValueAnimator.INFINITE
+                    repeatMode = ValueAnimator.RESTART
+                    startDelay = 1200L
+                    addUpdateListener {
+                        offset = it.animatedValue as Float
+                        onInvalidate()
+                    }
+                    start()
+                }
+            }
+        } else {
+            if (isNeeded || text != lastText) {
+                stop()
+                lastText = text
+                lastWidth = maxTextWidth
+            }
+        }
+    }
+
+    fun stop() {
+        isNeeded = false
+        lastText = ""
+        lastWidth = 0f
+        animator?.cancel()
+        animator = null
+        offset = 0f
     }
 }
 
