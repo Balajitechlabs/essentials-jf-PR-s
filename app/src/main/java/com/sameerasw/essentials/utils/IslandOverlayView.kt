@@ -865,7 +865,9 @@ class IslandOverlayView(context: Context) : View(context) {
         if (queuedNotificationAlerts.isNotEmpty()) {
             return switchToQueuedNotification(0)
         } else {
-            dismissNotificationAlert()
+            if (isNotificationAlertActive) {
+                dismissNotificationAlert()
+            }
             return false
         }
     }
@@ -891,6 +893,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun dismissNotificationAlert() {
+        if (!isNotificationAlertActive && activeNotificationAlert == null) return
         stopAllMarquees()
         isMerging = false
         previousAlert = null
@@ -1155,6 +1158,9 @@ class IslandOverlayView(context: Context) : View(context) {
         return Pair(sender, message)
     }
 
+    private fun pillTextRightEdge(pillRight: Float, cornerExtraPad: Float = 0f, reservedRight: Float = 0f): Float =
+        pillRight - cornerExtraPad - reservedRight
+
     private fun drawMediaPlayback(canvas: Canvas) {
         val height = cameraRadiusPx * 2f + 14f * density
         val initial = RectF(
@@ -1215,9 +1221,11 @@ class IslandOverlayView(context: Context) : View(context) {
             val artistLeft = artRect.right + 8f * density
             val artistRight = cameraCenterX - cameraRadiusPx - 8f * density
             val titleLeft = cameraCenterX + cameraRadiusPx + 10f * density
-            val titleRight = compactIconRect.left - 8f * density
-            drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f)
-            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f)
+            val compactIconReserve = mediaPillRect.right - (compactIconRect.left - 8f * density)
+            val titleRight = pillTextRightEdge(mediaPillRect.right, reservedRight = compactIconReserve * mediaCompactFraction)
+            val mediaRevealFraction = mediaFraction * (1f - mediaCompactFraction)
+            drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f, mediaRevealFraction)
+            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction)
         }
     }
 
@@ -1488,7 +1496,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         if (collapsedRightAlpha > 0) {
                             notificationBodyPaint.alpha = collapsedRightAlpha
                             val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
-                            val msgEnd = currentRight - cornerExtraPad
+                            val msgEnd = pillTextRightEdge(currentRight, cornerExtraPad)
                             if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
                                 drawMarqueeText(
                                     canvas = canvas,
@@ -1541,7 +1549,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                     if (textAlpha > 0) {
                         val textStart = iconLeft + iconSize + 8f * density
-                        val textEnd = currentRight - cornerExtraPad
+                        val textEnd = pillTextRightEdge(currentRight, cornerExtraPad)
                         val collapsedRightAlpha = (textAlpha * (1f - expandedFraction * 2.5f).coerceIn(0f, 1f)).toInt()
 
                         if (collapsedRightAlpha > 0) {
@@ -1826,9 +1834,10 @@ class IslandOverlayView(context: Context) : View(context) {
         currentBottom: Float,
         isRightPillEdge: Boolean,
         cornerRadius: Float,
+        revealFraction: Float = animatedNotificationFraction,
     ) {
         val availableWidth = (clipRight - clipLeft).coerceAtLeast(10f * density)
-        if (animatedNotificationFraction >= 0.98f) {
+        if (revealFraction >= 0.98f) {
             marqueeController.update(text, availableWidth, paint, density) {
                 invalidate()
             }
@@ -1836,7 +1845,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
         val textY = (currentTop + currentBottom) / 2f + paint.textSize * 0.35f
 
-        if (marqueeController.isNeeded && animatedNotificationFraction >= 0.98f) {
+        if (marqueeController.isNeeded && revealFraction >= 0.98f) {
             val marqueeBounds = RectF(clipLeft, currentTop, clipRight, currentBottom)
             val saveLayerCount = canvas.saveLayer(marqueeBounds, null)
 
