@@ -170,6 +170,9 @@ class MainViewModel : ViewModel() {
     val islandCameraOffsetY = mutableFloatStateOf(3f)
     val islandCameraSize = mutableFloatStateOf(1.0f)
     val islandMaxWidth = mutableFloatStateOf(360f)
+    val islandExpandedWidth = mutableFloatStateOf(360f)
+    val islandExpandedRoundness = mutableFloatStateOf(24f)
+    val islandExpandedTimeoutMs = mutableLongStateOf(0L)
     val isIslandSuppressSystemHeadsUp = mutableStateOf(false)
     val isIslandHideWhenScreenOff = mutableStateOf(true)
     val islandTimeoutMs = mutableLongStateOf(4500L)
@@ -2079,6 +2082,9 @@ class MainViewModel : ViewModel() {
         islandCameraOffsetY.floatValue = settingsRepository.getIslandCameraOffsetY()
         islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
         islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
+        islandExpandedWidth.floatValue = settingsRepository.getIslandExpandedWidth()
+        islandExpandedRoundness.floatValue = settingsRepository.getIslandExpandedRoundness()
+        islandExpandedTimeoutMs.longValue = settingsRepository.getIslandExpandedTimeoutMs()
         isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
         isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
         islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
@@ -4838,6 +4844,21 @@ class MainViewModel : ViewModel() {
     fun setIslandMaxWidth(value: Float) {
         islandMaxWidth.floatValue = value
         settingsRepository.setIslandMaxWidth(value)
+    }
+
+    fun setIslandExpandedWidth(value: Float) {
+        islandExpandedWidth.floatValue = value
+        settingsRepository.setIslandExpandedWidth(value)
+    }
+
+    fun setIslandExpandedRoundness(value: Float) {
+        islandExpandedRoundness.floatValue = value
+        settingsRepository.setIslandExpandedRoundness(value)
+    }
+
+    fun setIslandExpandedTimeoutMs(value: Long) {
+        islandExpandedTimeoutMs.longValue = value
+        settingsRepository.setIslandExpandedTimeoutMs(value)
     }
 
     fun setIslandSuppressSystemHeadsUp(enabled: Boolean) {
