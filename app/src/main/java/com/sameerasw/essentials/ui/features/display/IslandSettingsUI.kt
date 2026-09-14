@@ -313,7 +313,11 @@ fun IslandSettingsUI(
                 modifier = Modifier.highlight(highlightSetting == "island_catch_up"),
             )
 
-            if (viewModel.isIslandCatchUpEnabled.value) {
+            AnimatedVisibility(
+                visible = viewModel.isIslandCatchUpEnabled.value,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
                 ConfigSliderItem(
                     title = stringResource(R.string.island_catch_up_timeout_title),
                     value = (viewModel.islandCatchUpTimeoutMs.longValue / 1000f),
@@ -356,41 +360,6 @@ fun IslandSettingsUI(
                 iconRes = R.drawable.rounded_schedule_24,
                 valueFormatter = { if (it <= 0f) infinityText else "${it.toInt()}s" },
                 modifier = Modifier.highlight(highlightSetting == "island_expanded_timeout_ms"),
-            )
-        }
-
-        Text(
-            text = stringResource(R.string.island_section_actions),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp),
-        )
-
-        RoundedCardContainer(
-            spacing = 2.dp,
-            cornerRadius = 24.dp,
-        ) {
-            IconToggleItem(
-                iconRes = R.drawable.rounded_touch_app_24,
-                title = stringResource(R.string.island_action_tap_title),
-                description = stringResource(R.string.island_action_tap_desc),
-                isChecked = viewModel.isIslandTapActionEnabled.value,
-                onCheckedChange = { checked ->
-                    HapticUtil.performVirtualKeyHaptic(view)
-                    viewModel.setIslandTapActionEnabled(checked)
-                },
-                modifier = Modifier.highlight(highlightSetting == "island_tap_action_enabled"),
-            )
-            IconToggleItem(
-                iconRes = R.drawable.rounded_pan_tool_alt_24,
-                title = stringResource(R.string.island_action_swipe_up_title),
-                description = stringResource(R.string.island_action_swipe_up_desc),
-                isChecked = viewModel.isIslandSwipeUpActionEnabled.value,
-                onCheckedChange = { checked ->
-                    HapticUtil.performVirtualKeyHaptic(view)
-                    viewModel.setIslandSwipeUpActionEnabled(checked)
-                },
-                modifier = Modifier.highlight(highlightSetting == "island_swipe_up_action_enabled"),
             )
         }
 

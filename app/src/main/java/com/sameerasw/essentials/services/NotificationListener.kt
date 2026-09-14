@@ -90,6 +90,12 @@ class NotificationListener : NotificationListenerService() {
             listenersCopy.forEach { it.onNotificationAlertRemoved(key) }
         }
 
+        fun dismissNotification(key: String) {
+            try {
+                instance?.cancelNotification(key)
+            } catch (_: Exception) {}
+        }
+
         fun addProgressNotificationListener(listener: ProgressNotificationListener) {
             synchronized(progressListeners) {
                 if (!progressListeners.contains(listener)) {

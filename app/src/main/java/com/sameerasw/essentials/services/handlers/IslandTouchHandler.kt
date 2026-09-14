@@ -90,15 +90,26 @@ class IslandTouchHandler(
                     if (!isLongPressed) {
                         isDragging = true
                         val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
-                        val dragDistTowardsCamera = when {
-                            downX < cameraX -> dx.coerceAtLeast(0f)
-                            downX > cameraX -> (-dx).coerceAtLeast(0f)
-                            else -> abs(dx)
+                        val isTowardCamera = when {
+                            downX < cameraX -> dx > 0f
+                            downX > cameraX -> dx < 0f
+                            else -> false
                         }
-                        val maxDragDist = 140f * density
-                        val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
 
-                        overlayView?.updateDragCollapseFraction(dragFraction)
+                        if (isTowardCamera || dy < -touchSlopPx) {
+                            val dragDistTowardsCamera = when {
+                                downX < cameraX -> dx.coerceAtLeast(0f)
+                                downX > cameraX -> (-dx).coerceAtLeast(0f)
+                                else -> abs(dx)
+                            }
+                            val maxDragDist = 140f * density
+                            val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
+                            overlayView?.updateDragTranslation(0f, 0f)
+                            overlayView?.updateDragCollapseFraction(dragFraction)
+                        } else {
+                            overlayView?.updateDragCollapseFraction(0f)
+                            overlayView?.updateDragTranslation(dx, 0f)
+                        }
                     }
                 }
                 return true
@@ -130,8 +141,31 @@ class IslandTouchHandler(
                         downX > cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
                         else -> false
                     }
+                    val isSwipeAwayFromCamera = when {
+                        downX < cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        downX > cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        else -> abs(dx) > touchSlopPx * 2.0f && abs(dx) > abs(dy)
+                    }
 
-                    if (isSwipeUp || isSwipeTowardCamera) {
+                    if (isSwipeAwayFromCamera && overlayView?.isCatchUpMode != true) {
+                        HapticUtil.performRumbleHaptic(service)
+                        HapticUtil.performStrongTickHaptic(service)
+
+                        val alert = overlayView?.getActiveNotificationAlert()
+                        if (alert != null) {
+                            NotificationListener.dismissNotification(alert.key)
+                        }
+
+                        val dir = if (dx > 0f) 1f else -1f
+                        overlayView?.animateHorizontalSwipeDismiss(dir) {
+                            val hasNext = overlayView?.advanceToNextNotification() ?: false
+                            if (hasNext) {
+                                onNotificationSwitched?.invoke()
+                            } else {
+                                dismissNotification()
+                            }
+                        }
+                    } else if (isSwipeUp || isSwipeTowardCamera) {
                         HapticUtil.performRumbleHaptic(service)
                         HapticUtil.performStrongTickHaptic(service)
 
