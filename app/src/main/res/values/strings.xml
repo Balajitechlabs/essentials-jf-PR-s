@@ -2683,6 +2683,8 @@
     <string name="island_reply_title">Reply</string>
     <string name="island_reply_hint">Type a message…</string>
     <string name="island_reply_send">Send</string>
+    <string name="island_expanded_padding_title">Expanded padding</string>
+    <string name="island_expanded_top_padding_title">Expanded top padding</string>
 
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>

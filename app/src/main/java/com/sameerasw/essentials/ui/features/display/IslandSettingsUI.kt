@@ -195,7 +195,6 @@ fun IslandSettingsUI(
 
             ConfigSliderItem(
                 title = stringResource(R.string.island_expanded_width_title),
-                description = stringResource(R.string.island_expanded_width_desc),
                 value = viewModel.islandExpandedWidth.floatValue,
                 onValueChange = {
                     HapticUtil.performUIHaptic(view)
@@ -210,17 +209,44 @@ fun IslandSettingsUI(
 
             ConfigSliderItem(
                 title = stringResource(R.string.island_expanded_roundness_title),
-                description = stringResource(R.string.island_expanded_roundness_desc),
                 value = viewModel.islandExpandedRoundness.floatValue,
                 onValueChange = {
                     HapticUtil.performUIHaptic(view)
                     viewModel.setIslandExpandedRoundness(it)
                 },
-                valueRange = 0f..40f,
+                valueRange = 0f..80f,
                 increment = 2f,
                 iconRes = R.drawable.rounded_rounded_corner_24,
                 valueFormatter = { "${it.toInt()} dp" },
                 modifier = Modifier.highlight(highlightSetting == "island_expanded_roundness"),
+            )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_padding_title),
+                value = viewModel.islandExpandedPadding.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedPadding(it)
+                },
+                valueRange = 8f..48f,
+                increment = 2f,
+                iconRes = R.drawable.rounded_screenshot_region_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_padding"),
+            )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_top_padding_title),
+                value = viewModel.islandExpandedTopPadding.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedTopPadding(it)
+                },
+                valueRange = 0f..40f,
+                increment = 2f,
+                iconRes = R.drawable.rounded_vertical_align_top_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_top_padding"),
             )
         }
 
