@@ -9,7 +9,6 @@
 
 package com.sameerasw.essentials.utils
 
-import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
@@ -39,11 +38,9 @@ import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
+import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
+import com.sameerasw.essentials.utils.island.IslandTransitionSpec
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 class IslandOverlayView(context: Context) : View(context) {
     enum class DragCollapseTarget {
@@ -137,7 +134,7 @@ class IslandOverlayView(context: Context) : View(context) {
     var canEnterCatchUp: Boolean = true
     var catchUpFraction: Float = 0f
         private set
-    private var catchUpAnimator: ValueAnimator? = null
+    private val catchUpAnimator = AnimatedFloatProperty()
     var onCatchUpModeChanged: ((Boolean) -> Unit)? = null
 
     private val unreadIconBitmap: Bitmap? by lazy {
@@ -172,16 +169,16 @@ class IslandOverlayView(context: Context) : View(context) {
     private var mediaTitle: String = ""
     private var mediaArtist: String = ""
     private var mediaArtwork: Bitmap? = null
-    private var mediaAnimator: ValueAnimator? = null
-    private var mediaCompactAnimator: ValueAnimator? = null
-    private var mediaBubbleAnimator: ValueAnimator? = null
+    private val mediaAnimator = AnimatedFloatProperty()
+    private val mediaCompactAnimator = AnimatedFloatProperty()
+    private val mediaBubbleAnimator = AnimatedFloatProperty()
     private var mediaFraction: Float = 0f
     private var mediaCompactFraction: Float = 0f
     private var mediaBubbleFraction: Float = 0f
     private val mediaPillRect = RectF()
     var animatedNotificationFraction: Float = 0f
         private set
-    private var notificationAnimator: ValueAnimator? = null
+    private val notificationAnimator = AnimatedFloatProperty()
     private val notificationPillRect = RectF()
     private val notificationIconClipPath = Path()
     private val notificationContentClipPath = Path()
@@ -189,13 +186,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private val queuedNotificationAlerts = mutableListOf<ActiveNotificationAlert>()
     private val bubbleFractions = floatArrayOf(0f, 0f)
-    private val bubbleAnimators = arrayOfNulls<ValueAnimator>(2)
+    private val bubbleAnimators = arrayOf(AnimatedFloatProperty(), AnimatedFloatProperty())
     private val bubbleRects = arrayOf(RectF(), RectF())
     private val catchUpUnreadIconRect = RectF()
 
     private var isMerging: Boolean = false
     private var mergeFraction: Float = 1.0f
-    private var mergeAnimator: ValueAnimator? = null
+    private val mergeAnimator = AnimatedFloatProperty()
     private var previousAlert: ActiveNotificationAlert? = null
     private var mergeSourceBubbleLeft: Float = 0f
     private var mergeSourceBubbleCenterX: Float = 0f
@@ -243,28 +240,27 @@ class IslandOverlayView(context: Context) : View(context) {
         invalidate()
     }
 
+    private val dragAnimator = AnimatedFloatProperty()
+
     fun animateHorizontalSwipeDismiss(direction: Float, onEnd: () -> Unit) {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
         val startX = dragTranslationX
         val targetX = if (direction > 0f) (screenWidth * 0.85f) else (-screenWidth * 0.85f)
         val startNotif = animatedNotificationFraction
-        ValueAnimator.ofFloat(0f, 1.0f).apply {
-            duration = 240L
-            interpolator = AppleDismissInterpolator(responseTimeSec = 0.24f)
-            addUpdateListener {
-                val f = it.animatedValue as Float
+        dragAnimator.animateTo(
+            from = 0f,
+            to = 1.0f,
+            spec = IslandTransitionSpec.SwipeDismiss,
+            onUpdate = { f ->
                 dragTranslationX = startX + (targetX - startX) * f
                 animatedNotificationFraction = startNotif * (1f - f)
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    resetDragOffset()
-                    onEnd()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                resetDragOffset()
+                onEnd()
+            },
+        )
     }
 
     fun animateDragDismissCollapse(
@@ -273,21 +269,19 @@ class IslandOverlayView(context: Context) : View(context) {
     ) {
         dragCollapseTarget = target
         val startVal = dragCollapseFraction
-        val anim = ValueAnimator.ofFloat(startVal, 1.0f).apply {
-            duration = 200L
-            interpolator = AppleDismissInterpolator(responseTimeSec = 0.20f)
-            addUpdateListener {
-                dragCollapseFraction = it.animatedValue as Float
+        dragAnimator.animateTo(
+            from = startVal,
+            to = 1.0f,
+            spec = IslandTransitionSpec.DragCollapse,
+            onUpdate = {
+                dragCollapseFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    resetDragOffset()
-                    onEnd()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                resetDragOffset()
+                onEnd()
+            },
+        )
     }
 
     fun animateDragSnapBack() {
@@ -296,24 +290,21 @@ class IslandOverlayView(context: Context) : View(context) {
         val startY = dragTranslationY
         val startScale = dragScale
 
-        ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 320L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.35f)
-            addUpdateListener {
-                val f = it.animatedValue as Float
+        dragAnimator.animateTo(
+            from = 0f,
+            to = 1f,
+            spec = IslandTransitionSpec.DragSnapBack,
+            onUpdate = { f ->
                 dragCollapseFraction = startVal * (1f - f)
                 dragTranslationX = startX * (1f - f)
                 dragTranslationY = startY * (1f - f)
                 dragScale = startScale + (1.0f - startScale) * f
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    dragCollapseTarget = DragCollapseTarget.CAMERA
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                dragCollapseTarget = DragCollapseTarget.CAMERA
+            },
+        )
     }
 
     var onDismissAnimationEnd: (() -> Unit)? = null
@@ -362,29 +353,26 @@ class IslandOverlayView(context: Context) : View(context) {
     private val actionButtonRects = mutableMapOf<NotificationActionItem, RectF>()
     private var highlightedAction: NotificationActionItem? = null
     private var actionExecutionFraction: Float = 0f
-    private var actionExecutionAnimator: ValueAnimator? = null
+    private val actionExecutionAnimator = AnimatedFloatProperty()
 
     fun animateActionExecution(action: NotificationActionItem, onComplete: () -> Unit) {
         highlightedAction = action
         actionExecutionFraction = 0f
-        actionExecutionAnimator?.cancel()
-        actionExecutionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 260L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.85f, responseTimeSec = 0.28f)
-            addUpdateListener {
-                actionExecutionFraction = it.animatedValue as Float
+        actionExecutionAnimator.animateTo(
+            from = 0f,
+            to = 1f,
+            spec = IslandTransitionSpec.ActionExecution,
+            onUpdate = {
+                actionExecutionFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    highlightedAction = null
-                    actionExecutionFraction = 0f
-                    invalidate()
-                    onComplete()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                highlightedAction = null
+                actionExecutionFraction = 0f
+                invalidate()
+                onComplete()
+            },
+        )
     }
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
@@ -401,17 +389,16 @@ class IslandOverlayView(context: Context) : View(context) {
             activeNotificationAlert = alert
             isNotificationAlertActive = true
 
-            notificationAnimator?.cancel()
             val startVal = animatedNotificationFraction
-            notificationAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
-                duration = 480L
-                interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
-                addUpdateListener { anim ->
-                    animatedNotificationFraction = anim.animatedValue as Float
+            notificationAnimator.animateTo(
+                from = startVal,
+                to = 1.0f,
+                spec = IslandTransitionSpec.ContentShow,
+                onUpdate = {
+                    animatedNotificationFraction = it
                     invalidate()
-                }
-                start()
-            }
+                },
+            )
             onAlertsChanged?.invoke()
             return
         }
@@ -454,16 +441,15 @@ class IslandOverlayView(context: Context) : View(context) {
             isMediaCompact = false
             mediaCompactFraction = 0f
             mediaBubbleFraction = if (isNotificationAlertActive) 1f else 0f
-            mediaAnimator?.cancel()
-            mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 1f).apply {
-                duration = 480L
-                interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
-                addUpdateListener {
-                    mediaFraction = it.animatedValue as Float
+            mediaAnimator.animateTo(
+                from = mediaFraction,
+                to = 1f,
+                spec = IslandTransitionSpec.ContentShow,
+                onUpdate = {
+                    mediaFraction = it
                     invalidate()
-                }
-                start()
-            }
+                },
+            )
             onAlertsChanged?.invoke()
         } else {
             invalidate()
@@ -473,78 +459,72 @@ class IslandOverlayView(context: Context) : View(context) {
     fun setMediaCompact(compact: Boolean) {
         if (!isMediaPlaybackActive || isMediaCompact == compact) return
         isMediaCompact = compact
-        mediaCompactAnimator?.cancel()
-        mediaCompactAnimator = ValueAnimator.ofFloat(mediaCompactFraction, if (compact) 1f else 0f).apply {
-            duration = 420L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
-            addUpdateListener {
-                mediaCompactFraction = it.animatedValue as Float
+        mediaCompactAnimator.animateTo(
+            from = mediaCompactFraction,
+            to = if (compact) 1f else 0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                mediaCompactFraction = it
                 invalidate()
-            }
-            start()
-        }
+            },
+        )
         onAlertsChanged?.invoke()
     }
 
     fun dismissMediaPlayback() {
         if (!isMediaPlaybackActive) return
-        mediaAnimator?.cancel()
-        mediaCompactAnimator?.cancel()
-        mediaBubbleAnimator?.cancel()
-        mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 0f).apply {
-            duration = 280L
-            interpolator = AppleDismissInterpolator(responseTimeSec = 0.28f)
-            addUpdateListener {
-                mediaFraction = it.animatedValue as Float
+        mediaCompactAnimator.cancel()
+        mediaBubbleAnimator.cancel()
+        mediaAnimator.animateTo(
+            from = mediaFraction,
+            to = 0f,
+            spec = IslandTransitionSpec.MediaDismiss,
+            onUpdate = {
+                mediaFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    isMediaPlaybackActive = false
-                    isMediaCompact = false
-                    mediaFraction = 0f
-                    mediaCompactFraction = 0f
-                    mediaBubbleFraction = 0f
-                    mediaTitle = ""
-                    mediaArtist = ""
-                    mediaArtwork = null
-                    onDismissAnimationEnd?.invoke()
-                    onAlertsChanged?.invoke()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                isMediaPlaybackActive = false
+                isMediaCompact = false
+                mediaFraction = 0f
+                mediaCompactFraction = 0f
+                mediaBubbleFraction = 0f
+                mediaTitle = ""
+                mediaArtist = ""
+                mediaArtwork = null
+                onDismissAnimationEnd?.invoke()
+                onAlertsChanged?.invoke()
+            },
+        )
     }
 
     private fun setMediaBubbleVisible(visible: Boolean) {
         if (!isMediaPlaybackActive) return
-        mediaBubbleAnimator?.cancel()
         val target = if (visible) 1f else 0f
-        mediaBubbleAnimator = ValueAnimator.ofFloat(mediaBubbleFraction, target).apply {
-            duration = 420L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
-            addUpdateListener {
-                mediaBubbleFraction = it.animatedValue as Float
+        mediaBubbleAnimator.animateTo(
+            from = mediaBubbleFraction,
+            to = target,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                mediaBubbleFraction = it
                 invalidate()
                 onAlertsChanged?.invoke()
-            }
-            start()
-        }
+            },
+        )
     }
 
     private fun animateBubbleIn(index: Int) {
         if (index !in 0..1) return
-        bubbleAnimators[index]?.cancel()
         val startVal = bubbleFractions[index]
-        bubbleAnimators[index] = ValueAnimator.ofFloat(startVal, 1.0f).apply {
-            duration = 420L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.44f)
-            addUpdateListener { anim ->
-                bubbleFractions[index] = anim.animatedValue as Float
+        bubbleAnimators[index].animateTo(
+            from = startVal,
+            to = 1.0f,
+            spec = IslandTransitionSpec.BubbleIn,
+            onUpdate = {
+                bubbleFractions[index] = it
                 invalidate()
-            }
-            start()
-        }
+            },
+        )
     }
 
     fun getQueuedAlertIndexAt(x: Float, y: Float): Int {
@@ -595,24 +575,21 @@ class IslandOverlayView(context: Context) : View(context) {
             }
         }
 
-        mergeAnimator?.cancel()
-        mergeAnimator = ValueAnimator.ofFloat(0f, 1.0f).apply {
-            duration = 480L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.48f)
-            addUpdateListener { anim ->
-                mergeFraction = anim.animatedValue as Float
+        mergeAnimator.animateTo(
+            from = 0f,
+            to = 1.0f,
+            spec = IslandTransitionSpec.Merge,
+            onUpdate = {
+                mergeFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    isMerging = false
-                    previousAlert = null
-                    mergeFraction = 1.0f
-                    invalidate()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                isMerging = false
+                previousAlert = null
+                mergeFraction = 1.0f
+                invalidate()
+            },
+        )
 
         onAlertsChanged?.invoke()
         return true
@@ -622,7 +599,7 @@ class IslandOverlayView(context: Context) : View(context) {
         private set
     var expandedFraction: Float = 0f
         private set
-    private var expansionAnimator: ValueAnimator? = null
+    private val expansionAnimator = AnimatedFloatProperty()
 
     private var onExpandedStateChanged: ((Boolean) -> Unit)? = null
 
@@ -641,27 +618,20 @@ class IslandOverlayView(context: Context) : View(context) {
         isExpanded = expand
         stopAllMarquees()
 
-        expansionAnimator?.cancel()
         val startVal = expandedFraction
         val targetVal = if (expand) 1.0f else 0.0f
-        expansionAnimator = ValueAnimator.ofFloat(startVal, targetVal).apply {
-            duration = if (expand) 460L else 420L
-            interpolator = if (expand) {
-                AppleSpringInterpolator(dampingRatio = 0.65f, responseTimeSec = 0.50f)
-            } else {
-                AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
-            }
-            addUpdateListener { anim ->
-                expandedFraction = anim.animatedValue as Float
+        expansionAnimator.animateTo(
+            from = startVal,
+            to = targetVal,
+            spec = if (expand) IslandTransitionSpec.ExpandOpen else IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                expandedFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    onAlertsChanged?.invoke()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
+            },
+        )
         onExpandedStateChanged?.invoke(expand)
         onAlertsChanged?.invoke()
     }
@@ -672,25 +642,22 @@ class IslandOverlayView(context: Context) : View(context) {
         if (isExpanded) {
             isExpanded = false
             expandedFraction = 0f
-            expansionAnimator?.cancel()
+            expansionAnimator.cancel()
         }
         stopAllMarquees()
-        catchUpAnimator?.cancel()
         val startVal = catchUpFraction
-        catchUpAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
-            duration = 420L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
-            addUpdateListener { anim ->
-                catchUpFraction = anim.animatedValue as Float
+        catchUpAnimator.animateTo(
+            from = startVal,
+            to = 1.0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                catchUpFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    onAlertsChanged?.invoke()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
+            },
+        )
         onCatchUpModeChanged?.invoke(true)
         onAlertsChanged?.invoke()
     }
@@ -698,23 +665,20 @@ class IslandOverlayView(context: Context) : View(context) {
     fun exitCatchUpMode() {
         if (!isCatchUpMode) return
         isCatchUpMode = false
-        catchUpAnimator?.cancel()
         val startVal = catchUpFraction
         catchUpFraction = 0f
-        catchUpAnimator = ValueAnimator.ofFloat(startVal, 0.0f).apply {
-            duration = 460L
-            interpolator = AppleSpringInterpolator(dampingRatio = 0.65f, responseTimeSec = 0.50f)
-            addUpdateListener { anim ->
-                catchUpFraction = anim.animatedValue as Float
+        catchUpAnimator.animateTo(
+            from = startVal,
+            to = 0.0f,
+            spec = IslandTransitionSpec.ExpandOpen,
+            onUpdate = {
+                catchUpFraction = it
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    onAlertsChanged?.invoke()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
+            },
+        )
         onCatchUpModeChanged?.invoke(false)
         onAlertsChanged?.invoke()
     }
@@ -931,48 +895,43 @@ class IslandOverlayView(context: Context) : View(context) {
         isMerging = false
         previousAlert = null
         mergeFraction = 1.0f
-        mergeAnimator?.cancel()
+        mergeAnimator.cancel()
         queuedNotificationAlerts.clear()
         bubbleFractions[0] = 0f
         bubbleFractions[1] = 0f
         for (i in 0..1) {
-            bubbleAnimators[i]?.cancel()
-            bubbleAnimators[i] = null
+            bubbleAnimators[i].cancel()
         }
 
-        expansionAnimator?.cancel()
-        notificationAnimator?.cancel()
-        catchUpAnimator?.cancel()
+        expansionAnimator.cancel()
+        catchUpAnimator.cancel()
 
         val startExpanded = expandedFraction
         val startNotif = animatedNotificationFraction
 
-        notificationAnimator = ValueAnimator.ofFloat(1.0f, 0.0f).apply {
-            duration = if (startExpanded > 0.05f) 320L else 280L
-            interpolator = AppleDismissInterpolator(responseTimeSec = if (startExpanded > 0.05f) 0.32f else 0.28f)
-            addUpdateListener { anim ->
-                val f = anim.animatedValue as Float
+        notificationAnimator.animateTo(
+            from = 1.0f,
+            to = 0.0f,
+            spec = IslandTransitionSpec.notificationDismiss(wasExpanded = startExpanded > 0.05f),
+            onUpdate = { f ->
                 animatedNotificationFraction = startNotif * f
                 expandedFraction = startExpanded * f
                 invalidate()
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    isExpanded = false
-                    expandedFraction = 0f
-                    isCatchUpMode = false
-                    catchUpFraction = 0f
-                    isNotificationAlertActive = false
-                    activeNotificationAlert = null
-                    animatedNotificationFraction = 0f
-                    if (isMediaPlaybackActive) setMediaBubbleVisible(false)
-                    invalidate()
-                    onDismissAnimationEnd?.invoke()
-                    onAlertsChanged?.invoke()
-                }
-            })
-            start()
-        }
+            },
+            onEnd = {
+                isExpanded = false
+                expandedFraction = 0f
+                isCatchUpMode = false
+                catchUpFraction = 0f
+                isNotificationAlertActive = false
+                activeNotificationAlert = null
+                animatedNotificationFraction = 0f
+                if (isMediaPlaybackActive) setMediaBubbleVisible(false)
+                invalidate()
+                onDismissAnimationEnd?.invoke()
+                onAlertsChanged?.invoke()
+            },
+        )
     }
 
     private fun stopAllMarquees() {
@@ -982,12 +941,12 @@ class IslandOverlayView(context: Context) : View(context) {
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        notificationAnimator?.cancel()
-        mergeAnimator?.cancel()
-        expansionAnimator?.cancel()
-        mediaBubbleAnimator?.cancel()
+        notificationAnimator.cancel()
+        mergeAnimator.cancel()
+        expansionAnimator.cancel()
+        mediaBubbleAnimator.cancel()
         for (i in 0..1) {
-            bubbleAnimators[i]?.cancel()
+            bubbleAnimators[i].cancel()
         }
         stopAllMarquees()
     }
@@ -1992,34 +1951,3 @@ private class MarqueeController {
     }
 }
 
-private class AppleSpringInterpolator(
-    private val dampingRatio: Float = 0.70f,
-    private val responseTimeSec: Float = 0.50f,
-) : TimeInterpolator {
-    private val omegaN = (2.0 * Math.PI / responseTimeSec).toFloat()
-    private val omegaD = (omegaN * sqrt((1.0 - dampingRatio * dampingRatio))).toFloat()
-    private val beta = (dampingRatio / sqrt((1.0 - dampingRatio * dampingRatio))).toFloat()
-
-    override fun getInterpolation(input: Float): Float {
-        if (input <= 0f) return 0f
-        if (input >= 1f) return 1f
-        val t = input * responseTimeSec
-        val envelope = exp((-dampingRatio * omegaN * t).toDouble()).toFloat()
-        val osc = cos((omegaD * t).toDouble()).toFloat() + beta * sin((omegaD * t).toDouble()).toFloat()
-        return 1.0f - envelope * osc
-    }
-}
-
-private class AppleDismissInterpolator(
-    private val responseTimeSec: Float = 0.28f,
-) : TimeInterpolator {
-    private val omegaN = (2.0 * Math.PI / (responseTimeSec * 1.15f)).toFloat()
-
-    override fun getInterpolation(input: Float): Float {
-        if (input <= 0f) return 0f
-        if (input >= 1f) return 1f
-        val t = input * responseTimeSec
-        val envelope = exp((-omegaN * t).toDouble()).toFloat()
-        return 1.0f - (envelope * (1.0f + omegaN * t))
-    }
-}
