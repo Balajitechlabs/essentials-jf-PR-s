@@ -548,6 +548,11 @@ class IslandOverlayView(context: Context) : View(context) {
                 catchUpFraction = anim.animatedValue as Float
                 invalidate()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    onAlertsChanged?.invoke()
+                }
+            })
             start()
         }
         onCatchUpModeChanged?.invoke(true)
@@ -559,6 +564,7 @@ class IslandOverlayView(context: Context) : View(context) {
         isCatchUpMode = false
         catchUpAnimator?.cancel()
         val startVal = catchUpFraction
+        catchUpFraction = 0f
         catchUpAnimator = ValueAnimator.ofFloat(startVal, 0.0f).apply {
             duration = 460L
             interpolator = AppleSpringInterpolator(dampingRatio = 0.65f, responseTimeSec = 0.50f)
@@ -566,6 +572,11 @@ class IslandOverlayView(context: Context) : View(context) {
                 catchUpFraction = anim.animatedValue as Float
                 invalidate()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    onAlertsChanged?.invoke()
+                }
+            })
             start()
         }
         onCatchUpModeChanged?.invoke(false)
