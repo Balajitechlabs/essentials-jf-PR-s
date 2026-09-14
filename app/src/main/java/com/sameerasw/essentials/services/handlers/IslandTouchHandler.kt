@@ -238,16 +238,13 @@ class IslandTouchHandler(
             val notifListener = NotificationListener.instance
             if (action.pendingIntent != null && notifListener != null) {
                 notifListener.performNotificationAction(action)
-            } else {
-                val toastMsg = "${action.title}: ${service.getString(R.string.island_action_executed)}"
-                Toast.makeText(service, toastMsg, Toast.LENGTH_SHORT).show()
             }
 
-            val hasNext = overlayView?.advanceToNextNotification() ?: false
-            if (hasNext) {
-                onNotificationSwitched?.invoke()
-            } else {
-                dismissNotification()
+            overlayView?.animateActionExecution(action) {
+                val hasNext = overlayView?.advanceToNextNotification() ?: false
+                if (hasNext) {
+                    onNotificationSwitched?.invoke()
+                }
             }
         }
     }
