@@ -44,15 +44,35 @@ class IslandTouchHandler(
     private var isTouchActive: Boolean = false
     private var isLongPressed: Boolean = false
     private var isDragging: Boolean = false
+    private var lastHapticDist: Float = 0f
+    private var hasTriggeredThresholdHaptic: Boolean = false
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private val longPressRampRunnable1 = Runnable {
+        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+            HapticUtil.performCustomHaptic(service, 0.18f)
+        }
+    }
+
+    private val longPressRampRunnable2 = Runnable {
+        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+            HapticUtil.performCustomHaptic(service, 0.42f)
+        }
+    }
+
+    private val longPressRampRunnable3 = Runnable {
+        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+            HapticUtil.performCustomHaptic(service, 0.70f)
+        }
+    }
+
     private val longPressRunnable = Runnable {
         if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
             isLongPressed = true
-            HapticUtil.performRumbleHaptic(service)
+            HapticUtil.performStrongTickHaptic(service)
             val isNowExpanded = overlayView?.toggleExpansion() ?: false
             onNotificationExpandToggled?.invoke(isNowExpanded)
-            HapticUtil.performStrongTickHaptic(service)
         }
     }
 
@@ -61,6 +81,9 @@ class IslandTouchHandler(
 
     private val touchSlopPx: Float
         get() = 10f * density
+
+    private val graceAreaPx: Float
+        get() = 12f * density
 
     fun onTouchEvent(event: MotionEvent): Boolean {
         val x = event.rawX
@@ -74,8 +97,18 @@ class IslandTouchHandler(
                 isTouchActive = true
                 isLongPressed = false
                 isDragging = false
+                lastHapticDist = 0f
+                hasTriggeredThresholdHaptic = false
+
                 mainHandler.removeCallbacks(longPressRunnable)
-                mainHandler.postDelayed(longPressRunnable, 360L)
+                mainHandler.removeCallbacks(longPressRampRunnable1)
+                mainHandler.removeCallbacks(longPressRampRunnable2)
+                mainHandler.removeCallbacks(longPressRampRunnable3)
+
+                mainHandler.postDelayed(longPressRampRunnable1, 110L)
+                mainHandler.postDelayed(longPressRampRunnable2, 210L)
+                mainHandler.postDelayed(longPressRampRunnable3, 300L)
+                mainHandler.postDelayed(longPressRunnable, 370L)
                 return true
             }
 
@@ -85,8 +118,12 @@ class IslandTouchHandler(
                 val dy = y - downY
                 val dist = hypot(dx, dy)
 
-                if (dist > touchSlopPx) {
+                if (dist > graceAreaPx) {
                     mainHandler.removeCallbacks(longPressRunnable)
+                    mainHandler.removeCallbacks(longPressRampRunnable1)
+                    mainHandler.removeCallbacks(longPressRampRunnable2)
+                    mainHandler.removeCallbacks(longPressRampRunnable3)
+
                     if (!isLongPressed) {
                         isDragging = true
                         val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
@@ -96,19 +133,37 @@ class IslandTouchHandler(
                             else -> false
                         }
 
+                        // Subtle relative haptic ticks as finger moves
+                        val hapticStepPx = 16f * density
+                        if (abs(dist - lastHapticDist) >= hapticStepPx) {
+                            lastHapticDist = dist
+                            HapticUtil.performCustomHaptic(service, 0.20f)
+                        }
+
+                        // Threshold trigger point haptic check
+                        val isThresholdReached = abs(dx) > (touchSlopPx * 2.2f) || dy < (-touchSlopPx * 1.8f)
+                        if (isThresholdReached && !hasTriggeredThresholdHaptic) {
+                            hasTriggeredThresholdHaptic = true
+                            HapticUtil.performCustomHaptic(service, 0.85f)
+                        } else if (!isThresholdReached && hasTriggeredThresholdHaptic) {
+                            hasTriggeredThresholdHaptic = false
+                            HapticUtil.performCustomHaptic(service, 0.12f)
+                        }
+
                         if (isTowardCamera || dy < -touchSlopPx) {
                             val dragDistTowardsCamera = when {
-                                downX < cameraX -> dx.coerceAtLeast(0f)
-                                downX > cameraX -> (-dx).coerceAtLeast(0f)
-                                else -> abs(dx)
+                                downX < cameraX -> (dx - graceAreaPx).coerceAtLeast(0f)
+                                downX > cameraX -> (-dx - graceAreaPx).coerceAtLeast(0f)
+                                else -> (abs(dx) - graceAreaPx).coerceAtLeast(0f)
                             }
                             val maxDragDist = 140f * density
                             val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
                             overlayView?.updateDragTranslation(0f, 0f)
                             overlayView?.updateDragCollapseFraction(dragFraction)
                         } else {
+                            val effectiveDx = if (dx > 0) dx - graceAreaPx else dx + graceAreaPx
                             overlayView?.updateDragCollapseFraction(0f)
-                            overlayView?.updateDragTranslation(dx, 0f)
+                            overlayView?.updateDragTranslation(effectiveDx, 0f)
                         }
                     }
                 }
@@ -117,6 +172,10 @@ class IslandTouchHandler(
 
             MotionEvent.ACTION_UP -> {
                 mainHandler.removeCallbacks(longPressRunnable)
+                mainHandler.removeCallbacks(longPressRampRunnable1)
+                mainHandler.removeCallbacks(longPressRampRunnable2)
+                mainHandler.removeCallbacks(longPressRampRunnable3)
+
                 if (!isTouchActive) return false
 
                 if (isLongPressed) {
