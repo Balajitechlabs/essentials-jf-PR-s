@@ -92,6 +92,11 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
     var isIslandEnabled: Boolean = true
+    var isShowGlow: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     private var activeNotificationAlert: ActiveNotificationAlert? = null
     var isNotificationAlertActive: Boolean = false
@@ -214,6 +219,9 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
@@ -716,8 +724,8 @@ class IslandOverlayView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (animatedNotificationFraction > 0.001f && activeNotificationAlert != null) {
-            val alert = activeNotificationAlert ?: return
+        val alert: ActiveNotificationAlert = activeNotificationAlert ?: return
+        if (animatedNotificationFraction > 0.001f) {
             val fraction = animatedNotificationFraction
             val screenWidth = resources.displayMetrics.widthPixels.toFloat()
 
@@ -779,6 +787,40 @@ class IslandOverlayView(context: Context) : View(context) {
 
             canvas.drawRoundRect(notificationPillRect, cornerRadius, cornerRadius, notificationPillPaint)
 
+            val inAlpha = ((fraction - 0.20f) / 0.80f).coerceIn(0f, 1f)
+            val dragAlpha = (1f - dragCollapseFraction * 2.5f).coerceIn(0f, 1f)
+            val baseGlowAlpha = (40f + 110f * expandedFraction) * inAlpha * dragAlpha
+            val glowAlpha = if (isShowGlow) baseGlowAlpha.toInt().coerceIn(0, 255) else 0
+
+            if (glowAlpha > 0) {
+                val accentColor = alert.appColor ?: Color.WHITE
+                val r = Color.red(accentColor)
+                val g = Color.green(accentColor)
+                val b = Color.blue(accentColor)
+
+                val glowStartColor = Color.argb(glowAlpha, r, g, b)
+                val glowMidColor = Color.argb((glowAlpha * 0.45f).toInt(), r, g, b)
+                val glowEndColor = Color.argb(0, r, g, b)
+
+                val glowOriginLeft = adjustedTargetLeft
+                val glowWidth = (100f + 60f * expandedFraction) * density
+
+                val glowSave = canvas.save()
+                notificationContentClipPath.reset()
+                notificationContentClipPath.addRoundRect(notificationPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
+                canvas.clipPath(notificationContentClipPath)
+
+                glowPaint.shader = LinearGradient(
+                    glowOriginLeft, currentTop,
+                    glowOriginLeft + glowWidth, currentTop,
+                    intArrayOf(glowStartColor, glowMidColor, glowEndColor),
+                    floatArrayOf(0f, 0.4f, 1f),
+                    Shader.TileMode.CLAMP,
+                )
+                canvas.drawRect(currentLeft, currentTop, currentRight, currentBottom, glowPaint)
+                canvas.restoreToCount(glowSave)
+            }
+
             val contentAlphaProgress = ((fraction - 0.15f) / 0.65f).coerceIn(0f, 1f)
             val baseContentAlpha = (contentAlphaProgress * 255).toInt()
 
@@ -798,13 +840,14 @@ class IslandOverlayView(context: Context) : View(context) {
                 val iconSize = (basePillHeight - 14f * density).coerceAtLeast(16f * density)
                 val verticalPadding = (basePillHeight - iconSize) / 2f
 
-                if (isMerging && previousAlert != null) {
+                val prev: ActiveNotificationAlert? = previousAlert
+                if (isMerging && prev != null) {
                     val outAlphaProgress = (1f - mergeFraction * 2.2f).coerceIn(0f, 1f)
                     val outAlpha = (outAlphaProgress * 255).toInt()
                     val slideOutX = mergeFraction * 32f * density
 
                     if (outAlpha > 0) {
-                        val (prevSender, prevMessage) = computeSenderAndMessage(previousAlert!!)
+                        val (prevSender, prevMessage) = computeSenderAndMessage(prev)
                         notificationSenderPaint.alpha = outAlpha
                         notificationBodyPaint.alpha = outAlpha
 
@@ -812,7 +855,7 @@ class IslandOverlayView(context: Context) : View(context) {
                             val prevIconLeft = currentLeft + verticalPadding + slideOutX
                             val prevIconTop = currentTop + verticalPadding
                             val prevIconRect = RectF(prevIconLeft, prevIconTop, prevIconLeft + iconSize, prevIconTop + iconSize)
-                            val prevDisplayIcon = previousAlert!!.icon ?: previousAlert!!.appIcon
+                            val prevDisplayIcon = prev.icon ?: prev.appIcon
 
                             if (prevDisplayIcon != null) {
                                 iconPaint.alpha = outAlpha
@@ -896,7 +939,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         if (collapsedRightAlpha > 0) {
                             notificationBodyPaint.alpha = collapsedRightAlpha
                             val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
-                            val msgEnd = currentRight - 14f * density
+                            val msgEnd = currentRight
                             if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
                                 drawMarqueeText(
                                     canvas = canvas,
@@ -937,7 +980,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                     if (textAlpha > 0) {
                         val textStart = iconLeft + iconSize + 8f * density
-                        val textEnd = currentRight - 14f * density
+                        val textEnd = currentRight
                         val collapsedRightAlpha = (textAlpha * (1f - expandedFraction * 2.5f).coerceIn(0f, 1f)).toInt()
 
                         if (collapsedRightAlpha > 0) {
@@ -1156,14 +1199,13 @@ class IslandOverlayView(context: Context) : View(context) {
             canvas.drawText(text, x2, textY, paint)
 
             val totalWidth = clipRight - clipLeft
-            val fadeWidth = 12f * density
-            if (totalWidth > fadeWidth * 2) {
+            val fadeWidth = 14f * density
+            if (totalWidth > fadeWidth) {
                 val fLeft = (fadeWidth / totalWidth).coerceIn(0f, 0.45f)
-                val fRight = 1f - fLeft
                 marqueeFadePaint.shader = LinearGradient(
                     clipLeft, 0f, clipRight, 0f,
-                    intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK, Color.TRANSPARENT),
-                    floatArrayOf(0f, fLeft, fRight, 1f),
+                    intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK),
+                    floatArrayOf(0f, fLeft, 1f),
                     Shader.TileMode.CLAMP,
                 )
                 canvas.drawRect(marqueeBounds, marqueeFadePaint)

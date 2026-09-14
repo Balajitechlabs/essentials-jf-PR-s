@@ -175,6 +175,7 @@ class MainViewModel : ViewModel() {
     val islandTimeoutMs = mutableLongStateOf(4500L)
     val isIslandTapActionEnabled = mutableStateOf(true)
     val isIslandSwipeUpActionEnabled = mutableStateOf(true)
+    val isIslandShowGlow = mutableStateOf(true)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -2083,6 +2084,7 @@ class MainViewModel : ViewModel() {
         islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
         isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
         isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
+        isIslandShowGlow.value = settingsRepository.isIslandShowGlowEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -4861,6 +4863,11 @@ class MainViewModel : ViewModel() {
     fun setIslandSwipeUpActionEnabled(enabled: Boolean) {
         isIslandSwipeUpActionEnabled.value = enabled
         settingsRepository.setIslandSwipeUpActionEnabled(enabled)
+    }
+
+    fun setIslandShowGlow(enabled: Boolean) {
+        isIslandShowGlow.value = enabled
+        settingsRepository.setIslandShowGlowEnabled(enabled)
     }
 
     fun triggerIslandPreview(context: Context) {
