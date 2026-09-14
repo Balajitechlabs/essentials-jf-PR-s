@@ -189,6 +189,7 @@ class IslandOverlayView(context: Context) : View(context) {
     private val bubbleAnimators = arrayOf(AnimatedFloatProperty(), AnimatedFloatProperty())
     private val bubbleRects = arrayOf(RectF(), RectF())
     private val catchUpUnreadIconRect = RectF()
+    private val mediaBubbleRect = RectF()
 
     private var isMerging: Boolean = false
     private var mergeFraction: Float = 1.0f
@@ -639,6 +640,7 @@ class IslandOverlayView(context: Context) : View(context) {
     fun enterCatchUpMode() {
         if (!isNotificationAlertActive || activeNotificationAlert == null || isCatchUpMode) return
         isCatchUpMode = true
+        if (isMediaPlaybackActive) setMediaBubbleVisible(false)
         if (isExpanded) {
             isExpanded = false
             expandedFraction = 0f
@@ -665,6 +667,7 @@ class IslandOverlayView(context: Context) : View(context) {
     fun exitCatchUpMode() {
         if (!isCatchUpMode) return
         isCatchUpMode = false
+        if (isMediaPlaybackActive) setMediaBubbleVisible(true)
         val startVal = catchUpFraction
         catchUpFraction = 0f
         catchUpAnimator.animateTo(
@@ -796,18 +799,16 @@ class IslandOverlayView(context: Context) : View(context) {
         val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
         val verticalPadding = (targetPillHeight - iconSize) / 2f
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+        val trailingSize = if (isMediaPlaybackActive) iconSize else (18f * density)
 
         if (isCenterCamera) {
-            val unreadIconSize = (18f * density)
             val leftDist = cameraRadiusPx + 10f * density + iconSize + verticalPadding + 4f * density
-            val rightDist = cameraRadiusPx + 10f * density + unreadIconSize + verticalPadding + 4f * density
-            val halfWidth = maxOf(leftDist, rightDist)
-            return RectF(cameraCenterX - halfWidth, targetTop, cameraCenterX + halfWidth, targetBottom)
+            val rightDist = cameraRadiusPx + 10f * density + trailingSize + verticalPadding + 4f * density
+            return RectF(cameraCenterX - leftDist, targetTop, cameraCenterX + rightDist, targetBottom)
         } else {
             val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
             val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
-            val unreadIconSize = (18f * density)
-            val targetRight = (iconLeft + iconSize + 14f * density + unreadIconSize + verticalPadding + 6f * density).coerceAtMost(screenWidth - 8f * density)
+            val targetRight = (iconLeft + iconSize + 14f * density + trailingSize + verticalPadding + 6f * density).coerceAtMost(screenWidth - 8f * density)
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         }
     }
@@ -1022,13 +1023,20 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun isPointInsideMedia(x: Float, y: Float): Boolean {
         if (!isMediaPlaybackActive) return false
-        val bounds = currentMediaBounds()
         val pad = 12f * density
+        if (isNotificationAlertActive) {
+            if (isCatchUpMode) {
+                val rect = RectF(notificationPillRect.left - pad, notificationPillRect.top - pad, notificationPillRect.right + pad, notificationPillRect.bottom + pad)
+                return rect.contains(x, y) && x >= notificationPillRect.centerX()
+            }
+            return RectF(mediaBubbleRect.left - pad, mediaBubbleRect.top - pad, mediaBubbleRect.right + pad, mediaBubbleRect.bottom + pad).contains(x, y)
+        }
+        val bounds = currentMediaBounds()
         return RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad).contains(x, y)
     }
 
     private fun unionWithMediaBounds(bounds: RectF): RectF {
-        if (!isMediaPlaybackActive || mediaBubbleFraction <= 0.01f) return bounds
+        if (!isMediaPlaybackActive || isCatchUpMode || mediaBubbleFraction <= 0.01f) return bounds
         val mediaBounds = currentMediaBounds()
         return RectF(
             minOf(bounds.left, mediaBounds.left),
@@ -1039,6 +1047,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private fun computeMediaBubbleBounds(): RectF {
+        if (mediaBubbleRect.width() > 0f) return RectF(mediaBubbleRect)
         val size = cameraRadiusPx * 2f + 14f * density
         val top = cameraCenterY - size / 2f
         val left = cameraCenterX + cameraRadiusPx + 8f * density
@@ -1161,6 +1170,56 @@ class IslandOverlayView(context: Context) : View(context) {
     private fun pillTextRightEdge(pillRight: Float, cornerExtraPad: Float = 0f, reservedRight: Float = 0f): Float =
         pillRight - cornerExtraPad - reservedRight
 
+    private fun drawCatchUpTrailingIndicator(
+        canvas: Canvas,
+        currentRight: Float,
+        currentTop: Float,
+        currentBottom: Float,
+        verticalPadding: Float,
+        cornerExtraPad: Float,
+        iconSize: Float,
+        catchUpIndicatorAlpha: Int,
+        catchUpTintColor: Int,
+        unreadBmp: Bitmap?,
+    ) {
+        if (catchUpIndicatorAlpha <= 0) return
+
+        if (isMediaPlaybackActive) {
+            val artRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
+            val artLeft = artRight - iconSize
+            val artTop = (currentTop + currentBottom) / 2f - iconSize / 2f
+            val artRect = RectF(artLeft, artTop, artRight, artTop + iconSize)
+            val art = mediaArtwork
+            if (art != null) {
+                catchUpIconClipPath.reset()
+                catchUpIconClipPath.addCircle(artRect.centerX(), artRect.centerY(), iconSize / 2f, Path.Direction.CW)
+                canvas.save()
+                canvas.clipPath(catchUpIconClipPath)
+                iconPaint.alpha = catchUpIndicatorAlpha
+                canvas.drawBitmap(art, null, artRect, iconPaint)
+                canvas.restore()
+            } else {
+                musicIconBitmap?.let {
+                    catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
+                    catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                    canvas.drawBitmap(it, null, artRect, catchUpUnreadPaint)
+                }
+            }
+            return
+        }
+
+        if (unreadBmp == null) return
+        val unreadSize = (16f * density)
+        val unreadRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
+        val unreadLeft = unreadRight - unreadSize
+        val unreadTop = (currentTop + currentBottom) / 2f - unreadSize / 2f
+        catchUpUnreadIconRect.set(unreadLeft, unreadTop, unreadRight, unreadTop + unreadSize)
+
+        catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(catchUpTintColor, PorterDuff.Mode.SRC_IN)
+        catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
+        canvas.drawBitmap(unreadBmp, null, catchUpUnreadIconRect, catchUpUnreadPaint)
+    }
+
     private fun drawMediaPlayback(canvas: Canvas) {
         val height = cameraRadiusPx * 2f + 14f * density
         val initial = RectF(
@@ -1257,17 +1316,23 @@ class IslandOverlayView(context: Context) : View(context) {
             val bubbleSize = basePillHeight
             val bubbleGap = 8f * density
 
-            var totalBubblesWidth = 0f
+            var leadingBubblesWidth = 0f
             val queueVisibleFraction = (1f - expandedFraction).coerceIn(0f, 1f)
             for (i in queuedNotificationAlerts.indices) {
                 if (i in 0..1) {
                     val bFrac = bubbleFractions[i] * queueVisibleFraction
-                    totalBubblesWidth += (bubbleSize + bubbleGap) * bFrac
+                    leadingBubblesWidth += (bubbleSize + bubbleGap) * bFrac
                 }
+            }
+            val trailingBubblesWidth = if (isMediaPlaybackActive && !isCatchUpMode) {
+                (bubbleSize + bubbleGap) * (mediaBubbleFraction * queueVisibleFraction)
+            } else {
+                0f
             }
 
             val fullTargetLeft = targetBounds.left
-            val adjustedTargetLeft = (fullTargetLeft + totalBubblesWidth).coerceAtMost(cameraCenterX - cameraRadiusPx - 20f * density)
+            val adjustedTargetLeft = (fullTargetLeft + leadingBubblesWidth).coerceAtMost(cameraCenterX - cameraRadiusPx - 20f * density)
+            val adjustedTargetRight = (targetRight - trailingBubblesWidth).coerceAtLeast(cameraCenterX + cameraRadiusPx + 20f * density)
 
             val initialLeft = cameraCenterX - cameraRadiusPx
             val initialRight = cameraCenterX + cameraRadiusPx
@@ -1280,9 +1345,9 @@ class IslandOverlayView(context: Context) : View(context) {
             }
             val currentLeft = baseLeft + (initialLeft - baseLeft) * dragCollapseFraction
 
-            val normalRight = initialRight + (targetRight - initialRight) * fraction
+            val normalRight = initialRight + (adjustedTargetRight - initialRight) * fraction
             val baseRight = if (isMerging && mergeSourcePillRight > 0f) {
-                mergeSourcePillRight + (targetRight - mergeSourcePillRight) * mergeFraction
+                mergeSourcePillRight + (adjustedTargetRight - mergeSourcePillRight) * mergeFraction
             } else {
                 normalRight
             }
@@ -1462,17 +1527,11 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.restore()
                     }
 
-                    if (catchUpIndicatorAlpha > 0 && unreadBmp != null) {
-                        val unreadSize = (16f * density)
-                        val unreadRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
-                        val unreadLeft = unreadRight - unreadSize
-                        val unreadTop = (currentTop + currentBottom) / 2f - unreadSize / 2f
-                        catchUpUnreadIconRect.set(unreadLeft, unreadTop, unreadRight, unreadTop + unreadSize)
-
-                        catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(catchUpTintColor, PorterDuff.Mode.SRC_IN)
-                        catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
-                        canvas.drawBitmap(unreadBmp, null, catchUpUnreadIconRect, catchUpUnreadPaint)
-                    }
+                    drawCatchUpTrailingIndicator(
+                        canvas, currentRight, currentTop, currentBottom,
+                        verticalPadding, cornerExtraPad, iconSize,
+                        catchUpIndicatorAlpha, catchUpTintColor, unreadBmp,
+                    )
 
                     if (textAlpha > 0) {
                         val senderStart = iconLeft + iconSize + 8f * density
@@ -1535,17 +1594,11 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.restore()
                     }
 
-                    if (catchUpIndicatorAlpha > 0 && unreadBmp != null) {
-                        val unreadSize = (16f * density)
-                        val unreadRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
-                        val unreadLeft = unreadRight - unreadSize
-                        val unreadTop = (currentTop + currentBottom) / 2f - unreadSize / 2f
-                        catchUpUnreadIconRect.set(unreadLeft, unreadTop, unreadRight, unreadTop + unreadSize)
-
-                        catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(catchUpTintColor, PorterDuff.Mode.SRC_IN)
-                        catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
-                        canvas.drawBitmap(unreadBmp, null, catchUpUnreadIconRect, catchUpUnreadPaint)
-                    }
+                    drawCatchUpTrailingIndicator(
+                        canvas, currentRight, currentTop, currentBottom,
+                        verticalPadding, cornerExtraPad, iconSize,
+                        catchUpIndicatorAlpha, catchUpTintColor, unreadBmp,
+                    )
 
                     if (textAlpha > 0) {
                         val textStart = iconLeft + iconSize + 8f * density
@@ -1817,6 +1870,50 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.restoreToCount(bSaveCount)
                     }
                 }
+            }
+
+            if (isMediaPlaybackActive && !isCatchUpMode) {
+                val mFrac = mediaBubbleFraction * queueVisibleFraction
+                if (mFrac > 0.01f) {
+                    val mLeft = currentRight + bubbleGap
+                    val mRight = mLeft + bubbleSize
+                    mediaBubbleRect.set(mLeft, currentTop, mRight, currentBottom)
+                    val mRadius = bubbleSize / 2f
+
+                    val mSaveCount = canvas.save()
+                    canvas.scale(mFrac, mFrac, mediaBubbleRect.centerX(), mediaBubbleRect.centerY())
+
+                    notificationPillPaint.color = Color.BLACK
+                    notificationPillPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
+                    canvas.drawRoundRect(mediaBubbleRect, mRadius, mRadius, notificationPillPaint)
+
+                    val artSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
+                    val artPad = (bubbleSize - artSize) / 2f
+                    val artRect = RectF(mLeft + artPad, currentTop + artPad, mLeft + artPad + artSize, currentTop + artPad + artSize)
+                    val art = mediaArtwork
+                    if (art != null) {
+                        val artClipPath = Path().apply {
+                            addCircle(artRect.centerX(), artRect.centerY(), artSize / 2f, Path.Direction.CW)
+                        }
+                        canvas.save()
+                        canvas.clipPath(artClipPath)
+                        iconPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
+                        canvas.drawBitmap(art, null, artRect, iconPaint)
+                        canvas.restore()
+                    } else {
+                        musicIconBitmap?.let {
+                            catchUpUnreadPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
+                            catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                            canvas.drawBitmap(it, null, artRect, catchUpUnreadPaint)
+                        }
+                    }
+
+                    canvas.restoreToCount(mSaveCount)
+                } else {
+                    mediaBubbleRect.setEmpty()
+                }
+            } else {
+                mediaBubbleRect.setEmpty()
             }
 
             canvas.restoreToCount(canvasSaveCount)
