@@ -104,6 +104,18 @@ class IslandOverlayView(context: Context) : View(context) {
             invalidate()
         }
 
+    var expandedPaddingDp: Float = 16f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var expandedTopPaddingDp: Float = 0f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var isIslandEnabled: Boolean = true
     var isShowGlow: Boolean = true
         set(value) {
@@ -470,7 +482,7 @@ class IslandOverlayView(context: Context) : View(context) {
             setTextSize(textSize)
         }
         val cornerExtraPadding = (expandedCornerRadiusDp * 0.35f * density)
-        val innerPadding = 16f * density + cornerExtraPadding
+        val innerPadding = (expandedPaddingDp * density) + cornerExtraPadding
         val textWidth = (width - innerPadding * 2).toInt().coerceAtLeast(50)
 
         val layout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -494,14 +506,16 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         val textHeight = layout.height.toFloat()
-        val headerSpacing = 2f * density
-        val actionsHeight = if (alert.actions.isNotEmpty()) {
-            48f * density
+        val topPad = expandedTopPaddingDp * density
+        val hasActions = alert.actions.isNotEmpty()
+        val headerSpacing = if (hasActions) 0f else (4f * density)
+        val actionsHeight = if (hasActions) 46f * density else 0f
+        val bottomPad = if (hasActions) {
+            (expandedPaddingDp * 0.70f * density) + cornerExtraPadding * 0.3f
         } else {
-            0f
+            (expandedPaddingDp * 0.90f * density) + cornerExtraPadding * 0.3f
         }
-        val bottomPad = 14f * density + cornerExtraPadding * 0.3f
-        val totalHeight = basePillHeight + headerSpacing + textHeight + actionsHeight + bottomPad
+        val totalHeight = basePillHeight + topPad + headerSpacing + textHeight + actionsHeight + bottomPad
         return totalHeight.coerceAtLeast(basePillHeight)
     }
 
@@ -870,11 +884,15 @@ class IslandOverlayView(context: Context) : View(context) {
             val currentRight = baseRight - (baseRight - initialRight) * dragCollapseFraction
 
             val currentTop = targetTop
-            val currentBottom = targetBottom
+            val initialBottom = cameraCenterY + cameraRadiusPx
+            val baseBottom = initialBottom + (targetBottom - initialBottom) * fraction
+            val currentBottom = baseBottom - (baseBottom - initialBottom) * dragCollapseFraction
+
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
-            val baseCornerRadius = basePillHeight / 2f
+            val pillRadius = basePillHeight / 2f
             val targetExpCornerRadius = expandedCornerRadiusDp * density
-            val cornerRadius = baseCornerRadius + (targetExpCornerRadius - baseCornerRadius) * expandedFraction
+            val expRadius = pillRadius + (targetExpCornerRadius - pillRadius) * expandedFraction
+            val cornerRadius = cameraRadiusPx + (expRadius - cameraRadiusPx) * (fraction * (1f - dragCollapseFraction))
 
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
@@ -933,7 +951,9 @@ class IslandOverlayView(context: Context) : View(context) {
                 val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
                 val iconSize = (basePillHeight - 14f * density).coerceAtLeast(16f * density)
                 val verticalPadding = (basePillHeight - iconSize) / 2f
-                val cornerExtraPad = (expandedCornerRadiusDp * 0.35f * density) * expandedFraction
+                val topPad = (expandedTopPaddingDp * density) * expandedFraction
+                val topRowExtraPad = (expandedPaddingDp * 0.25f * density) * expandedFraction
+                val cornerExtraPad = (expandedCornerRadiusDp * 0.35f * density) * expandedFraction + ((expandedPaddingDp - 16f).coerceAtLeast(0f) * 0.4f * density) * expandedFraction + topRowExtraPad
 
                 val prev: ActiveNotificationAlert? = previousAlert
                 if (isMerging && prev != null) {
@@ -948,7 +968,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                         if (isCenterCamera) {
                             val prevIconLeft = currentLeft + verticalPadding + slideOutX
-                            val prevIconTop = currentTop + verticalPadding
+                            val prevIconTop = currentTop + verticalPadding + topPad
                             val prevIconRect = RectF(prevIconLeft, prevIconTop, prevIconLeft + iconSize, prevIconTop + iconSize)
                             val prevDisplayIcon = prev.icon ?: prev.appIcon
 
@@ -963,11 +983,11 @@ class IslandOverlayView(context: Context) : View(context) {
                             }
 
                             val prevSenderStart = prevIconLeft + iconSize + 8f * density
-                            val prevSenderY = cameraCenterY + notificationSenderPaint.textSize * 0.35f
+                            val prevSenderY = cameraCenterY + topPad + notificationSenderPaint.textSize * 0.35f
                             canvas.drawText(prevSender, prevSenderStart, prevSenderY, notificationSenderPaint)
 
                             val prevMsgStart = cameraCenterX + cameraRadiusPx + 10f * density + slideOutX
-                            val prevMsgY = cameraCenterY + notificationBodyPaint.textSize * 0.35f
+                            val prevMsgY = cameraCenterY + topPad + notificationBodyPaint.textSize * 0.35f
                             if (prevMessage.isNotBlank()) {
                                 canvas.drawText(prevMessage, prevMsgStart, prevMsgY, notificationBodyPaint)
                             }
@@ -993,7 +1013,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                 if (isCenterCamera) {
                     val iconLeft = currentLeft + verticalPadding + cornerExtraPad + inSlideX
-                    val iconTop = currentTop + verticalPadding
+                    val iconTop = currentTop + verticalPadding + topPad
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                     val displayIcon = alert.icon ?: alert.appIcon
@@ -1023,8 +1043,8 @@ class IslandOverlayView(context: Context) : View(context) {
                                 marqueeController = leftMarquee,
                                 clipLeft = senderStart,
                                 clipRight = senderEnd,
-                                currentTop = currentTop,
-                                currentBottom = currentTop + basePillHeight,
+                                currentTop = currentTop + topPad,
+                                currentBottom = currentTop + topPad + basePillHeight,
                                 isRightPillEdge = false,
                                 cornerRadius = cornerRadius,
                             )
@@ -1043,8 +1063,8 @@ class IslandOverlayView(context: Context) : View(context) {
                                     marqueeController = rightMarquee,
                                     clipLeft = msgStart,
                                     clipRight = msgEnd,
-                                    currentTop = currentTop,
-                                    currentBottom = currentTop + basePillHeight,
+                                    currentTop = currentTop + topPad,
+                                    currentBottom = currentTop + topPad + basePillHeight,
                                     isRightPillEdge = true,
                                     cornerRadius = cornerRadius,
                                 )
@@ -1054,7 +1074,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 } else {
                     val spaceFromCutout = 14f * density
                     val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout + cornerExtraPad + inSlideX
-                    val iconTop = currentTop + verticalPadding
+                    val iconTop = currentTop + verticalPadding + topPad
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
                     val displayIcon = alert.icon ?: alert.appIcon
@@ -1110,11 +1130,12 @@ class IslandOverlayView(context: Context) : View(context) {
                             setTextSize(textSize)
                             setAlpha(expAlpha)
                         }
-                        val innerPadding = 16f * density + cornerExtraPad
-                        val bodyLeft = currentLeft + innerPadding
-                        val headerSpacing = 2f * density
-                        val bodyTop = currentTop + basePillHeight + headerSpacing + (1f - expandedFraction) * -8f * density
-                        val bodyWidth = (currentRight - currentLeft - innerPadding * 2).toInt().coerceAtLeast(50)
+                        val middlePadding = (expandedPaddingDp * density) + (expandedCornerRadiusDp * 0.35f * density) * expandedFraction
+                        val bodyLeft = currentLeft + middlePadding
+                        val hasActions = alert.actions.isNotEmpty()
+                        val headerSpacing = if (hasActions) 0f else (4f * density)
+                        val bodyTop = currentTop + basePillHeight + topPad + headerSpacing + (1f - expandedFraction) * -8f * density
+                        val bodyWidth = (currentRight - currentLeft - middlePadding * 2).toInt().coerceAtLeast(50)
 
                         val bodyLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             StaticLayout.Builder.obtain(message, 0, message.length, bodyTextPaint, bodyWidth)
@@ -1144,7 +1165,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         if (alert.actions.isNotEmpty()) {
                             actionButtonRects.clear()
 
-                            val buttonRowTop = bodyTop + bodyLayout.height + 10f * density
+                            val buttonRowTop = bodyTop + bodyLayout.height + 8f * density
                             val buttonHeight = 36f * density
                             val actions = alert.actions
                             val count = actions.size
@@ -1367,7 +1388,7 @@ class IslandOverlayView(context: Context) : View(context) {
             }
         }
 
-        val textY = cameraCenterY + paint.textSize * 0.35f
+        val textY = (currentTop + currentBottom) / 2f + paint.textSize * 0.35f
 
         if (marqueeController.isNeeded && animatedNotificationFraction >= 0.98f) {
             val marqueeBounds = RectF(clipLeft, currentTop, clipRight, currentBottom)
@@ -1396,14 +1417,24 @@ class IslandOverlayView(context: Context) : View(context) {
 
             val totalWidth = clipRight - clipLeft
             val fadeWidth = 14f * density
-            if (totalWidth > fadeWidth) {
-                val fLeft = (fadeWidth / totalWidth).coerceIn(0f, 0.45f)
-                marqueeFadePaint.shader = LinearGradient(
-                    clipLeft, 0f, clipRight, 0f,
-                    intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK),
-                    floatArrayOf(0f, fLeft, 1f),
-                    Shader.TileMode.CLAMP,
-                )
+            if (totalWidth > fadeWidth * 2f) {
+                val fLeft = (fadeWidth / totalWidth).coerceIn(0f, 0.4f)
+                val fRight = 1f - fLeft
+                if (!isRightPillEdge) {
+                    marqueeFadePaint.shader = LinearGradient(
+                        clipLeft, 0f, clipRight, 0f,
+                        intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK, Color.TRANSPARENT),
+                        floatArrayOf(0f, fLeft, fRight, 1f),
+                        Shader.TileMode.CLAMP,
+                    )
+                } else {
+                    marqueeFadePaint.shader = LinearGradient(
+                        clipLeft, 0f, clipRight, 0f,
+                        intArrayOf(Color.TRANSPARENT, Color.BLACK, Color.BLACK),
+                        floatArrayOf(0f, fLeft, 1f),
+                        Shader.TileMode.CLAMP,
+                    )
+                }
                 canvas.drawRect(marqueeBounds, marqueeFadePaint)
             }
 
