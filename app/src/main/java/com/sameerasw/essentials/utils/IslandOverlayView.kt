@@ -21,6 +21,7 @@ import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -1060,7 +1061,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
             val inAlpha = ((fraction - 0.20f) / 0.80f).coerceIn(0f, 1f)
             val dragAlpha = (1f - dragCollapseFraction * 2.5f).coerceIn(0f, 1f)
-            val baseGlowAlpha = (40f + 110f * expandedFraction) * inAlpha * dragAlpha
+            val baseGlowAlpha = (45f + 85f * expandedFraction) * inAlpha * dragAlpha
             val glowAlpha = if (isShowGlow) baseGlowAlpha.toInt().coerceIn(0, 255) else 0
 
             if (glowAlpha > 0) {
@@ -1070,11 +1071,14 @@ class IslandOverlayView(context: Context) : View(context) {
                 val b = Color.blue(accentColor)
 
                 val glowStartColor = Color.argb(glowAlpha, r, g, b)
-                val glowMidColor = Color.argb((glowAlpha * 0.45f).toInt(), r, g, b)
+                val glowMidColor = Color.argb((glowAlpha * 0.48f).toInt(), r, g, b)
                 val glowEndColor = Color.argb(0, r, g, b)
 
-                val glowOriginLeft = adjustedTargetLeft
-                val glowWidth = (100f + 60f * expandedFraction) * density
+                val cameraAreaBottom = cameraCenterY + cameraRadiusPx + 4f * density
+                val maxAllowedGlowHeight = (currentBottom - cameraAreaBottom).coerceAtLeast(basePillHeight * 0.45f)
+                val requestedGlowHeight = (basePillHeight * 0.55f) + (65f * expandedFraction * density)
+                val glowHeight = requestedGlowHeight.coerceAtMost(maxAllowedGlowHeight)
+                val glowTop = currentBottom - glowHeight
 
                 val glowSave = canvas.save()
                 notificationContentClipPath.reset()
@@ -1082,10 +1086,10 @@ class IslandOverlayView(context: Context) : View(context) {
                 canvas.clipPath(notificationContentClipPath)
 
                 glowPaint.shader = LinearGradient(
-                    glowOriginLeft, currentTop,
-                    glowOriginLeft + glowWidth, currentTop,
+                    currentLeft, currentBottom,
+                    currentLeft, glowTop,
                     intArrayOf(glowStartColor, glowMidColor, glowEndColor),
-                    floatArrayOf(0f, 0.4f, 1f),
+                    floatArrayOf(0f, 0.42f, 1f),
                     Shader.TileMode.CLAMP,
                 )
                 canvas.drawRect(currentLeft, currentTop, currentRight, currentBottom, glowPaint)
