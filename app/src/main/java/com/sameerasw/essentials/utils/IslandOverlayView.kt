@@ -174,8 +174,10 @@ class IslandOverlayView(context: Context) : View(context) {
     private var mediaArtwork: Bitmap? = null
     private var mediaAnimator: ValueAnimator? = null
     private var mediaCompactAnimator: ValueAnimator? = null
+    private var mediaBubbleAnimator: ValueAnimator? = null
     private var mediaFraction: Float = 0f
     private var mediaCompactFraction: Float = 0f
+    private var mediaBubbleFraction: Float = 0f
     private val mediaPillRect = RectF()
     var animatedNotificationFraction: Float = 0f
         private set
@@ -388,9 +390,7 @@ class IslandOverlayView(context: Context) : View(context) {
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
 
-        if (isMediaPlaybackActive) {
-            dismissMediaPlayback()
-        }
+        if (isMediaPlaybackActive) setMediaBubbleVisible(true)
 
         canEnterCatchUp = true
         if (isCatchUpMode) {
@@ -442,16 +442,18 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun showMediaPlayback(title: String, artist: String, artwork: Bitmap?) {
-        if (!isIslandEnabled || isNotificationAlertActive) return
+        if (!isIslandEnabled) return
 
         val wasActive = isMediaPlaybackActive
         isMediaPlaybackActive = true
         mediaTitle = title
         mediaArtist = artist
         mediaArtwork = artwork
+        if (isNotificationAlertActive) setMediaBubbleVisible(true)
         if (!wasActive) {
             isMediaCompact = false
             mediaCompactFraction = 0f
+            mediaBubbleFraction = if (isNotificationAlertActive) 1f else 0f
             mediaAnimator?.cancel()
             mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 1f).apply {
                 duration = 480L
@@ -488,6 +490,7 @@ class IslandOverlayView(context: Context) : View(context) {
         if (!isMediaPlaybackActive) return
         mediaAnimator?.cancel()
         mediaCompactAnimator?.cancel()
+        mediaBubbleAnimator?.cancel()
         mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 0f).apply {
             duration = 280L
             interpolator = AppleDismissInterpolator(responseTimeSec = 0.28f)
@@ -501,6 +504,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     isMediaCompact = false
                     mediaFraction = 0f
                     mediaCompactFraction = 0f
+                    mediaBubbleFraction = 0f
                     mediaTitle = ""
                     mediaArtist = ""
                     mediaArtwork = null
@@ -508,6 +512,22 @@ class IslandOverlayView(context: Context) : View(context) {
                     onAlertsChanged?.invoke()
                 }
             })
+            start()
+        }
+    }
+
+    private fun setMediaBubbleVisible(visible: Boolean) {
+        if (!isMediaPlaybackActive) return
+        mediaBubbleAnimator?.cancel()
+        val target = if (visible) 1f else 0f
+        mediaBubbleAnimator = ValueAnimator.ofFloat(mediaBubbleFraction, target).apply {
+            duration = 420L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
+            addUpdateListener {
+                mediaBubbleFraction = it.animatedValue as Float
+                invalidate()
+                onAlertsChanged?.invoke()
+            }
             start()
         }
     }
@@ -945,6 +965,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     isNotificationAlertActive = false
                     activeNotificationAlert = null
                     animatedNotificationFraction = 0f
+                    if (isMediaPlaybackActive) setMediaBubbleVisible(false)
                     invalidate()
                     onDismissAnimationEnd?.invoke()
                     onAlertsChanged?.invoke()
@@ -964,6 +985,7 @@ class IslandOverlayView(context: Context) : View(context) {
         notificationAnimator?.cancel()
         mergeAnimator?.cancel()
         expansionAnimator?.cancel()
+        mediaBubbleAnimator?.cancel()
         for (i in 0..1) {
             bubbleAnimators[i]?.cancel()
         }
@@ -977,22 +999,23 @@ class IslandOverlayView(context: Context) : View(context) {
     fun getNotificationPillBounds(): RectF = notificationPillRect
 
     fun getTotalAlertsBounds(): RectF {
-        val alert = activeNotificationAlert ?: return notificationPillRect
+        val alert = activeNotificationAlert
+        if (alert == null) return if (isMediaPlaybackActive) computeMediaTargetBounds() else notificationPillRect
         val mainBounds = computeNotificationTargetBounds(alert)
         val numBubbles = queuedNotificationAlerts.size
-        if (numBubbles == 0 || expandedFraction >= 0.99f) return mainBounds
+        if (numBubbles == 0 || expandedFraction >= 0.99f) return unionWithMediaBounds(mainBounds)
 
         val basePillHeight = cameraRadiusPx * 2f + 14f * density
         val bubbleSize = basePillHeight
         val bubbleGap = 8f * density
         val totalBubblesWidth = numBubbles * (bubbleSize + bubbleGap) * (1f - expandedFraction)
 
-        return RectF(
+        return unionWithMediaBounds(RectF(
             mainBounds.left - totalBubblesWidth,
             mainBounds.top,
             mainBounds.right,
             mainBounds.bottom,
-        )
+        ))
     }
 
     fun getAlertAt(x: Float, y: Float): ActiveNotificationAlert? {
@@ -1032,15 +1055,45 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun getNotificationTargetBounds(): RectF {
-        if (!isNotificationAlertActive && isMediaPlaybackActive) return computeMediaTargetBounds()
         return getTotalAlertsBounds()
     }
 
     fun isPointInsideMedia(x: Float, y: Float): Boolean {
         if (!isMediaPlaybackActive) return false
-        val bounds = computeMediaTargetBounds()
+        val bounds = currentMediaBounds()
         val pad = 12f * density
         return RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad).contains(x, y)
+    }
+
+    private fun unionWithMediaBounds(bounds: RectF): RectF {
+        if (!isMediaPlaybackActive || mediaBubbleFraction <= 0.01f) return bounds
+        val mediaBounds = currentMediaBounds()
+        return RectF(
+            minOf(bounds.left, mediaBounds.left),
+            minOf(bounds.top, mediaBounds.top),
+            maxOf(bounds.right, mediaBounds.right),
+            maxOf(bounds.bottom, mediaBounds.bottom),
+        )
+    }
+
+    private fun computeMediaBubbleBounds(): RectF {
+        val size = cameraRadiusPx * 2f + 14f * density
+        val top = cameraCenterY - size / 2f
+        val left = cameraCenterX + cameraRadiusPx + 8f * density
+        val screenRight = resources.displayMetrics.widthPixels.toFloat() - 8f * density
+        return RectF(left, top, minOf(left + size, screenRight), top + size)
+    }
+
+    private fun currentMediaBounds(): RectF {
+        val fullBounds = computeMediaTargetBounds()
+        if (!isNotificationAlertActive || mediaBubbleFraction <= 0.001f) return fullBounds
+        val bubbleBounds = computeMediaBubbleBounds()
+        return RectF(
+            fullBounds.left + (bubbleBounds.left - fullBounds.left) * mediaBubbleFraction,
+            fullBounds.top + (bubbleBounds.top - fullBounds.top) * mediaBubbleFraction,
+            fullBounds.right + (bubbleBounds.right - fullBounds.right) * mediaBubbleFraction,
+            fullBounds.bottom + (bubbleBounds.bottom - fullBounds.bottom) * mediaBubbleFraction,
+        )
     }
 
     private fun computeMediaBounds(compactFraction: Float): RectF {

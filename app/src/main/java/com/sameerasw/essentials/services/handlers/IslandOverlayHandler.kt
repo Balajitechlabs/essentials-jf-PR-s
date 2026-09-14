@@ -218,6 +218,12 @@ class IslandOverlayHandler(
             mainHandler.removeCallbacks(dismissNotificationRunnable)
         }
 
+        touchHandler.onMediaTapped = {
+            overlayView?.setMediaCompact(false)
+            overlayView?.dismissNotificationAlert()
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
+        }
+
         touchHandler.onNotificationExpandToggled = { isExpanded ->
             expandTouchAnchorForNotification()
             mainHandler.removeCallbacks(dismissNotificationRunnable)
@@ -315,7 +321,7 @@ class IslandOverlayHandler(
             val playing = monitoredControllers.firstOrNull { it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING }
             activeMediaController = playing
             val ov = overlayView ?: return@post
-            if (playing == null || ov.isNotificationAlertActive) {
+            if (playing == null) {
                 if (playing == null) ov.dismissMediaPlayback()
                 return@post
             }

@@ -38,6 +38,7 @@ class IslandTouchHandler(
     var onNotificationExpandToggled: ((Boolean) -> Unit)? = null
     var onCatchUpRestored: (() -> Unit)? = null
     var onMediaDismissRequested: (() -> Unit)? = null
+    var onMediaTapped: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -47,6 +48,7 @@ class IslandTouchHandler(
     private var isDragging: Boolean = false
     private var lastHapticDist: Float = 0f
     private var hasTriggeredThresholdHaptic: Boolean = false
+    private var isMediaTouch: Boolean = false
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
@@ -100,6 +102,7 @@ class IslandTouchHandler(
                 isDragging = false
                 lastHapticDist = 0f
                 hasTriggeredThresholdHaptic = false
+                isMediaTouch = overlayView?.isPointInsideMedia(x, y) == true
 
                 mainHandler.removeCallbacks(longPressRunnable)
                 mainHandler.removeCallbacks(longPressRampRunnable1)
@@ -197,8 +200,18 @@ class IslandTouchHandler(
                 val dy = y - downY
                 val totalDist = hypot(dx, dy)
 
-                val isNotifActive = overlayView?.isNotificationAlertActive == true
-                if (isNotifActive) {
+                if (isMediaTouch && overlayView?.isMediaPlaybackActive == true) {
+                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.resetDragOffset()
+                        overlayView?.setMediaCompact(false)
+                        onMediaTapped?.invoke()
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    } else if (isDragging) {
+                        overlayView?.animateDragSnapBack()
+                    } else {
+                        overlayView?.resetDragOffset()
+                    }
+                } else if (overlayView?.isNotificationAlertActive == true) {
                     val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
                     val isSwipeUp = dy < -touchSlopPx * 1.5f && abs(dy) > abs(dx)
                     val isSwipeTowardCamera = when {
