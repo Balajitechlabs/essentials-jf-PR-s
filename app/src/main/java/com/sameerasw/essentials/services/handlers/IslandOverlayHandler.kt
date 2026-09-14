@@ -72,6 +72,19 @@ class IslandOverlayHandler(
     private var activeMediaSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
     private val handlerScope = CoroutineScope(Dispatchers.Main + Job())
 
+    private var lastMediaChangeTimestamp = 0L
+    private val mediaUpdateRunnable = Runnable { applyCurrentMediaState() }
+
+    private fun scheduleMediaUpdate() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastMediaChangeTimestamp < MEDIA_UPDATE_DEBOUNCE_MS) {
+            return
+        }
+        lastMediaChangeTimestamp = now
+        mainHandler.removeCallbacks(mediaUpdateRunnable)
+        mainHandler.postDelayed(mediaUpdateRunnable, MEDIA_UPDATE_DEBOUNCE_MS)
+    }
+
     private val keyguardManager by lazy { service.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager }
 
     private var cameraCenterX = 0f
@@ -297,6 +310,7 @@ class IslandOverlayHandler(
 
     private fun unregisterMediaListener() {
         if (!isMediaSessionRegistered) return
+        mainHandler.removeCallbacks(mediaUpdateRunnable)
         try { activeMediaSessionsListener?.let { mediaSessionManager?.removeOnActiveSessionsChangedListener(it) } } catch (_: Exception) {}
         activeMediaSessionsListener = null
         for ((token, callback) in controllerCallbacks) {
@@ -327,9 +341,9 @@ class IslandOverlayHandler(
             valid.forEach { controller ->
                 if (!controllerCallbacks.containsKey(controller.sessionToken)) {
                     val callback = object : MediaController.Callback() {
-                        override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) = applyCurrentMediaState()
-                        override fun onMetadataChanged(metadata: MediaMetadata?) = applyCurrentMediaState()
-                        override fun onSessionDestroyed() = applyCurrentMediaState()
+                        override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) = scheduleMediaUpdate()
+                        override fun onMetadataChanged(metadata: MediaMetadata?) = scheduleMediaUpdate()
+                        override fun onSessionDestroyed() = scheduleMediaUpdate()
                     }
                     try {
                         controller.registerCallback(callback, mainHandler)
@@ -338,7 +352,11 @@ class IslandOverlayHandler(
                     } catch (_: Exception) {}
                 }
             }
-            applyCurrentMediaState()
+            if (isInitial) {
+                applyCurrentMediaState()
+            } else {
+                scheduleMediaUpdate()
+            }
         }
     }
 
@@ -645,5 +663,9 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_CAMERA_SIZE,
             SettingsRepository.KEY_ISLAND_MAX_WIDTH -> updateOverlayPosition()
         }
+    }
+
+    private companion object {
+        private const val MEDIA_UPDATE_DEBOUNCE_MS = 2000L
     }
 }
