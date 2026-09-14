@@ -83,7 +83,9 @@ class IslandOverlayHandler(
 
     private fun handleNotificationTimeout() {
         val ov = overlayView ?: return
-        if (settingsRepository.isIslandCatchUpEnabled() && ov.isNotificationAlertActive && !ov.isCatchUpMode && !ov.isExpanded) {
+        val hasQueuedAlerts = ov.getQueuedAlerts().isNotEmpty()
+
+        if (!hasQueuedAlerts && ov.canEnterCatchUp && settingsRepository.isIslandCatchUpEnabled() && ov.isNotificationAlertActive && !ov.isCatchUpMode && !ov.isExpanded) {
             ov.enterCatchUpMode()
             expandTouchAnchorForNotification()
             scheduleCatchUpDismissTimer()
