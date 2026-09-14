@@ -248,6 +248,32 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private val actionButtonPath = Path()
     private val actionButtonRects = mutableMapOf<NotificationActionItem, RectF>()
+    private var highlightedAction: NotificationActionItem? = null
+    private var actionExecutionFraction: Float = 0f
+    private var actionExecutionAnimator: ValueAnimator? = null
+
+    fun animateActionExecution(action: NotificationActionItem, onComplete: () -> Unit) {
+        highlightedAction = action
+        actionExecutionFraction = 0f
+        actionExecutionAnimator?.cancel()
+        actionExecutionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 260L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.85f, responseTimeSec = 0.28f)
+            addUpdateListener {
+                actionExecutionFraction = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    highlightedAction = null
+                    actionExecutionFraction = 0f
+                    invalidate()
+                    onComplete()
+                }
+            })
+            start()
+        }
+    }
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
@@ -601,9 +627,6 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun dismissNotificationAlert() {
         stopAllMarquees()
-        isExpanded = false
-        expandedFraction = 0f
-        expansionAnimator?.cancel()
         isMerging = false
         previousAlert = null
         mergeFraction = 1.0f
@@ -617,17 +640,26 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         if (!isNotificationAlertActive && animatedNotificationFraction <= 0f) return
+
+        expansionAnimator?.cancel()
         notificationAnimator?.cancel()
-        val startVal = animatedNotificationFraction
-        notificationAnimator = ValueAnimator.ofFloat(startVal, 0.0f).apply {
-            duration = 280L
-            interpolator = AppleDismissInterpolator(responseTimeSec = 0.28f)
+
+        val startExpanded = expandedFraction
+        val startNotif = animatedNotificationFraction
+
+        notificationAnimator = ValueAnimator.ofFloat(1.0f, 0.0f).apply {
+            duration = if (startExpanded > 0.05f) 320L else 280L
+            interpolator = AppleDismissInterpolator(responseTimeSec = if (startExpanded > 0.05f) 0.32f else 0.28f)
             addUpdateListener { anim ->
-                animatedNotificationFraction = anim.animatedValue as Float
+                val f = anim.animatedValue as Float
+                animatedNotificationFraction = startNotif * f
+                expandedFraction = startExpanded * f
                 invalidate()
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    isExpanded = false
+                    expandedFraction = 0f
                     isNotificationAlertActive = false
                     activeNotificationAlert = null
                     animatedNotificationFraction = 0f
@@ -1130,9 +1162,7 @@ class IslandOverlayView(context: Context) : View(context) {
                             } else {
                                 Triple(255, 255, 255)
                             }
-
-                            actionButtonBgPaint.color = Color.argb(90, r, g, b)
-                            actionButtonTextPaint.alpha = expAlpha
+                            val isBgLight = (0.299 * r + 0.587 * g + 0.114 * b) > 180
 
                             val outerRadius = 18f * density
                             val innerRadius = 4f * density
@@ -1144,6 +1174,26 @@ class IslandOverlayView(context: Context) : View(context) {
                                 val bBottom = buttonRowTop + buttonHeight
                                 val bRect = RectF(bLeft, buttonRowTop, bRight, bBottom)
                                 actionButtonRects[action] = bRect
+
+                                val isActionHighlighted = (highlightedAction != null && (action === highlightedAction || (action.actionKey.isNotEmpty() && action.actionKey == highlightedAction?.actionKey && action.title == highlightedAction?.title)))
+
+                                val (btnBgColor, btnTextColor, btnTextAlpha) = if (isActionHighlighted) {
+                                    val pulseAlpha = (220 - (30 * actionExecutionFraction)).toInt().coerceIn(160, 240)
+                                    val textColor = if (isBgLight) Color.BLACK else Color.WHITE
+                                    Triple(Color.argb(pulseAlpha, r, g, b), textColor, 255)
+                                } else if (highlightedAction != null) {
+                                    val fadeOutFraction = (1f - actionExecutionFraction * 1.5f).coerceIn(0f, 1f)
+                                    val currentExpAlpha = (fadeOutFraction * expAlpha).toInt()
+                                    val bgA = (50 * fadeOutFraction * (expAlpha / 255f)).toInt()
+                                    Triple(Color.argb(bgA, 255, 255, 255), Color.WHITE, currentExpAlpha)
+                                } else {
+                                    val bgA = (50 * (expAlpha / 255f)).toInt()
+                                    Triple(Color.argb(bgA, 255, 255, 255), Color.WHITE, expAlpha)
+                                }
+
+                                actionButtonBgPaint.color = btnBgColor
+                                actionButtonTextPaint.color = btnTextColor
+                                actionButtonTextPaint.alpha = btnTextAlpha
 
                                 actionButtonPath.reset()
                                 val radii = when {
