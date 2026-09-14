@@ -173,6 +173,8 @@ class MainViewModel : ViewModel() {
     val islandMaxWidth = mutableFloatStateOf(360f)
     val islandExpandedWidth = mutableFloatStateOf(360f)
     val islandExpandedRoundness = mutableFloatStateOf(24f)
+    val islandExpandedPadding = mutableFloatStateOf(16f)
+    val islandExpandedTopPadding = mutableFloatStateOf(0f)
     val islandExpandedTimeoutMs = mutableLongStateOf(0L)
     val isIslandSuppressSystemHeadsUp = mutableStateOf(false)
     val isIslandHideWhenScreenOff = mutableStateOf(true)
@@ -2085,6 +2087,8 @@ class MainViewModel : ViewModel() {
         islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
         islandExpandedWidth.floatValue = settingsRepository.getIslandExpandedWidth()
         islandExpandedRoundness.floatValue = settingsRepository.getIslandExpandedRoundness()
+        islandExpandedPadding.floatValue = settingsRepository.getIslandExpandedPadding()
+        islandExpandedTopPadding.floatValue = settingsRepository.getIslandExpandedTopPadding()
         islandExpandedTimeoutMs.longValue = settingsRepository.getIslandExpandedTimeoutMs()
         isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
         isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
@@ -4855,6 +4859,16 @@ class MainViewModel : ViewModel() {
     fun setIslandExpandedRoundness(value: Float) {
         islandExpandedRoundness.floatValue = value
         settingsRepository.setIslandExpandedRoundness(value)
+    }
+
+    fun setIslandExpandedPadding(value: Float) {
+        islandExpandedPadding.floatValue = value
+        settingsRepository.setIslandExpandedPadding(value)
+    }
+
+    fun setIslandExpandedTopPadding(value: Float) {
+        islandExpandedTopPadding.floatValue = value
+        settingsRepository.setIslandExpandedTopPadding(value)
     }
 
     fun setIslandExpandedTimeoutMs(value: Long) {

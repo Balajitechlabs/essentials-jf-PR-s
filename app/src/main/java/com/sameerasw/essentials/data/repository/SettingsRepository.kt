@@ -411,6 +411,8 @@ class SettingsRepository(
         const val KEY_ISLAND_SHOW_GLOW = "island_show_glow"
         const val KEY_ISLAND_EXPANDED_WIDTH = "island_expanded_width"
         const val KEY_ISLAND_EXPANDED_ROUNDNESS = "island_expanded_roundness"
+        const val KEY_ISLAND_EXPANDED_PADDING = "island_expanded_padding"
+        const val KEY_ISLAND_EXPANDED_TOP_PADDING = "island_expanded_top_padding"
         const val KEY_ISLAND_EXPANDED_TIMEOUT_MS = "island_expanded_timeout_ms"
 
         // Status Glance
@@ -3297,6 +3299,12 @@ class SettingsRepository(
 
     fun getIslandExpandedRoundness(): Float = getFloat(KEY_ISLAND_EXPANDED_ROUNDNESS, 24f)
     fun setIslandExpandedRoundness(value: Float) = putFloat(KEY_ISLAND_EXPANDED_ROUNDNESS, value)
+
+    fun getIslandExpandedPadding(): Float = getFloat(KEY_ISLAND_EXPANDED_PADDING, 16f)
+    fun setIslandExpandedPadding(value: Float) = putFloat(KEY_ISLAND_EXPANDED_PADDING, value)
+
+    fun getIslandExpandedTopPadding(): Float = getFloat(KEY_ISLAND_EXPANDED_TOP_PADDING, 0f)
+    fun setIslandExpandedTopPadding(value: Float) = putFloat(KEY_ISLAND_EXPANDED_TOP_PADDING, value)
 
     fun getIslandExpandedTimeoutMs(): Long = getLong(KEY_ISLAND_EXPANDED_TIMEOUT_MS, 0L)
     fun setIslandExpandedTimeoutMs(value: Long) = putLong(KEY_ISLAND_EXPANDED_TIMEOUT_MS, value)

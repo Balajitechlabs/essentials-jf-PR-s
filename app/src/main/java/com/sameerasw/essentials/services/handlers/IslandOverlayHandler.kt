@@ -213,6 +213,8 @@ class IslandOverlayHandler(
                 this.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
                 this.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
                 this.expandedCornerRadiusDp = settingsRepository.getIslandExpandedRoundness()
+                this.expandedPaddingDp = settingsRepository.getIslandExpandedPadding()
+                this.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
                 this.touchHandler = this@IslandOverlayHandler.touchHandler
                 this.onAlertsChanged = {
                     expandTouchAnchorForNotification()
@@ -410,6 +412,12 @@ class IslandOverlayHandler(
             }
             SettingsRepository.KEY_ISLAND_EXPANDED_ROUNDNESS -> {
                 overlayView?.expandedCornerRadiusDp = settingsRepository.getIslandExpandedRoundness()
+            }
+            SettingsRepository.KEY_ISLAND_EXPANDED_PADDING -> {
+                overlayView?.expandedPaddingDp = settingsRepository.getIslandExpandedPadding()
+            }
+            SettingsRepository.KEY_ISLAND_EXPANDED_TOP_PADDING -> {
+                overlayView?.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
