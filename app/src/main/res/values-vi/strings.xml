@@ -1744,4 +1744,15 @@ Cần có quyền quản trị thiết bị nếu sử dụng chế độ khóa.
     <string name="pixel_search_results_web_desc">Hiển thị tùy chọn tìm kiếm trên Google hoặc trình duyệt mặc định</string>
     <string name="pixel_search_use_bubbles_title">Sử dụng bong bóng để tìm kiếm trên web</string>
     <string name="pixel_search_use_bubbles_desc">Mở kết quả tìm kiếm và liên kết trong các lớp phủ bong bóng nổi</string>
+    <string name="label_online_help_media">Phương tiện hỗ trợ trực tuyến</string>
+    <string name="perm_calendar_title">Lịch</string>
+    <string name="perm_install_packages_title">Cài đặt ứng dụng không rõ nguồn gốc</string>
+    <string name="perm_install_packages_desc">Ứng dụng này cần thiết để tự động tải xuống và cài đặt các bản cập nhật.</string>
+    <string name="perm_contacts_title">Quyền truy cập danh bạ</string>
+    <string name="perm_contacts_desc">Để hiển thị danh bạ trong kết quả tìm kiếm Pixel, Essentials cần quyền đọc danh bạ của bạn.</string>
+    <string name="perm_storage_title">Truy cập tất cả các tập tin</string>
+    <string name="perm_storage_desc">Để đọc hình nền hiện tại của bạn, vốn không thể truy cập bằng các quyền thông thường, Essentials cần quyền truy cập vào bộ nhớ ngoài.</string>
+    <string name="perm_bubbles_title">Bong bóng nổi</string>
+    <string name="perm_bubbles_desc">Cho phép xem trước nội dung web mở trong các bong bóng hội thoại nổi phía trên các ứng dụng khác</string>
+    <string name="perm_bubbles_instructions">Đặt thành \"Tất cả cuộc trò chuyện có thể hiển thị dưới dạng thông báo nổi bật\" trong cài đặt thông báo ứng dụng, hoặc cấp quyền thông qua Shizuku / Root.</string>
 </resources>
