@@ -79,6 +79,7 @@ import com.sameerasw.essentials.utils.RootUtils
 import com.sameerasw.essentials.utils.ShellUtils
 import com.sameerasw.essentials.utils.ShizukuUtils
 import com.sameerasw.essentials.utils.SurfaceFlingerControl
+import com.sameerasw.essentials.utils.TestNotificationUtil
 import com.sameerasw.essentials.utils.UpdateNotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -4940,38 +4941,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun triggerIslandPreview(context: Context) {
-        val appIcon = try {
-            val drawable = context.packageManager.getApplicationIcon(context.packageName)
-            if (drawable is android.graphics.drawable.BitmapDrawable) {
-                drawable.bitmap
-            } else {
-                val bmp = android.graphics.Bitmap.createBitmap(
-                    drawable.intrinsicWidth.coerceAtLeast(1),
-                    drawable.intrinsicHeight.coerceAtLeast(1),
-                    android.graphics.Bitmap.Config.ARGB_8888
-                )
-                val c = android.graphics.Canvas(bmp)
-                drawable.setBounds(0, 0, c.width, c.height)
-                drawable.draw(c)
-                bmp
-            }
-        } catch (_: Exception) {
-            null
-        }
-
-        val alert = com.sameerasw.essentials.domain.model.ActiveNotificationAlert(
-            key = "island_preview_${System.currentTimeMillis()}",
-            packageName = context.packageName,
-            title = context.getString(com.sameerasw.essentials.R.string.island_preview_title),
-            text = context.getString(com.sameerasw.essentials.R.string.island_preview_sample),
-            icon = appIcon,
-            contentIntent = null,
-            timestamp = System.currentTimeMillis(),
-            appColor = android.graphics.Color.parseColor("#4285F4"),
-            senderName = context.getString(com.sameerasw.essentials.R.string.island_preview_title),
-            appName = "Essentials",
-            appIcon = appIcon,
-        )
+        val alert = TestNotificationUtil.generateRandomNotification(context)
         com.sameerasw.essentials.services.NotificationListener.notifyAlertPosted(alert)
     }
 
