@@ -2623,6 +2623,13 @@
     <string name="island_preview_sample">Dynamic notifications preview</string>
     <string name="island_show_glow_title">Show accent glow</string>
     <string name="island_show_glow_desc">App based color glow</string>
+    <string name="island_expanded_width_title">Expanded width</string>
+    <string name="island_expanded_width_desc">Width when long pressed to expand</string>
+    <string name="island_expanded_roundness_title">Expanded corner radius</string>
+    <string name="island_expanded_roundness_desc">Roundness of expanded card</string>
+    <string name="island_expanded_timeout_title">Expanded timeout</string>
+    <string name="island_expanded_timeout_desc">Duration before reverting to collapsed pill (0 for infinity)</string>
+    <string name="island_timeout_infinity">Infinity</string>
 
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>

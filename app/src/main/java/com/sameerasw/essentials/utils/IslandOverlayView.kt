@@ -91,6 +91,18 @@ class IslandOverlayView(context: Context) : View(context) {
             invalidate()
         }
 
+    var expandedWidthDp: Float = 360f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var expandedCornerRadiusDp: Float = 24f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var isIslandEnabled: Boolean = true
     var isShowGlow: Boolean = true
         set(value) {
@@ -417,7 +429,8 @@ class IslandOverlayView(context: Context) : View(context) {
             typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
             setTextSize(textSize)
         }
-        val innerPadding = 16f * density
+        val cornerExtraPadding = (expandedCornerRadiusDp * 0.35f * density)
+        val innerPadding = 16f * density + cornerExtraPadding
         val textWidth = (width - innerPadding * 2).toInt().coerceAtLeast(50)
 
         val layout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -510,7 +523,7 @@ class IslandOverlayView(context: Context) : View(context) {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
-        val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+        val maxAllowedWidthPx = (expandedWidthDp * density).coerceAtMost(screenWidth - 16f * density)
         val expTargetLeft: Float
         val expTargetRight: Float
 
@@ -789,7 +802,8 @@ class IslandOverlayView(context: Context) : View(context) {
             val currentBottom = targetBottom
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
             val baseCornerRadius = basePillHeight / 2f
-            val cornerRadius = baseCornerRadius + (24f * density - baseCornerRadius) * expandedFraction
+            val targetExpCornerRadius = expandedCornerRadiusDp * density
+            val cornerRadius = baseCornerRadius + (targetExpCornerRadius - baseCornerRadius) * expandedFraction
 
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
@@ -848,6 +862,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
                 val iconSize = (basePillHeight - 14f * density).coerceAtLeast(16f * density)
                 val verticalPadding = (basePillHeight - iconSize) / 2f
+                val cornerExtraPad = (expandedCornerRadiusDp * 0.35f * density) * expandedFraction
 
                 val prev: ActiveNotificationAlert? = previousAlert
                 if (isMerging && prev != null) {
@@ -906,7 +921,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 notificationBodyPaint.alpha = textAlpha
 
                 if (isCenterCamera) {
-                    val iconLeft = currentLeft + verticalPadding + inSlideX
+                    val iconLeft = currentLeft + verticalPadding + cornerExtraPad + inSlideX
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
@@ -948,7 +963,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         if (collapsedRightAlpha > 0) {
                             notificationBodyPaint.alpha = collapsedRightAlpha
                             val msgStart = cameraCenterX + cameraRadiusPx + 10f * density + inSlideX
-                            val msgEnd = currentRight
+                            val msgEnd = currentRight - cornerExtraPad
                             if (msgEnd > msgStart + 10f * density && message.isNotBlank()) {
                                 drawMarqueeText(
                                     canvas = canvas,
@@ -967,7 +982,7 @@ class IslandOverlayView(context: Context) : View(context) {
                     }
                 } else {
                     val spaceFromCutout = 14f * density
-                    val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout + inSlideX
+                    val iconLeft = cameraCenterX + cameraRadiusPx + spaceFromCutout + cornerExtraPad + inSlideX
                     val iconTop = currentTop + verticalPadding
                     val iconRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
 
@@ -989,7 +1004,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                     if (textAlpha > 0) {
                         val textStart = iconLeft + iconSize + 8f * density
-                        val textEnd = currentRight
+                        val textEnd = currentRight - cornerExtraPad
                         val collapsedRightAlpha = (textAlpha * (1f - expandedFraction * 2.5f).coerceIn(0f, 1f)).toInt()
 
                         if (collapsedRightAlpha > 0) {
@@ -1024,7 +1039,7 @@ class IslandOverlayView(context: Context) : View(context) {
                             setTextSize(textSize)
                             setAlpha(expAlpha)
                         }
-                        val innerPadding = 16f * density
+                        val innerPadding = 16f * density + cornerExtraPad
                         val bodyLeft = currentLeft + innerPadding
                         val headerSpacing = 2f * density
                         val bodyTop = currentTop + basePillHeight + headerSpacing + (1f - expandedFraction) * -8f * density

@@ -76,6 +76,11 @@ class IslandOverlayHandler(
         handleNotificationTimeout()
     }
 
+    private val revertExpansionRunnable = Runnable {
+        overlayView?.setExpandedState(false)
+        scheduleDismissTimer()
+    }
+
     private fun handleNotificationTimeout() {
         val hasNext = overlayView?.advanceToNextNotification() ?: false
         if (hasNext) {
@@ -146,8 +151,14 @@ class IslandOverlayHandler(
 
         touchHandler.onNotificationExpandToggled = { isExpanded ->
             expandTouchAnchorForNotification()
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
+            mainHandler.removeCallbacks(revertExpansionRunnable)
+
             if (isExpanded) {
-                mainHandler.removeCallbacks(dismissNotificationRunnable)
+                val expTimeout = settingsRepository.getIslandExpandedTimeoutMs()
+                if (expTimeout > 0L) {
+                    mainHandler.postDelayed(revertExpansionRunnable, expTimeout)
+                }
             } else {
                 scheduleDismissTimer()
             }
@@ -200,6 +211,8 @@ class IslandOverlayHandler(
             overlayView = IslandOverlayView(service).apply {
                 this.isIslandEnabled = settingsRepository.isIslandEnabled()
                 this.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+                this.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
+                this.expandedCornerRadiusDp = settingsRepository.getIslandExpandedRoundness()
                 this.touchHandler = this@IslandOverlayHandler.touchHandler
                 this.onAlertsChanged = {
                     expandTouchAnchorForNotification()
@@ -391,6 +404,12 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_ENABLED -> updateOverlay()
             SettingsRepository.KEY_ISLAND_SHOW_GLOW -> {
                 overlayView?.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+            }
+            SettingsRepository.KEY_ISLAND_EXPANDED_WIDTH -> {
+                overlayView?.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
+            }
+            SettingsRepository.KEY_ISLAND_EXPANDED_ROUNDNESS -> {
+                overlayView?.expandedCornerRadiusDp = settingsRepository.getIslandExpandedRoundness()
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
