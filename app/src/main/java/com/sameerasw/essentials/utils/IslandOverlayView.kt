@@ -33,6 +33,7 @@ import android.view.animation.LinearInterpolator
 import androidx.core.content.res.ResourcesCompat
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
+import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import kotlin.math.abs
 import kotlin.math.cos
@@ -234,6 +235,19 @@ class IslandOverlayView(context: Context) : View(context) {
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+
+    private val actionButtonBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.argb(40, 255, 255, 255)
+    }
+
+    private val actionButtonTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    }
+
+    private val actionButtonPath = Path()
+    private val actionButtonRects = mutableMapOf<NotificationActionItem, RectF>()
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
@@ -455,8 +469,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
         val textHeight = layout.height.toFloat()
         val headerSpacing = 2f * density
-        val bottomPad = 12f * density
-        val totalHeight = basePillHeight + headerSpacing + textHeight + bottomPad
+        val actionsHeight = if (alert.actions.isNotEmpty()) {
+            48f * density
+        } else {
+            0f
+        }
+        val bottomPad = 14f * density + cornerExtraPadding * 0.3f
+        val totalHeight = basePillHeight + headerSpacing + textHeight + actionsHeight + bottomPad
         return totalHeight.coerceAtLeast(basePillHeight)
     }
 
@@ -674,6 +693,26 @@ class IslandOverlayView(context: Context) : View(context) {
         }
         if (notificationPillRect.contains(x, y)) {
             return activeNotificationAlert
+        }
+        return null
+    }
+
+    fun isPointInsideActiveAlert(x: Float, y: Float): Boolean {
+        if (!isNotificationAlertActive) return false
+        val pad = 12f * density
+        val bounds = getTotalAlertsBounds()
+        val touchRect = RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad)
+        return touchRect.contains(x, y)
+    }
+
+    fun getActionAt(x: Float, y: Float): NotificationActionItem? {
+        if (expandedFraction < 0.6f) return null
+        for ((action, rect) in actionButtonRects) {
+            val pad = 6f * density
+            val expandedRect = RectF(rect.left - pad, rect.top - pad, rect.right + pad, rect.bottom + pad)
+            if (expandedRect.contains(x, y)) {
+                return action
+            }
         }
         return null
     }
@@ -1069,7 +1108,90 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.translate(bodyLeft, bodyTop)
                         bodyLayout.draw(canvas)
                         canvas.restore()
+
+                        if (alert.actions.isNotEmpty()) {
+                            actionButtonRects.clear()
+
+                            val buttonRowTop = bodyTop + bodyLayout.height + 10f * density
+                            val buttonHeight = 36f * density
+                            val actions = alert.actions
+                            val count = actions.size
+                            val spaceBetween = 4f * density
+                            val totalSpace = spaceBetween * (count - 1)
+                            val buttonWidth = ((bodyWidth - totalSpace) / count).coerceAtLeast(40f * density)
+
+                            actionButtonTextPaint.textSize = (buttonHeight * 0.38f).coerceIn(12f * density, 15f * density)
+                            val fontMetrics = actionButtonTextPaint.fontMetrics
+                            val textBaselineOffset = (buttonHeight - (fontMetrics.descent + fontMetrics.ascent)) / 2f
+
+                            val appColor = alert.appColor
+                            val (r, g, b) = if (appColor != null && appColor != 0 && appColor != Color.TRANSPARENT) {
+                                Triple(Color.red(appColor), Color.green(appColor), Color.blue(appColor))
+                            } else {
+                                Triple(255, 255, 255)
+                            }
+
+                            actionButtonBgPaint.color = Color.argb(90, r, g, b)
+                            actionButtonTextPaint.alpha = expAlpha
+
+                            val outerRadius = 18f * density
+                            val innerRadius = 4f * density
+
+                            for (i in 0 until count) {
+                                val action = actions[i]
+                                val bLeft = bodyLeft + i * (buttonWidth + spaceBetween)
+                                val bRight = bLeft + buttonWidth
+                                val bBottom = buttonRowTop + buttonHeight
+                                val bRect = RectF(bLeft, buttonRowTop, bRight, bBottom)
+                                actionButtonRects[action] = bRect
+
+                                actionButtonPath.reset()
+                                val radii = when {
+                                    count == 1 -> floatArrayOf(
+                                        outerRadius, outerRadius,
+                                        outerRadius, outerRadius,
+                                        outerRadius, outerRadius,
+                                        outerRadius, outerRadius
+                                    )
+                                    i == 0 -> floatArrayOf(
+                                        outerRadius, outerRadius,
+                                        innerRadius, innerRadius,
+                                        innerRadius, innerRadius,
+                                        outerRadius, outerRadius
+                                    )
+                                    i == count - 1 -> floatArrayOf(
+                                        innerRadius, innerRadius,
+                                        outerRadius, outerRadius,
+                                        outerRadius, outerRadius,
+                                        innerRadius, innerRadius
+                                    )
+                                    else -> floatArrayOf(
+                                        innerRadius, innerRadius,
+                                        innerRadius, innerRadius,
+                                        innerRadius, innerRadius,
+                                        innerRadius, innerRadius
+                                    )
+                                }
+                                actionButtonPath.addRoundRect(bRect, radii, Path.Direction.CW)
+                                canvas.drawPath(actionButtonPath, actionButtonBgPaint)
+
+                                val title = if (action.isQuickReply) "${action.title} ↩" else action.title
+                                val truncatedTitle = TextUtils.ellipsize(
+                                    title,
+                                    actionButtonTextPaint,
+                                    buttonWidth - 16f * density,
+                                    TextUtils.TruncateAt.END
+                                ).toString()
+
+                                val titleWidth = actionButtonTextPaint.measureText(truncatedTitle)
+                                val textX = bLeft + (buttonWidth - titleWidth) / 2f
+                                val textY = buttonRowTop + textBaselineOffset
+                                canvas.drawText(truncatedTitle, textX, textY, actionButtonTextPaint)
+                            }
+                        }
                     }
+                } else {
+                    actionButtonRects.clear()
                 }
 
                 canvas.restoreToCount(contentSaveCount)
