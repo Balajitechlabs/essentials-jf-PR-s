@@ -15,9 +15,13 @@ import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import android.view.MotionEvent
+import android.widget.Toast
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
+import com.sameerasw.essentials.domain.model.NotificationActionItem
+import com.sameerasw.essentials.services.NotificationListener
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import kotlin.math.abs
@@ -142,20 +146,26 @@ class IslandTouchHandler(
                         overlayView?.animateDragSnapBack()
                     } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L && settingsRepository.isIslandTapActionEnabled()) {
                         overlayView?.resetDragOffset()
-                        val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
-                        if (queuedIdx >= 0) {
-                            val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
-                            if (switched) {
-                                onNotificationSwitched?.invoke()
-                                HapticUtil.performStrongTickHaptic(service)
-                            }
+                        val action = overlayView?.getActionAt(x, y)
+
+                        if (action != null) {
+                            handleNotificationAction(action)
                         } else {
-                            val alert = overlayView?.getActiveNotificationAlert()
-                            if (alert != null) {
-                                launchNotificationApp(alert)
-                                dismissNotification()
+                            val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
+                            if (queuedIdx >= 0) {
+                                val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
+                                if (switched) {
+                                    onNotificationSwitched?.invoke()
+                                    HapticUtil.performStrongTickHaptic(service)
+                                }
+                            } else {
+                                val alert = overlayView?.getActiveNotificationAlert()
+                                if (alert != null) {
+                                    launchNotificationApp(alert)
+                                    dismissNotification()
+                                }
+                                HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                             }
-                            HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                         }
                     } else {
                         overlayView?.animateDragSnapBack()
@@ -216,4 +226,32 @@ class IslandTouchHandler(
             e.printStackTrace()
         }
     }
+
+    private fun handleNotificationAction(action: NotificationActionItem) {
+        HapticUtil.performStrongTickHaptic(service)
+
+        if (action.isQuickReply) {
+            // Dismiss overlay and expand the notification shade for native system typing
+            dismissNotification()
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
+        } else {
+            val notifListener = NotificationListener.instance
+            if (action.pendingIntent != null && notifListener != null) {
+                notifListener.performNotificationAction(action)
+            } else {
+                val toastMsg = "${action.title}: ${service.getString(R.string.island_action_executed)}"
+                Toast.makeText(service, toastMsg, Toast.LENGTH_SHORT).show()
+            }
+
+            val hasNext = overlayView?.advanceToNextNotification() ?: false
+            if (hasNext) {
+                onNotificationSwitched?.invoke()
+            } else {
+                dismissNotification()
+            }
+        }
+    }
 }
+
+
+

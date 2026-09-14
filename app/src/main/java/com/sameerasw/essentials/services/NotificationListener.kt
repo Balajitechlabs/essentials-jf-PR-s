@@ -29,6 +29,7 @@ import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.MapsState
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
+import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.domain.model.NotificationLightingColorMode
 import com.sameerasw.essentials.domain.model.NotificationLightingSide
 import com.sameerasw.essentials.domain.model.ProgressNotificationData
@@ -1876,6 +1877,27 @@ class NotificationListener : NotificationListenerService() {
             } catch (_: Exception) {}
         }
 
+        val actionList = mutableListOf<NotificationActionItem>()
+        val actions = notif.actions
+        if (actions != null) {
+            for (action in actions) {
+                val actionTitle = action.title?.toString()
+                if (!actionTitle.isNullOrBlank()) {
+                    val remoteInputs = action.remoteInputs
+                    val hasReply = !remoteInputs.isNullOrEmpty()
+                    actionList.add(
+                        NotificationActionItem(
+                            title = actionTitle,
+                            isQuickReply = hasReply,
+                            pendingIntent = action.actionIntent,
+                            remoteInputs = remoteInputs,
+                            actionKey = "${sbn.key}_${actionTitle}"
+                        )
+                    )
+                }
+            }
+        }
+
         return ActiveNotificationAlert(
             key = sbn.key,
             packageName = sbn.packageName,
@@ -1887,6 +1909,35 @@ class NotificationListener : NotificationListenerService() {
             senderName = senderName,
             appName = appName,
             appIcon = appIcon,
+            actions = actionList,
         )
     }
+
+    fun performNotificationAction(
+        actionItem: NotificationActionItem,
+        replyText: String? = null
+    ): Boolean {
+        return try {
+            val pendingIntent = actionItem.pendingIntent ?: return false
+            if (actionItem.isQuickReply && !replyText.isNullOrBlank()) {
+                val remoteInputs = actionItem.remoteInputs
+                if (!remoteInputs.isNullOrEmpty()) {
+                    val intent = Intent()
+                    val results = Bundle()
+                    remoteInputs.forEach { ri ->
+                        results.putCharSequence(ri.resultKey, replyText)
+                    }
+                    android.app.RemoteInput.addResultsToIntent(remoteInputs, intent, results)
+                    pendingIntent.send(this, 0, intent)
+                    return true
+                }
+            }
+            pendingIntent.send()
+            true
+        } catch (e: Exception) {
+            Log.e("NotificationListener", "Error performing notification action: ${e.message}")
+            false
+        }
+    }
 }
+
