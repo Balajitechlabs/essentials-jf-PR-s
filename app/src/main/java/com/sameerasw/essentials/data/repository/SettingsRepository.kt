@@ -3335,6 +3335,7 @@ class SettingsRepository(
             com.sameerasw.essentials.utils.ShellUtils.runCommand(
                 context,
                 "settings put global heads_up_notifications_enabled $targetValue",
+                featureName = context.getString(com.sameerasw.essentials.R.string.island_suppress_system_heads_up_title),
             )
         } catch (_: Exception) {}
     }
