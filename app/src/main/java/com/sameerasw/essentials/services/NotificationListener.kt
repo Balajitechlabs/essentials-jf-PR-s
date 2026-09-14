@@ -844,45 +844,50 @@ class NotificationListener : NotificationListenerService() {
                 val isPlaying =
                     playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING
 
-                // Extract and save album art
-                val artwork =
-                    metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
-                        ?: metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ART)
-                        ?: metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-
-                val filesDirFile = File(filesDir, "music_artwork.png")
-                if (artwork != null) {
-                    try {
-                        FileOutputStream(filesDirFile).use { out ->
-                            artwork.compress(Bitmap.CompressFormat.PNG, 100, out)
-                        }
-                    } catch (_: Exception) {
-                    }
-                } else {
-                    if (filesDirFile.exists()) filesDirFile.delete()
-                }
-
-                // Update settings and trigger Glance widget
-                val settingsRepo = SettingsRepository(this)
-                settingsRepo.setPixelSearchbarMusicTitle(title)
-                settingsRepo.setPixelSearchbarMusicArtist(artist)
-                settingsRepo.setPixelSearchbarMusicPackage(sbn.packageName)
-                settingsRepo.incrementPixelSearchbarWidgetRevision()
-
-                kotlinx.coroutines.MainScope().launch {
-                    try {
-                        val managerGlance =
-                            androidx.glance.appwidget.GlanceAppWidgetManager(this@NotificationListener)
-                        val widgetGlance = PixelSearchbarWidget()
-                        val glanceIds = managerGlance.getGlanceIds(PixelSearchbarWidget::class.java)
-                        for (glanceId in glanceIds) {
-                            widgetGlance.update(this@NotificationListener, glanceId)
-                        }
-                    } catch (_: Exception) {
-                    }
-                }
-
                 val lastState = lastMediaStates[sbn.packageName]
+                val mediaContentChanged = lastState == null ||
+                    title != lastState.title ||
+                    artist != lastState.artist
+
+                // Extract and save album art
+                if (mediaContentChanged) {
+                    val artwork =
+                        metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
+                            ?: metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ART)
+                            ?: metadata?.getBitmap(android.media.MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+
+                    val filesDirFile = File(filesDir, "music_artwork.png")
+                    if (artwork != null) {
+                        try {
+                            FileOutputStream(filesDirFile).use { out ->
+                                artwork.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                        } catch (_: Exception) {
+                        }
+                    } else if (filesDirFile.exists()) {
+                        filesDirFile.delete()
+                    }
+
+                    // Update settings and trigger the Glance widget only for new media content.
+                    val settingsRepo = SettingsRepository(this)
+                    settingsRepo.setPixelSearchbarMusicTitle(title)
+                    settingsRepo.setPixelSearchbarMusicArtist(artist)
+                    settingsRepo.setPixelSearchbarMusicPackage(sbn.packageName)
+                    settingsRepo.incrementPixelSearchbarWidgetRevision()
+
+                    kotlinx.coroutines.MainScope().launch {
+                        try {
+                            val managerGlance =
+                                androidx.glance.appwidget.GlanceAppWidgetManager(this@NotificationListener)
+                            val widgetGlance = PixelSearchbarWidget()
+                            val glanceIds = managerGlance.getGlanceIds(PixelSearchbarWidget::class.java)
+                            for (glanceId in glanceIds) {
+                                widgetGlance.update(this@NotificationListener, glanceId)
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
 
                 var eventType: String? = null
 
