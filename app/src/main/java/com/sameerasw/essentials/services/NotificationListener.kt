@@ -1790,7 +1790,7 @@ class NotificationListener : NotificationListenerService() {
             body = standardText
         }
 
-        
+
         if (body.isNullOrBlank()) {
             @Suppress("DEPRECATION")
             val rawMessages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
@@ -2019,4 +2019,3 @@ class NotificationListener : NotificationListenerService() {
         }
     }
 }
-
