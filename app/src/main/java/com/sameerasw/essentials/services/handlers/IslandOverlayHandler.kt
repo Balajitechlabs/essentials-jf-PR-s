@@ -199,6 +199,7 @@ class IslandOverlayHandler(
         if (overlayView == null) {
             overlayView = IslandOverlayView(service).apply {
                 this.isIslandEnabled = settingsRepository.isIslandEnabled()
+                this.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
                 this.touchHandler = this@IslandOverlayHandler.touchHandler
                 this.onDismissAnimationEnd = {
                     restoreTouchAnchor()
@@ -385,6 +386,9 @@ class IslandOverlayHandler(
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
             SettingsRepository.KEY_ISLAND_ENABLED -> updateOverlay()
+            SettingsRepository.KEY_ISLAND_SHOW_GLOW -> {
+                overlayView?.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+            }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_Y,

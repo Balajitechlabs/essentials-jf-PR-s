@@ -233,6 +233,18 @@ fun IslandSettingsUI(
                 modifier = Modifier.highlight(highlightSetting == "island_hide_when_screen_off"),
             )
 
+            IconToggleItem(
+                iconRes = R.drawable.rounded_blur_on_24,
+                title = stringResource(R.string.island_show_glow_title),
+                description = stringResource(R.string.island_show_glow_desc),
+                isChecked = viewModel.isIslandShowGlow.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandShowGlow(checked)
+                },
+                modifier = Modifier.highlight(highlightSetting == "island_show_glow"),
+            )
+
             ConfigSliderItem(
                 title = stringResource(R.string.island_timeout_title),
                 value = (viewModel.islandTimeoutMs.longValue / 1000f),
