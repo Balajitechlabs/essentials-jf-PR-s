@@ -308,6 +308,7 @@ class IslandTouchHandler(
                     } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
                         overlayView?.resetDragOffset()
                         overlayView?.setMediaCompact(false)
+                        onMediaTapped?.invoke()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                     } else if (isDragging) {
                         overlayView?.animateDragSnapBack()

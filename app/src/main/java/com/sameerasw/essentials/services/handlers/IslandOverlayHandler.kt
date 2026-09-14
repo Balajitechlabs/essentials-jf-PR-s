@@ -247,7 +247,7 @@ class IslandOverlayHandler(
         touchHandler.onMediaTapped = {
             overlayView?.setMediaCompact(false)
             overlayView?.dismissNotificationAlert()
-            mainHandler.removeCallbacks(dismissNotificationRunnable)
+            scheduleDismissTimer()
         }
 
         touchHandler.onNotificationExpandToggled = { isExpanded ->
