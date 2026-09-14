@@ -195,12 +195,42 @@ class IslandOverlayView(context: Context) : View(context) {
         invalidate()
     }
 
+    fun updateDragTranslation(dx: Float, dy: Float = 0f) {
+        dragTranslationX = dx
+        dragTranslationY = dy
+        invalidate()
+    }
+
     fun resetDragOffset() {
         dragCollapseFraction = 0f
         dragTranslationX = 0f
         dragTranslationY = 0f
         dragScale = 1.0f
         invalidate()
+    }
+
+    fun animateHorizontalSwipeDismiss(direction: Float, onEnd: () -> Unit) {
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val startX = dragTranslationX
+        val targetX = if (direction > 0f) (screenWidth * 0.85f) else (-screenWidth * 0.85f)
+        val startNotif = animatedNotificationFraction
+        ValueAnimator.ofFloat(0f, 1.0f).apply {
+            duration = 240L
+            interpolator = AppleDismissInterpolator(responseTimeSec = 0.24f)
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                dragTranslationX = startX + (targetX - startX) * f
+                animatedNotificationFraction = startNotif * (1f - f)
+                invalidate()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    resetDragOffset()
+                    onEnd()
+                }
+            })
+            start()
+        }
     }
 
     fun animateDragDismissCollapse(onEnd: () -> Unit) {
