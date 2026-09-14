@@ -201,6 +201,9 @@ class IslandOverlayHandler(
                 this.isIslandEnabled = settingsRepository.isIslandEnabled()
                 this.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
                 this.touchHandler = this@IslandOverlayHandler.touchHandler
+                this.onAlertsChanged = {
+                    expandTouchAnchorForNotification()
+                }
                 this.onDismissAnimationEnd = {
                     restoreTouchAnchor()
                 }
