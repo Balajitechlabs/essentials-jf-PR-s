@@ -63,6 +63,8 @@ object StatusBarManager {
         }
     }
 
+    private var lastAppliedCommand: String? = null
+
     /**
      * Aggregate all active disable requests along with persistent settings and apply the final status bar state.
      */
@@ -85,16 +87,30 @@ object StatusBarManager {
             allFlags.add(FLAG_NOTIFICATION_ICONS)
         }
 
+        if (allFlags.isEmpty() && (lastAppliedCommand == null || lastAppliedCommand == "cmd statusbar send-disable-flag none")) {
+            return
+        }
+
+        // Don't execute shell commands if shell/Shizuku permission isn't available
+        if (!ShellUtils.hasPermission(context)) {
+            return
+        }
+
         val command =
             if (allFlags.isEmpty()) {
                 "cmd statusbar send-disable-flag none"
             } else {
                 "cmd statusbar send-disable-flag ${allFlags.joinToString(" ")}"
             }
+
+        if (command == lastAppliedCommand) return
+        lastAppliedCommand = command
+
         ShellUtils.runCommand(
             context,
             command,
             featureName = context.getString(R.string.feat_statusbar_icons_title),
+            notifyOnError = false,
         )
     }
 
@@ -104,6 +120,8 @@ object StatusBarManager {
      * to SystemUI to prevent system icons from unhiding.
      */
     fun reassertFlags(context: Context) {
+        if (!ShellUtils.hasPermission(context)) return
+
         CoroutineScope(Dispatchers.IO).launch {
             val prefs = context.getSharedPreferences(SettingsRepository.PREFS_NAME, Context.MODE_PRIVATE)
             val isHideSystemIcons = prefs.getBoolean(SettingsRepository.KEY_HIDE_SYSTEM_ICONS, false)
@@ -128,6 +146,7 @@ object StatusBarManager {
                     context,
                     tempCmd,
                     featureName = context.getString(R.string.feat_statusbar_icons_title),
+                    notifyOnError = false,
                 )
                 delay(50)
             }
