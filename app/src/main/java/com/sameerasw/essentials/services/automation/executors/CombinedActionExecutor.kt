@@ -98,9 +98,10 @@ object CombinedActionExecutor {
                 }
 
                 is Action.DimWallpaper -> {
-                    com.sameerasw.essentials.utils.ShellUtils.runCommand(
+                    ShellUtils.runCommand(
                         context,
                         "cmd wallpaper set-dim-amount ${action.dimAmount}",
+                        featureName = context.getString(action.title),
                     )
                 }
 
@@ -802,7 +803,11 @@ object CombinedActionExecutor {
                                     Action.SettingsTable.GLOBAL -> "global"
                                 }
                             val safeValue = if (entry.value.contains(" ")) "\"${entry.value}\"" else entry.value
-                            ShellUtils.runCommand(context, "settings put $tableArg ${entry.key} $safeValue")
+                            ShellUtils.runCommand(
+                                context,
+                                "settings put $tableArg ${entry.key} $safeValue",
+                                featureName = context.getString(action.title),
+                            )
                         }
                     }
                 }
@@ -849,8 +854,11 @@ object CombinedActionExecutor {
         enabled: Boolean,
     ) {
         val command = if (enabled) "cmd wifi start-softap" else "cmd wifi stop-softap"
-        com.sameerasw.essentials.utils.ShellUtils
-            .runCommand(context, command)
+        ShellUtils.runCommand(
+            context,
+            command,
+            featureName = context.getString(if (enabled) R.string.diy_action_hotspot_on else R.string.diy_action_hotspot_off),
+        )
     }
 
     private fun setLowPowerMode(
@@ -871,8 +879,11 @@ object CombinedActionExecutor {
         enabled: Boolean,
     ) {
         val state = if (enabled) "enable" else "disable"
-        com.sameerasw.essentials.utils.ShellUtils
-            .runCommand(context, "svc wifi $state")
+        ShellUtils.runCommand(
+            context,
+            "svc wifi $state",
+            featureName = context.getString(if (enabled) R.string.diy_action_wifi_on else R.string.diy_action_wifi_off),
+        )
     }
 
     private fun setCellularDataEnabled(
@@ -880,8 +891,11 @@ object CombinedActionExecutor {
         enabled: Boolean,
     ) {
         val state = if (enabled) "enable" else "disable"
-        com.sameerasw.essentials.utils.ShellUtils
-            .runCommand(context, "svc data $state")
+        ShellUtils.runCommand(
+            context,
+            "svc data $state",
+            featureName = context.getString(if (enabled) R.string.diy_action_cellular_on else R.string.diy_action_cellular_off),
+        )
     }
 
     private fun setAutoBrightnessEnabled(
@@ -896,9 +910,10 @@ object CombinedActionExecutor {
                 value,
             )
         } catch (e: Exception) {
-            com.sameerasw.essentials.utils.ShellUtils.runCommand(
+            ShellUtils.runCommand(
                 context,
                 "settings put system screen_brightness_mode $value",
+                featureName = context.getString(if (enabled) R.string.diy_action_auto_brightness_on else R.string.diy_action_auto_brightness_off),
             )
         }
     }

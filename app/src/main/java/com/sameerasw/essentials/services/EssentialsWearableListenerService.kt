@@ -13,6 +13,7 @@ import android.content.Context
 import androidx.core.content.edit
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.ScreenOffMethod
 import com.sameerasw.essentials.utils.DeviceLockUtils
@@ -118,6 +119,7 @@ class EssentialsWearableListenerService : WearableListenerService() {
                             com.sameerasw.essentials.utils.ShellUtils.runCommand(
                                 this,
                                 "settings put secure doze_always_on 1",
+                                featureName = getString(R.string.feat_aod_wallpaper_title),
                             )
                         }
                     }
@@ -133,6 +135,7 @@ class EssentialsWearableListenerService : WearableListenerService() {
                             com.sameerasw.essentials.utils.ShellUtils.runCommand(
                                 this,
                                 "settings put secure doze_always_on 0",
+                                featureName = getString(R.string.feat_aod_wallpaper_title),
                             )
                         }
                         prefs.edit(commit = true) {
@@ -154,6 +157,7 @@ class EssentialsWearableListenerService : WearableListenerService() {
                             com.sameerasw.essentials.utils.ShellUtils.runCommand(
                                 this,
                                 "settings put secure doze_always_on 0",
+                                featureName = getString(R.string.feat_aod_wallpaper_title),
                             )
                         }
                     }
@@ -178,6 +182,7 @@ class EssentialsWearableListenerService : WearableListenerService() {
                     com.sameerasw.essentials.utils.ShellUtils.runCommand(
                         this,
                         "settings put secure doze_tap_gesture $newState",
+                        featureName = getString(R.string.tile_tap_to_wake),
                     )
                 }
             }
