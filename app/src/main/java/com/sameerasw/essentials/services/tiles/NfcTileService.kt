@@ -100,7 +100,11 @@ class NfcTileService : BaseTileService() {
         } catch (e: Exception) {
             // Fallback to shell if reflection fails
             val command = if (enable) "svc nfc enable" else "svc nfc disable"
-            ShellUtils.runCommand(context, command)
+            ShellUtils.runCommand(
+                context,
+                command,
+                featureName = context.getString(R.string.nfc_tile_label),
+            )
             true
         }
     }

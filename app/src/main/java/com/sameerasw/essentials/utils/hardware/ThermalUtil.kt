@@ -65,7 +65,7 @@ object ThermalUtil {
         if (!ShellUtils.hasPermission(context)) return null
 
         val output =
-            ShellUtils.runCommandWithOutput(context, "dumpsys thermalservice") ?: return null
+            ShellUtils.runCommandWithOutput(context, "dumpsys thermalservice", notifyOnError = false) ?: return null
         return parseDumpsysThermalService(output)
     }
 

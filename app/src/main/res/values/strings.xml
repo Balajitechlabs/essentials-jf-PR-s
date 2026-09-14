@@ -2588,4 +2588,14 @@
     <string name="action_backup_app_list">Backup app list</string>
     <string name="msg_backup_app_list_success">App list backed up successfully</string>
     <string name="msg_backup_app_list_failed">Failed to back up app list</string>
+    <string name="shizuku_not_running_title">Shizuku is not running</string>
+    <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
+    <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
+    <string name="shizuku_permission_missing_title">Shizuku permission missing</string>
+    <string name="shizuku_permission_missing_desc">Please grant Shizuku permission for Essentials.</string>
+    <string name="shizuku_permission_missing_feature_desc">Please grant Shizuku permission for Essentials to use %1$s.</string>
+    <string name="shizuku_status_alerts_channel_name">Shizuku Status Alerts</string>
+    <string name="action_expand_notifications">Expand notifications</string>
+    <string name="action_expand_settings">Expand settings</string>
+    <string name="action_collapse_status_bar">Collapse status bar</string>
 </resources>

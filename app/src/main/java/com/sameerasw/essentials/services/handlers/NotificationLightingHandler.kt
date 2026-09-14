@@ -410,6 +410,10 @@ class NotificationLightingHandler(
                 }
             }
 
-        ShellUtils.runCommand(service, command)
+        ShellUtils.runCommand(
+            service,
+            command,
+            featureName = service.getString(com.sameerasw.essentials.R.string.feat_notification_lighting_title),
+        )
     }
 }

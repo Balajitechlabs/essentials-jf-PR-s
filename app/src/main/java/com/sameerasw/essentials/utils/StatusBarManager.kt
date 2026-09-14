@@ -11,6 +11,7 @@
 package com.sameerasw.essentials.utils
 
 import android.content.Context
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +91,11 @@ object StatusBarManager {
             } else {
                 "cmd statusbar send-disable-flag ${allFlags.joinToString(" ")}"
             }
-        ShellUtils.runCommand(context, command)
+        ShellUtils.runCommand(
+            context,
+            command,
+            featureName = context.getString(R.string.feat_statusbar_icons_title),
+        )
     }
 
     /**
@@ -119,7 +124,11 @@ object StatusBarManager {
                         "cmd statusbar send-disable-flag ${tempFlags.joinToString(" ")}"
                     }
 
-                ShellUtils.runCommand(context, tempCmd)
+                ShellUtils.runCommand(
+                    context,
+                    tempCmd,
+                    featureName = context.getString(R.string.feat_statusbar_icons_title),
+                )
                 delay(50)
             }
             update(context)
@@ -132,20 +141,32 @@ object StatusBarManager {
      * Open the notifications panel.
      */
     fun expandNotifications(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar expand-notifications")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar expand-notifications",
+            featureName = context.getString(R.string.action_expand_notifications),
+        )
     }
 
     /**
      * Open the notifications panel and expand quick settings if present.
      */
     fun expandSettings(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar expand-settings")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar expand-settings",
+            featureName = context.getString(R.string.action_expand_settings),
+        )
     }
 
     /**
      * Collapse the notifications and settings panel.
      */
     fun collapse(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar collapse")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar collapse",
+            featureName = context.getString(R.string.action_collapse_status_bar),
+        )
     }
 }

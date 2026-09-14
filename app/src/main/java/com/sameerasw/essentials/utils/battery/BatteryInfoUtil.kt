@@ -213,7 +213,7 @@ object BatteryInfoUtil {
         var voltageNow: Long? =
             readSysfsLong(context, "/sys/class/power_supply/battery/voltage_now")
 
-        val dumpsysOutput = ShellUtils.runCommandWithOutput(context, "dumpsys battery")
+        val dumpsysOutput = ShellUtils.runCommandWithOutput(context, "dumpsys battery", notifyOnError = false)
         val dumpsysMap = parseDumpsysBattery(dumpsysOutput)
 
         // SAMSUNG SPECIFIC: mSavedBattery... fields
@@ -273,11 +273,11 @@ object BatteryInfoUtil {
                 ?: dumpsysMap["Part status"]?.cleanNumericValue()?.toIntOrNull()
 
         val powerProfileOutput =
-            ShellUtils.runCommandWithOutput(context, "dumpsys batterystats --power-profile")
+            ShellUtils.runCommandWithOutput(context, "dumpsys batterystats --power-profile", notifyOnError = false)
         val powerProfileMap = parsePowerProfile(powerProfileOutput)
 
         val settingsOutput =
-            ShellUtils.runCommandWithOutput(context, "dumpsys batterystats --settings")
+            ShellUtils.runCommandWithOutput(context, "dumpsys batterystats --settings", notifyOnError = false)
         val enforceLevel = parseSettingsEnforceLevel(settingsOutput)
 
         return basic.copy(
@@ -331,7 +331,7 @@ object BatteryInfoUtil {
         context: Context,
         path: String,
     ): Long? {
-        val out = ShellUtils.runCommandWithOutput(context, "cat $path") ?: return null
+        val out = ShellUtils.runCommandWithOutput(context, "cat $path", notifyOnError = false) ?: return null
         return out
             .trim()
             .cleanNumericValue()
