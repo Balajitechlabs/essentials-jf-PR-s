@@ -46,12 +46,17 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 class IslandOverlayView(context: Context) : View(context) {
+    enum class DragCollapseTarget {
+        CAMERA,
+        COMPACT,
+    }
+
     private val density = resources.displayMetrics.density
 
     var touchHandler: IslandTouchHandler? = null
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!isNotificationAlertActive) return false
+        if (!isNotificationAlertActive && !isMediaPlaybackActive) return false
         val x = event.x
         val y = event.y
 
@@ -148,9 +153,30 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
+    private val musicIconBitmap: Bitmap? by lazy {
+        try {
+            val drawable = ContextCompat.getDrawable(context, R.drawable.rounded_music_note_24)
+            drawable?.let { AppUtil.drawableToBitmap(it, (24f * density).toInt()) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private var activeNotificationAlert: ActiveNotificationAlert? = null
     var isNotificationAlertActive: Boolean = false
         private set
+    var isMediaPlaybackActive: Boolean = false
+        private set
+    var isMediaCompact: Boolean = false
+        private set
+    private var mediaTitle: String = ""
+    private var mediaArtist: String = ""
+    private var mediaArtwork: Bitmap? = null
+    private var mediaAnimator: ValueAnimator? = null
+    private var mediaCompactAnimator: ValueAnimator? = null
+    private var mediaFraction: Float = 0f
+    private var mediaCompactFraction: Float = 0f
+    private val mediaPillRect = RectF()
     var animatedNotificationFraction: Float = 0f
         private set
     private var notificationAnimator: ValueAnimator? = null
@@ -190,8 +216,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
     var dragCollapseFraction: Float = 0f
         private set
+    private var dragCollapseTarget = DragCollapseTarget.CAMERA
 
-    fun updateDragCollapseFraction(fraction: Float) {
+    fun updateDragCollapseFraction(
+        fraction: Float,
+        target: DragCollapseTarget = DragCollapseTarget.CAMERA,
+    ) {
+        dragCollapseTarget = target
         dragCollapseFraction = fraction.coerceIn(0f, 1f)
         invalidate()
     }
@@ -234,7 +265,11 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    fun animateDragDismissCollapse(onEnd: () -> Unit) {
+    fun animateDragDismissCollapse(
+        target: DragCollapseTarget = DragCollapseTarget.CAMERA,
+        onEnd: () -> Unit,
+    ) {
+        dragCollapseTarget = target
         val startVal = dragCollapseFraction
         val anim = ValueAnimator.ofFloat(startVal, 1.0f).apply {
             duration = 200L
@@ -270,6 +305,11 @@ class IslandOverlayView(context: Context) : View(context) {
                 dragScale = startScale + (1.0f - startScale) * f
                 invalidate()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    dragCollapseTarget = DragCollapseTarget.CAMERA
+                }
+            })
             start()
         }
     }
@@ -348,6 +388,10 @@ class IslandOverlayView(context: Context) : View(context) {
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
 
+        if (isMediaPlaybackActive) {
+            dismissMediaPlayback()
+        }
+
         canEnterCatchUp = true
         if (isCatchUpMode) {
             exitCatchUpMode()
@@ -395,6 +439,77 @@ class IslandOverlayView(context: Context) : View(context) {
         val bubbleIdx = queuedNotificationAlerts.size - 1
         animateBubbleIn(bubbleIdx)
         onAlertsChanged?.invoke()
+    }
+
+    fun showMediaPlayback(title: String, artist: String, artwork: Bitmap?) {
+        if (!isIslandEnabled || isNotificationAlertActive) return
+
+        val wasActive = isMediaPlaybackActive
+        isMediaPlaybackActive = true
+        mediaTitle = title
+        mediaArtist = artist
+        mediaArtwork = artwork
+        if (!wasActive) {
+            isMediaCompact = false
+            mediaCompactFraction = 0f
+            mediaAnimator?.cancel()
+            mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 1f).apply {
+                duration = 480L
+                interpolator = AppleSpringInterpolator(dampingRatio = 0.70f, responseTimeSec = 0.50f)
+                addUpdateListener {
+                    mediaFraction = it.animatedValue as Float
+                    invalidate()
+                }
+                start()
+            }
+            onAlertsChanged?.invoke()
+        } else {
+            invalidate()
+        }
+    }
+
+    fun setMediaCompact(compact: Boolean) {
+        if (!isMediaPlaybackActive || isMediaCompact == compact) return
+        isMediaCompact = compact
+        mediaCompactAnimator?.cancel()
+        mediaCompactAnimator = ValueAnimator.ofFloat(mediaCompactFraction, if (compact) 1f else 0f).apply {
+            duration = 420L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
+            addUpdateListener {
+                mediaCompactFraction = it.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+        onAlertsChanged?.invoke()
+    }
+
+    fun dismissMediaPlayback() {
+        if (!isMediaPlaybackActive) return
+        mediaAnimator?.cancel()
+        mediaCompactAnimator?.cancel()
+        mediaAnimator = ValueAnimator.ofFloat(mediaFraction, 0f).apply {
+            duration = 280L
+            interpolator = AppleDismissInterpolator(responseTimeSec = 0.28f)
+            addUpdateListener {
+                mediaFraction = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    isMediaPlaybackActive = false
+                    isMediaCompact = false
+                    mediaFraction = 0f
+                    mediaCompactFraction = 0f
+                    mediaTitle = ""
+                    mediaArtist = ""
+                    mediaArtwork = null
+                    onDismissAnimationEnd?.invoke()
+                    onAlertsChanged?.invoke()
+                }
+            })
+            start()
+        }
     }
 
     private fun animateBubbleIn(index: Int) {
@@ -496,7 +611,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun toggleExpansion(): Boolean {
-        if (!isNotificationAlertActive || activeNotificationAlert == null) return false
+        if (!isNotificationAlertActive && !isMediaPlaybackActive) return false
         setExpandedState(!isExpanded)
         return isExpanded
     }
@@ -917,8 +1032,56 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun getNotificationTargetBounds(): RectF {
+        if (!isNotificationAlertActive && isMediaPlaybackActive) return computeMediaTargetBounds()
         return getTotalAlertsBounds()
     }
+
+    fun isPointInsideMedia(x: Float, y: Float): Boolean {
+        if (!isMediaPlaybackActive) return false
+        val bounds = computeMediaTargetBounds()
+        val pad = 12f * density
+        return RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad).contains(x, y)
+    }
+
+    private fun computeMediaBounds(compactFraction: Float): RectF {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val top = cameraCenterY - height / 2f
+        val bottom = cameraCenterY + height / 2f
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+        val maxWidth = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+        val normalHalfWidth = (maxWidth / 2f).coerceAtMost(
+            minOf(cameraCenterX - 8f * density, screenWidth - cameraCenterX - 8f * density),
+        )
+        val normalBounds = if (isCenterCamera) {
+            RectF(cameraCenterX - normalHalfWidth, top, cameraCenterX + normalHalfWidth, bottom)
+        } else {
+            val left = (cameraCenterX - cameraRadiusPx - 10f * density).coerceAtLeast(8f * density)
+            val right = (left + maxWidth).coerceAtMost(screenWidth - 8f * density)
+            RectF(left, top, right, bottom)
+        }
+
+        val compactBounds = if (isCenterCamera) {
+            val sideWidth = cameraRadiusPx + 10f * density + iconSize + 12f * density
+            RectF(cameraCenterX - sideWidth, top, cameraCenterX + sideWidth, bottom)
+        } else {
+            val left = (cameraCenterX - cameraRadiusPx - 10f * density).coerceAtLeast(8f * density)
+            val right = (cameraCenterX + cameraRadiusPx + 12f * density + iconSize + 18f * density)
+                .coerceAtMost(screenWidth - 8f * density)
+            RectF(left, top, right, bottom)
+        }
+
+        return RectF(
+            normalBounds.left + (compactBounds.left - normalBounds.left) * compactFraction,
+            top,
+            normalBounds.right + (compactBounds.right - normalBounds.right) * compactFraction,
+            bottom,
+        )
+    }
+
+    private fun computeMediaTargetBounds(): RectF =
+        computeMediaBounds(mediaCompactFraction.coerceIn(0f, 1f))
 
     private fun computeSenderAndMessage(alert: ActiveNotificationAlert): Pair<String, String> {
         val appName = alert.appName?.trim() ?: try {
@@ -980,10 +1143,79 @@ class IslandOverlayView(context: Context) : View(context) {
         return Pair(sender, message)
     }
 
+    private fun drawMediaPlayback(canvas: Canvas) {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val initial = RectF(
+            cameraCenterX - cameraRadiusPx,
+            cameraCenterY - cameraRadiusPx,
+            cameraCenterX + cameraRadiusPx,
+            cameraCenterY + cameraRadiusPx,
+        )
+        val collapseFraction = when (dragCollapseTarget) {
+            DragCollapseTarget.CAMERA -> 0f
+            DragCollapseTarget.COMPACT -> 1f
+        }
+        val target = computeMediaBounds(
+            (mediaCompactFraction + (1f - mediaCompactFraction) * dragCollapseFraction * collapseFraction)
+                .coerceIn(0f, 1f),
+        )
+        val targetLeft = target.left
+        val targetRight = target.right
+        val targetTop = target.top
+        val targetBottom = target.bottom
+        val left = initial.left + (targetLeft - initial.left) * mediaFraction
+        val right = initial.right + (targetRight - initial.right) * mediaFraction
+        val top = initial.top + (targetTop - initial.top) * mediaFraction
+        val bottom = initial.bottom + (targetBottom - initial.bottom) * mediaFraction
+        mediaPillRect.set(left, top, right, bottom)
+
+        notificationPillPaint.color = Color.BLACK
+        notificationPillPaint.alpha = 255
+        canvas.drawRoundRect(mediaPillRect, height / 2f, height / 2f, notificationPillPaint)
+
+        val alpha = (mediaFraction * 255f).toInt().coerceIn(0, 255)
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val pad = (height - iconSize) / 2f
+        val artRect = RectF(mediaPillRect.left + pad, mediaPillRect.top + pad, mediaPillRect.left + pad + iconSize, mediaPillRect.top + pad + iconSize)
+        mediaArtwork?.let {
+            iconPaint.alpha = alpha
+            canvas.save()
+            notificationIconClipPath.reset()
+            notificationIconClipPath.addCircle(artRect.centerX(), artRect.centerY(), iconSize / 2f, Path.Direction.CW)
+            canvas.clipPath(notificationIconClipPath)
+            canvas.drawBitmap(it, null, artRect, iconPaint)
+            canvas.restore()
+        }
+
+        val compactIconRect = RectF(mediaPillRect.right - pad - iconSize, mediaPillRect.top + pad, mediaPillRect.right - pad, mediaPillRect.top + pad + iconSize)
+        musicIconBitmap?.let {
+            catchUpUnreadPaint.alpha = (alpha * mediaCompactFraction).toInt().coerceIn(0, 255)
+            catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(it, null, compactIconRect, catchUpUnreadPaint)
+        }
+
+        val textAlpha = (alpha * (1f - mediaCompactFraction)).toInt().coerceIn(0, 255)
+        if (textAlpha > 0) {
+            notificationSenderPaint.alpha = textAlpha
+            notificationBodyPaint.alpha = textAlpha
+            notificationSenderPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+            notificationBodyPaint.textSize = notificationSenderPaint.textSize
+            val artistLeft = artRect.right + 8f * density
+            val artistRight = cameraCenterX - cameraRadiusPx - 8f * density
+            val titleLeft = cameraCenterX + cameraRadiusPx + 10f * density
+            val titleRight = compactIconRect.left - 8f * density
+            drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f)
+            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f)
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        val alert: ActiveNotificationAlert = activeNotificationAlert ?: return
+        val alert: ActiveNotificationAlert = activeNotificationAlert ?: run {
+            if (isMediaPlaybackActive && mediaFraction > 0.001f) drawMediaPlayback(canvas)
+            return
+        }
         if (animatedNotificationFraction > 0.001f) {
             val fraction = animatedNotificationFraction
             val screenWidth = resources.displayMetrics.widthPixels.toFloat()
