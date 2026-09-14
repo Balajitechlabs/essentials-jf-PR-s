@@ -8241,7 +8241,7 @@ class MainViewModel : ViewModel() {
 
         if (tilesString.isBlank() && ShellUtils.hasPermission(context)) {
             try {
-                tilesString = ShellUtils.runCommandWithOutput(context, "settings get secure sysui_qs_tiles") ?: ""
+                tilesString = ShellUtils.runCommandWithOutput(context, "settings get secure sysui_qs_tiles", notifyOnError = false) ?: ""
                 if (tilesString == "null") tilesString = ""
             } catch (e: Exception) {
                 e.printStackTrace()

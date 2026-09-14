@@ -112,7 +112,11 @@ object DeviceLockUtils {
                         ).show()
                     return false
                 }
-                ShellUtils.runCommand(context, "input keyevent ${KeyEvent.KEYCODE_POWER}")
+                ShellUtils.runCommand(
+                    context,
+                    "input keyevent ${KeyEvent.KEYCODE_POWER}",
+                    featureName = context.getString(R.string.diy_action_screen_off),
+                )
                 true
             }
         }

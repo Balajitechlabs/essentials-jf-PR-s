@@ -168,7 +168,7 @@ abstract class BaseTileService : TileService() {
         } catch (_: SecurityException) {
             // Only fallback to shell on SecurityException
             return try {
-                val output = ShellUtils.runCommandWithOutput(this, "settings get secure $key")
+                val output = ShellUtils.runCommandWithOutput(this, "settings get secure $key", featureName = getTileLabel(), notifyOnError = false)
                 val result = output?.toIntOrNull() ?: def
                 secureSettingsCache[key] = result
                 result
@@ -190,7 +190,7 @@ abstract class BaseTileService : TileService() {
             Settings.Secure.putInt(contentResolver, key, value)
         } catch (_: Exception) {
             // Fallback to shell if standard API fails
-            ShellUtils.runCommand(this, "settings put secure $key $value")
+            ShellUtils.runCommand(this, "settings put secure $key $value", featureName = getTileLabel())
         }
     }
 
@@ -207,7 +207,7 @@ abstract class BaseTileService : TileService() {
         } catch (_: SecurityException) {
             // Only fallback to shell on SecurityException
             return try {
-                val output = ShellUtils.runCommandWithOutput(this, "settings get global $key")
+                val output = ShellUtils.runCommandWithOutput(this, "settings get global $key", featureName = getTileLabel(), notifyOnError = false)
                 val result = output?.toIntOrNull() ?: def
                 secureSettingsCache[key] = result
                 result
@@ -229,7 +229,7 @@ abstract class BaseTileService : TileService() {
             Settings.Global.putInt(contentResolver, key, value)
         } catch (_: Exception) {
             // Fallback to shell if standard API fails
-            ShellUtils.runCommand(this, "settings put global $key $value")
+            ShellUtils.runCommand(this, "settings put global $key $value", featureName = getTileLabel())
         }
     }
 }

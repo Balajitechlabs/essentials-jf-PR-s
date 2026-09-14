@@ -46,24 +46,40 @@ object ShellUtils {
     fun runCommand(
         context: Context,
         command: String,
+        featureName: String? = null,
+        notifyOnError: Boolean = true,
     ) {
         if (isRootEnabled(context)) {
             RootUtils.runCommand(command)
         } else {
             if (!ShizukuUtils.isShizukuAvailable()) {
-                notifyShizukuError(
-                    context,
-                    "Shizuku is not running",
-                    "Please start Shizuku from its app to enable features.",
-                )
+                if (notifyOnError) {
+                    val message = if (!featureName.isNullOrBlank()) {
+                        context.getString(R.string.shizuku_not_running_feature_desc, featureName)
+                    } else {
+                        context.getString(R.string.shizuku_not_running_desc)
+                    }
+                    notifyShizukuError(
+                        context,
+                        context.getString(R.string.shizuku_not_running_title),
+                        message,
+                    )
+                }
                 return
             }
             if (!ShizukuUtils.hasPermission()) {
-                notifyShizukuError(
-                    context,
-                    "Shizuku permission missing",
-                    "Please grant Shizuku permission for Essentials.",
-                )
+                if (notifyOnError) {
+                    val message = if (!featureName.isNullOrBlank()) {
+                        context.getString(R.string.shizuku_permission_missing_feature_desc, featureName)
+                    } else {
+                        context.getString(R.string.shizuku_permission_missing_desc)
+                    }
+                    notifyShizukuError(
+                        context,
+                        context.getString(R.string.shizuku_permission_missing_title),
+                        message,
+                    )
+                }
                 return
             }
             ShizukuUtils.runCommand(command)
@@ -73,9 +89,11 @@ object ShellUtils {
     fun runCommandWithOutput(
         context: Context,
         command: String,
+        featureName: String? = null,
+        notifyOnError: Boolean = true,
     ): String? =
         try {
-            val process = newProcess(context, arrayOf("sh", "-c", command))
+            val process = newProcess(context, arrayOf("sh", "-c", command), featureName, notifyOnError)
             process
                 ?.inputStream
                 ?.bufferedReader()
@@ -88,35 +106,53 @@ object ShellUtils {
     fun newProcess(
         context: Context,
         command: Array<String>,
+        featureName: String? = null,
+        notifyOnError: Boolean = true,
     ): Process? {
         return if (isRootEnabled(context)) {
             RootUtils.newProcess(command)
         } else {
             if (!ShizukuUtils.isShizukuAvailable()) {
-                notifyShizukuError(
-                    context,
-                    "Shizuku is not running",
-                    "Please start Shizuku to enable features.",
-                )
+                if (notifyOnError) {
+                    val message = if (!featureName.isNullOrBlank()) {
+                        context.getString(R.string.shizuku_not_running_feature_desc, featureName)
+                    } else {
+                        context.getString(R.string.shizuku_not_running_desc)
+                    }
+                    notifyShizukuError(
+                        context,
+                        context.getString(R.string.shizuku_not_running_title),
+                        message,
+                    )
+                }
                 return null
             }
             if (!ShizukuUtils.hasPermission()) {
-                notifyShizukuError(
-                    context,
-                    "Shizuku permission missing",
-                    "Please grant Shizuku permission for Essentials.",
-                )
+                if (notifyOnError) {
+                    val message = if (!featureName.isNullOrBlank()) {
+                        context.getString(R.string.shizuku_permission_missing_feature_desc, featureName)
+                    } else {
+                        context.getString(R.string.shizuku_permission_missing_desc)
+                    }
+                    notifyShizukuError(
+                        context,
+                        context.getString(R.string.shizuku_permission_missing_title),
+                        message,
+                    )
+                }
                 return null
             }
             try {
                 com.sameerasw.essentials.shizuku.ShizukuProcessHelper
                     .newProcess(command)
             } catch (e: Exception) {
-                notifyShizukuError(
-                    context,
-                    "Shizuku execution error",
-                    "An error occurred while running command: ${e.localizedMessage}",
-                )
+                if (notifyOnError) {
+                    notifyShizukuError(
+                        context,
+                        "Shizuku execution error",
+                        "An error occurred while running command: ${e.localizedMessage}",
+                    )
+                }
                 null
             }
         }
@@ -140,7 +176,7 @@ object ShellUtils {
             val channel =
                 NotificationChannel(
                     channelId,
-                    "Shizuku Status Alerts",
+                    context.getString(R.string.shizuku_status_alerts_channel_name),
                     NotificationManager.IMPORTANCE_HIGH,
                 )
             notificationManager.createNotificationChannel(channel)
