@@ -1584,4 +1584,8 @@
     <string name="label_ripple_animation">Волновой эффект</string>
     <string name="feat_sim_names_title">Названия SIM</string>
     <string name="feat_sim_names_desc">Изменить отображаемое имя для активных SIM карт</string>
+    <string name="label_disable_aod">Отключить Always-on Display</string>
+    <string name="desc_disable_aod">Отключить Ambient / Always-on display.</string>
+    <string name="label_soundtrigger_mode">Режим Звукового Триггера</string>
+    <string name="desc_soundtrigger_mode">Отключить активацию ассистента с помощью ключевых слов (например \"Hey Google\").</string>
 </resources>
