@@ -419,6 +419,7 @@ class SettingsRepository(
         const val KEY_ISLAND_TIMEOUT_MS = "island_timeout_ms"
         const val KEY_ISLAND_TAP_ACTION_ENABLED = "island_tap_action_enabled"
         const val KEY_ISLAND_SWIPE_UP_ACTION_ENABLED = "island_swipe_up_action_enabled"
+        const val KEY_ISLAND_SHOW_GLOW = "island_show_glow"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3374,6 +3375,9 @@ class SettingsRepository(
 
     fun isIslandSwipeUpActionEnabled(): Boolean = getBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, true)
     fun setIslandSwipeUpActionEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, enabled)
+
+    fun isIslandShowGlowEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_GLOW, true)
+    fun setIslandShowGlowEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_GLOW, enabled)
 
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1
