@@ -1742,6 +1742,11 @@ class NotificationListener : NotificationListenerService() {
         if (sbn.isOngoing) return false
         if (sbn.packageName == packageName) return false
         if (isMediaNotification(sbn)) return false
+
+        val notif = sbn.notification
+        val isGroupSummary = (notif.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        if (isGroupSummary) return false
+
         try {
             val map = rankingMap ?: currentRanking
             if (map != null) {
@@ -1773,34 +1778,41 @@ class NotificationListener : NotificationListenerService() {
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
         val summaryText = extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()?.trim()
 
-        var body = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
-        if (body.isNullOrBlank()) {
-            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-            if (!textLines.isNullOrEmpty()) {
-                body = textLines.filterNotNull().map { it.toString().trim() }.filter { it.isNotBlank() }.joinToString("\n")
-            }
+        var body: String? = null
+
+        val standardText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+        if (!standardText.isNullOrBlank()) {
+            body = standardText
         }
-        if (body.isNullOrBlank()) {
-            body = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
-        }
+
+        
         if (body.isNullOrBlank()) {
             @Suppress("DEPRECATION")
             val rawMessages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
             if (!rawMessages.isNullOrEmpty()) {
-                val formattedMessages = mutableListOf<String>()
-                for (msgObj in rawMessages) {
-                    val msgBundle = msgObj as? Bundle ?: continue
-                    val msgText = msgBundle.getCharSequence("text")?.toString()?.trim() ?: continue
-                    val msgSender = msgBundle.getCharSequence("sender")?.toString()?.trim()
-                    if (!msgSender.isNullOrBlank() && !msgSender.equals("You", ignoreCase = true)) {
-                        formattedMessages.add("$msgSender: $msgText")
-                    } else {
-                        formattedMessages.add(msgText)
+                val lastMsg = rawMessages.lastOrNull() as? Bundle
+                if (lastMsg != null) {
+                    val msgText = lastMsg.getCharSequence("text")?.toString()?.trim()
+                    val msgSender = lastMsg.getCharSequence("sender")?.toString()?.trim()
+                    if (!msgText.isNullOrBlank()) {
+                        body = if (!msgSender.isNullOrBlank() && !msgSender.equals("You", ignoreCase = true) && !msgSender.equals(title, ignoreCase = true)) {
+                            "$msgSender: $msgText"
+                        } else {
+                            msgText
+                        }
                     }
                 }
-                if (formattedMessages.isNotEmpty()) {
-                    body = formattedMessages.takeLast(7).joinToString("\n")
-                }
+            }
+        }
+
+        if (body.isNullOrBlank()) {
+            body = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+        }
+
+        if (body.isNullOrBlank()) {
+            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            if (!textLines.isNullOrEmpty()) {
+                body = textLines.filterNotNull().map { it.toString().trim() }.lastOrNull { it.isNotBlank() }
             }
         }
 
