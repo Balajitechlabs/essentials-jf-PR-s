@@ -11,6 +11,7 @@ package com.sameerasw.essentials.services.handlers
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -71,24 +72,49 @@ class IslandOverlayHandler(
     private var activeMediaSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
     private val handlerScope = CoroutineScope(Dispatchers.Main + Job())
 
+    private val keyguardManager by lazy { service.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager }
+
     private var cameraCenterX = 0f
     private var cameraCenterY = 0f
     private var cameraRadiusPx = 36f
 
     private var isScreenOff = false
+    private var isLocked = false
+
+    private val isHiddenByScreenOrLock: Boolean
+        get() = settingsRepository.isIslandHideWhenScreenOffEnabled() && (isScreenOff || isLocked || keyguardManager?.isKeyguardLocked == true)
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action ?: return
-            if (action == Intent.ACTION_SCREEN_OFF) {
-                isScreenOff = true
-                if (settingsRepository.isIslandHideWhenScreenOffEnabled()) {
-                    mainHandler.removeCallbacks(dismissNotificationRunnable)
-                    overlayView?.dismissNotificationAlert()
-                    restoreTouchAnchor()
+            when (action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    isScreenOff = true
+                    isLocked = true
+                    if (settingsRepository.isIslandHideWhenScreenOffEnabled()) {
+                        mainHandler.removeCallbacks(dismissNotificationRunnable)
+                        overlayView?.dismissNotificationAlert()
+                        overlayView?.dismissMediaPlayback()
+                        restoreTouchAnchor()
+                    }
                 }
-            } else if (action == Intent.ACTION_SCREEN_ON || action == Intent.ACTION_USER_PRESENT) {
-                isScreenOff = false
+                Intent.ACTION_SCREEN_ON -> {
+                    isScreenOff = false
+                    isLocked = keyguardManager?.isKeyguardLocked ?: false
+                    if (isHiddenByScreenOrLock) {
+                        mainHandler.removeCallbacks(dismissNotificationRunnable)
+                        overlayView?.dismissNotificationAlert()
+                        overlayView?.dismissMediaPlayback()
+                        restoreTouchAnchor()
+                    } else {
+                        applyCurrentMediaState()
+                    }
+                }
+                Intent.ACTION_USER_PRESENT -> {
+                    isScreenOff = false
+                    isLocked = false
+                    applyCurrentMediaState()
+                }
             }
         }
     }
@@ -151,7 +177,7 @@ class IslandOverlayHandler(
     private val notificationAlertListener = object : NotificationListener.NotificationAlertListener {
         override fun onNotificationAlertPosted(alert: ActiveNotificationAlert) {
             if (!settingsRepository.isIslandEnabled()) return
-            if (isScreenOff && settingsRepository.isIslandHideWhenScreenOffEnabled()) return
+            if (isHiddenByScreenOrLock) return
 
             mainHandler.post {
                 ensureOverlayAttached()
@@ -321,8 +347,8 @@ class IslandOverlayHandler(
             val playing = monitoredControllers.firstOrNull { it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING }
             activeMediaController = playing
             val ov = overlayView ?: return@post
-            if (playing == null) {
-                if (playing == null) ov.dismissMediaPlayback()
+            if (playing == null || isHiddenByScreenOrLock) {
+                ov.dismissMediaPlayback()
                 return@post
             }
             val metadata = playing.metadata
@@ -335,7 +361,7 @@ class IslandOverlayHandler(
             handlerScope.launch(Dispatchers.IO) {
                 val artwork = extractMediaArtwork(metadata)
                 withContext(Dispatchers.Main) {
-                    if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive) {
+                    if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isHiddenByScreenOrLock) {
                         ensureOverlayAttached()
                         ov.showMediaPlayback(title, artist, artwork)
                         expandTouchAnchorForNotification()
@@ -602,6 +628,16 @@ class IslandOverlayHandler(
             }
             SettingsRepository.KEY_ISLAND_EXPANDED_TOP_PADDING -> {
                 overlayView?.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
+            }
+            SettingsRepository.KEY_ISLAND_HIDE_WHEN_SCREEN_OFF -> {
+                if (isHiddenByScreenOrLock) {
+                    mainHandler.removeCallbacks(dismissNotificationRunnable)
+                    overlayView?.dismissNotificationAlert()
+                    overlayView?.dismissMediaPlayback()
+                    restoreTouchAnchor()
+                } else {
+                    applyCurrentMediaState()
+                }
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
