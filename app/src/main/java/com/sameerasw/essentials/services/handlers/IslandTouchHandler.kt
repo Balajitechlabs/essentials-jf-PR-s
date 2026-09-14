@@ -37,6 +37,7 @@ class IslandTouchHandler(
     var onNotificationSwitched: (() -> Unit)? = null
     var onNotificationExpandToggled: ((Boolean) -> Unit)? = null
     var onCatchUpRestored: (() -> Unit)? = null
+    var onMediaDismissRequested: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -159,7 +160,12 @@ class IslandTouchHandler(
                             val maxDragDist = 140f * density
                             val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
                             overlayView?.updateDragTranslation(0f, 0f)
-                            overlayView?.updateDragCollapseFraction(dragFraction)
+                            val collapseTarget = if (overlayView?.isNotificationAlertActive == true) {
+                                IslandOverlayView.DragCollapseTarget.CAMERA
+                            } else {
+                                IslandOverlayView.DragCollapseTarget.COMPACT
+                            }
+                            overlayView?.updateDragCollapseFraction(dragFraction, collapseTarget)
                         } else {
                             val effectiveDx = if (dx > 0) dx - graceAreaPx else dx + graceAreaPx
                             overlayView?.updateDragCollapseFraction(0f)
@@ -228,7 +234,7 @@ class IslandTouchHandler(
                         HapticUtil.performRumbleHaptic(service)
                         HapticUtil.performStrongTickHaptic(service)
 
-                        overlayView?.animateDragDismissCollapse {
+                        overlayView?.animateDragDismissCollapse(IslandOverlayView.DragCollapseTarget.CAMERA) {
                             val hasNext = overlayView?.advanceToNextNotification() ?: false
                             if (hasNext) {
                                 onNotificationSwitched?.invoke()
@@ -271,6 +277,29 @@ class IslandTouchHandler(
                         }
                     } else {
                         overlayView?.animateDragSnapBack()
+                    }
+                } else if (overlayView?.isMediaPlaybackActive == true) {
+                    val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
+                    val isSwipeTowardCamera = when {
+                        downX < cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        downX > cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
+                        else -> false
+                    }
+
+                    if (isSwipeTowardCamera) {
+                        HapticUtil.performRumbleHaptic(service)
+                        HapticUtil.performStrongTickHaptic(service)
+                        overlayView?.animateDragDismissCollapse(IslandOverlayView.DragCollapseTarget.COMPACT) {
+                            overlayView?.setMediaCompact(true)
+                        }
+                    } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.resetDragOffset()
+                        overlayView?.setMediaCompact(false)
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    } else if (isDragging) {
+                        overlayView?.animateDragSnapBack()
+                    } else {
+                        overlayView?.resetDragOffset()
                     }
                 } else {
                     overlayView?.resetDragOffset()
@@ -351,6 +380,3 @@ class IslandTouchHandler(
         }
     }
 }
-
-
-
