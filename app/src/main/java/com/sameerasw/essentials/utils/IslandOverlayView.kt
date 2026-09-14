@@ -286,6 +286,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun getQueuedAlertIndexAt(x: Float, y: Float): Int {
+        if (expandedFraction > 0.1f) return -1
         for (i in queuedNotificationAlerts.indices) {
             if (i in 0..1 && bubbleFractions[i] > 0.3f) {
                 val pad = 6f * density
@@ -392,6 +393,11 @@ class IslandOverlayView(context: Context) : View(context) {
                 expandedFraction = anim.animatedValue as Float
                 invalidate()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    onAlertsChanged?.invoke()
+                }
+            })
             start()
         }
         onExpandedStateChanged?.invoke(expand)
@@ -628,12 +634,12 @@ class IslandOverlayView(context: Context) : View(context) {
         val alert = activeNotificationAlert ?: return notificationPillRect
         val mainBounds = computeNotificationTargetBounds(alert)
         val numBubbles = queuedNotificationAlerts.size
-        if (numBubbles == 0) return mainBounds
+        if (numBubbles == 0 || expandedFraction >= 0.99f) return mainBounds
 
         val basePillHeight = cameraRadiusPx * 2f + 14f * density
         val bubbleSize = basePillHeight
         val bubbleGap = 8f * density
-        val totalBubblesWidth = numBubbles * (bubbleSize + bubbleGap)
+        val totalBubblesWidth = numBubbles * (bubbleSize + bubbleGap) * (1f - expandedFraction)
 
         return RectF(
             mainBounds.left - totalBubblesWidth,
@@ -644,10 +650,12 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun getAlertAt(x: Float, y: Float): ActiveNotificationAlert? {
-        for (i in queuedNotificationAlerts.indices) {
-            if (i in 0..1 && bubbleFractions[i] > 0.5f) {
-                if (bubbleRects[i].contains(x, y)) {
-                    return queuedNotificationAlerts[i]
+        if (expandedFraction < 0.5f) {
+            for (i in queuedNotificationAlerts.indices) {
+                if (i in 0..1 && bubbleFractions[i] > 0.5f) {
+                    if (bubbleRects[i].contains(x, y)) {
+                        return queuedNotificationAlerts[i]
+                    }
                 }
             }
         }
@@ -747,9 +755,10 @@ class IslandOverlayView(context: Context) : View(context) {
             val bubbleGap = 8f * density
 
             var totalBubblesWidth = 0f
+            val queueVisibleFraction = (1f - expandedFraction).coerceIn(0f, 1f)
             for (i in queuedNotificationAlerts.indices) {
                 if (i in 0..1) {
-                    val bFrac = bubbleFractions[i]
+                    val bFrac = bubbleFractions[i] * queueVisibleFraction
                     totalBubblesWidth += (bubbleSize + bubbleGap) * bFrac
                 }
             }
@@ -1100,7 +1109,7 @@ class IslandOverlayView(context: Context) : View(context) {
             for (i in queuedNotificationAlerts.indices) {
                 if (i in 0..1) {
                     val queuedAlert = queuedNotificationAlerts[i]
-                    val bFrac = bubbleFractions[i]
+                    val bFrac = bubbleFractions[i] * queueVisibleFraction
                     if (bFrac > 0.01f) {
                         val slideOffset = if (isMerging) {
                             (bubbleSize + bubbleGap) * (1f - mergeFraction)
