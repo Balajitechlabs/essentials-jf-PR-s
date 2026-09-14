@@ -2685,6 +2685,9 @@
     <string name="island_reply_send">Send</string>
     <string name="island_expanded_padding_title">Expanded padding</string>
     <string name="island_expanded_top_padding_title">Expanded top padding</string>
+    <string name="island_catch_up_title">Catch up</string>
+    <string name="island_catch_up_desc">Keep a compact indicator in the Island after notification timeout</string>
+    <string name="island_catch_up_timeout_title">Catch up duration</string>
 
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>

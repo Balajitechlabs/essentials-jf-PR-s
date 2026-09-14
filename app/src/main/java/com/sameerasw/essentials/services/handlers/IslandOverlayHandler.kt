@@ -82,17 +82,37 @@ class IslandOverlayHandler(
     }
 
     private fun handleNotificationTimeout() {
-        val hasNext = overlayView?.advanceToNextNotification() ?: false
+        val ov = overlayView ?: return
+        if (settingsRepository.isIslandCatchUpEnabled() && ov.isNotificationAlertActive && !ov.isCatchUpMode && !ov.isExpanded) {
+            ov.enterCatchUpMode()
+            expandTouchAnchorForNotification()
+            scheduleCatchUpDismissTimer()
+            return
+        }
+
+        val hasNext = ov.advanceToNextNotification()
         if (hasNext) {
             expandTouchAnchorForNotification()
             scheduleDismissTimer()
         } else {
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
             restoreTouchAnchor()
         }
     }
 
     private fun scheduleDismissTimer() {
+        val ov = overlayView
+        if (ov?.isCatchUpMode == true) {
+            scheduleCatchUpDismissTimer()
+            return
+        }
         val timeout = settingsRepository.getIslandTimeoutMs()
+        mainHandler.removeCallbacks(dismissNotificationRunnable)
+        mainHandler.postDelayed(dismissNotificationRunnable, timeout)
+    }
+
+    private fun scheduleCatchUpDismissTimer() {
+        val timeout = settingsRepository.getIslandCatchUpTimeoutMs()
         mainHandler.removeCallbacks(dismissNotificationRunnable)
         mainHandler.postDelayed(dismissNotificationRunnable, timeout)
     }
@@ -106,7 +126,11 @@ class IslandOverlayHandler(
                 ensureOverlayAttached()
                 overlayView?.showNotificationAlert(alert)
                 expandTouchAnchorForNotification()
-                scheduleDismissTimer()
+                if (overlayView?.isCatchUpMode == true) {
+                    scheduleCatchUpDismissTimer()
+                } else {
+                    scheduleDismissTimer()
+                }
             }
         }
 
@@ -145,6 +169,11 @@ class IslandOverlayHandler(
         }
 
         touchHandler.onNotificationSwitched = {
+            expandTouchAnchorForNotification()
+            scheduleDismissTimer()
+        }
+
+        touchHandler.onCatchUpRestored = {
             expandTouchAnchorForNotification()
             scheduleDismissTimer()
         }

@@ -183,6 +183,8 @@ class MainViewModel : ViewModel() {
     val islandTimeoutMs = mutableLongStateOf(4500L)
     val isIslandTapActionEnabled = mutableStateOf(true)
     val isIslandSwipeUpActionEnabled = mutableStateOf(true)
+    val isIslandCatchUpEnabled = mutableStateOf(false)
+    val islandCatchUpTimeoutMs = mutableLongStateOf(10000L)
     val isIslandShowGlow = mutableStateOf(true)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
@@ -743,6 +745,12 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_ISLAND_SWIPE_UP_ACTION_ENABLED ->
                         isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
+
+                    SettingsRepository.KEY_ISLAND_CATCH_UP_ENABLED ->
+                        isIslandCatchUpEnabled.value = settingsRepository.isIslandCatchUpEnabled()
+
+                    SettingsRepository.KEY_ISLAND_CATCH_UP_TIMEOUT_MS ->
+                        islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
 
                     SettingsRepository.KEY_STATUS_GLANCE_ENABLED ->
                         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
@@ -2106,6 +2114,8 @@ class MainViewModel : ViewModel() {
         islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
         isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
         isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
+        isIslandCatchUpEnabled.value = settingsRepository.isIslandCatchUpEnabled()
+        islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
         isIslandShowGlow.value = settingsRepository.isIslandShowGlowEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
@@ -4947,6 +4957,16 @@ class MainViewModel : ViewModel() {
     fun setIslandSwipeUpActionEnabled(enabled: Boolean) {
         isIslandSwipeUpActionEnabled.value = enabled
         settingsRepository.setIslandSwipeUpActionEnabled(enabled)
+    }
+
+    fun setIslandCatchUpEnabled(enabled: Boolean) {
+        isIslandCatchUpEnabled.value = enabled
+        settingsRepository.setIslandCatchUpEnabled(enabled)
+    }
+
+    fun setIslandCatchUpTimeoutMs(value: Long) {
+        islandCatchUpTimeoutMs.longValue = value
+        settingsRepository.setIslandCatchUpTimeoutMs(value)
     }
 
     fun setIslandShowGlow(enabled: Boolean) {
