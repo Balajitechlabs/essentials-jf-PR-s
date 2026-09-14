@@ -149,7 +149,8 @@ class IslandTouchHandler(
                         overlayView?.resetDragOffset()
 
                         if (overlayView?.isCatchUpMode == true) {
-                            overlayView?.exitCatchUpMode(expandToNormal = true)
+                            overlayView?.canEnterCatchUp = false
+                            overlayView?.exitCatchUpMode()
                             HapticUtil.performStrongTickHaptic(service)
                             onCatchUpRestored?.invoke()
                         } else {

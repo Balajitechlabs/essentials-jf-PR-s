@@ -128,6 +128,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     var isCatchUpMode: Boolean = false
         private set
+    var canEnterCatchUp: Boolean = true
     var catchUpFraction: Float = 0f
         private set
     private var catchUpAnimator: ValueAnimator? = null
@@ -316,8 +317,9 @@ class IslandOverlayView(context: Context) : View(context) {
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
 
+        canEnterCatchUp = true
         if (isCatchUpMode) {
-            exitCatchUpMode(expandToNormal = true)
+            exitCatchUpMode()
         }
 
         if (!isNotificationAlertActive || activeNotificationAlert == null) {
@@ -522,7 +524,7 @@ class IslandOverlayView(context: Context) : View(context) {
         onAlertsChanged?.invoke()
     }
 
-    fun exitCatchUpMode(expandToNormal: Boolean = true) {
+    fun exitCatchUpMode() {
         if (!isCatchUpMode) return
         isCatchUpMode = false
         catchUpAnimator?.cancel()
@@ -993,9 +995,9 @@ class IslandOverlayView(context: Context) : View(context) {
             val currentRight = baseRight - (baseRight - initialRight) * dragCollapseFraction
 
             val currentTop = targetTop
-            val currentBottom = if (dragCollapseFraction > 0f) {
+            val currentBottom = if (dragCollapseFraction > 0f && expandedFraction > 0f) {
                 val initialBottom = cameraCenterY + cameraRadiusPx
-                targetBottom - (targetBottom - initialBottom) * dragCollapseFraction
+                targetBottom - (targetBottom - initialBottom) * (dragCollapseFraction * expandedFraction)
             } else {
                 targetBottom
             }
@@ -1004,8 +1006,8 @@ class IslandOverlayView(context: Context) : View(context) {
             val pillRadius = basePillHeight / 2f
             val targetExpCornerRadius = expandedCornerRadiusDp * density
             val expRadius = pillRadius + (targetExpCornerRadius - pillRadius) * expandedFraction
-            val cornerRadius = if (dragCollapseFraction > 0f) {
-                cameraRadiusPx + (expRadius - cameraRadiusPx) * (1f - dragCollapseFraction)
+            val cornerRadius = if (dragCollapseFraction > 0f && expandedFraction > 0f) {
+                cameraRadiusPx + (expRadius - cameraRadiusPx) * (1f - dragCollapseFraction * expandedFraction)
             } else {
                 expRadius
             }
