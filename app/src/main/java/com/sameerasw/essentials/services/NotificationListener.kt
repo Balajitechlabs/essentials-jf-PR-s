@@ -1822,9 +1822,9 @@ class NotificationListener : NotificationListenerService() {
             textParts.add(rawTitleBig)
         }
 
-        if (!subText.isNullOrBlank() && !subText.equals(title, ignoreCase = true) && !subText.equals(rawTitleBig, ignoreCase = true)) {
-            textParts.add(subText)
-        }
+        // if (!subText.isNullOrBlank() && !subText.equals(title, ignoreCase = true) && !subText.equals(rawTitleBig, ignoreCase = true)) {
+        //     textParts.add(subText)
+        // }
 
         if (!body.isNullOrBlank()) {
             if (!body.equals(title, ignoreCase = true) && !body.equals(rawTitleBig, ignoreCase = true)) {
