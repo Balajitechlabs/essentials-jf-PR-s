@@ -414,6 +414,8 @@ class SettingsRepository(
         const val KEY_ISLAND_EXPANDED_PADDING = "island_expanded_padding"
         const val KEY_ISLAND_EXPANDED_TOP_PADDING = "island_expanded_top_padding"
         const val KEY_ISLAND_EXPANDED_TIMEOUT_MS = "island_expanded_timeout_ms"
+        const val KEY_ISLAND_CATCH_UP_ENABLED = "island_catch_up_enabled"
+        const val KEY_ISLAND_CATCH_UP_TIMEOUT_MS = "island_catch_up_timeout_ms"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3308,6 +3310,12 @@ class SettingsRepository(
 
     fun getIslandExpandedTimeoutMs(): Long = getLong(KEY_ISLAND_EXPANDED_TIMEOUT_MS, 0L)
     fun setIslandExpandedTimeoutMs(value: Long) = putLong(KEY_ISLAND_EXPANDED_TIMEOUT_MS, value)
+
+    fun isIslandCatchUpEnabled(): Boolean = getBoolean(KEY_ISLAND_CATCH_UP_ENABLED, false)
+    fun setIslandCatchUpEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_CATCH_UP_ENABLED, enabled)
+
+    fun getIslandCatchUpTimeoutMs(): Long = getLong(KEY_ISLAND_CATCH_UP_TIMEOUT_MS, 10000L)
+    fun setIslandCatchUpTimeoutMs(value: Long) = putLong(KEY_ISLAND_CATCH_UP_TIMEOUT_MS, value)
 
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1
