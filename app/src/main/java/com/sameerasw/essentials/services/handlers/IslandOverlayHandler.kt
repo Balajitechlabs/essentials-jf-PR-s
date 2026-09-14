@@ -17,8 +17,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.PixelFormat
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Point
 import android.graphics.Rect
+import android.media.MediaMetadata
+import android.media.session.MediaController
+import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -29,11 +35,18 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.WindowMetrics
+import android.content.ComponentName
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.services.NotificationListener
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class IslandOverlayHandler(
     private val service: AccessibilityService,
@@ -49,6 +62,14 @@ class IslandOverlayHandler(
     private var isOverlayAdded = false
     private var isTouchAnchorAdded = false
     private var isNotificationsListenerRegistered = false
+    private var isMediaSessionRegistered = false
+    private val mediaSessionManager by lazy { service.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager }
+    private val monitoredControllers = mutableListOf<MediaController>()
+    private val controllerCallbacks = mutableMapOf<MediaSession.Token, MediaController.Callback>()
+    private var activeMediaController: MediaController? = null
+    private var currentMediaKey: String? = null
+    private var activeMediaSessionsListener: MediaSessionManager.OnActiveSessionsChangedListener? = null
+    private val handlerScope = CoroutineScope(Dispatchers.Main + Job())
 
     private var cameraCenterX = 0f
     private var cameraCenterY = 0f
@@ -78,6 +99,9 @@ class IslandOverlayHandler(
 
     private val revertExpansionRunnable = Runnable {
         overlayView?.setExpandedState(false)
+        if (overlayView?.isMediaPlaybackActive == true) {
+            overlayView?.setMediaCompact(true)
+        }
         scheduleDismissTimer()
     }
 
@@ -97,6 +121,11 @@ class IslandOverlayHandler(
             expandTouchAnchorForNotification()
             scheduleDismissTimer()
         } else {
+            if (ov.isMediaPlaybackActive) {
+                ov.setMediaCompact(true)
+                expandTouchAnchorForNotification()
+                return
+            }
             mainHandler.removeCallbacks(dismissNotificationRunnable)
             restoreTouchAnchor()
         }
@@ -140,8 +169,13 @@ class IslandOverlayHandler(
             mainHandler.post {
                 val isStillActive = overlayView?.removeNotificationByKey(key) ?: false
                 if (!isStillActive) {
+                    applyCurrentMediaState()
                     mainHandler.removeCallbacks(dismissNotificationRunnable)
-                    restoreTouchAnchor()
+                    if (overlayView?.isMediaPlaybackActive == true) {
+                        expandTouchAnchorForNotification()
+                    } else {
+                        restoreTouchAnchor()
+                    }
                 } else {
                     expandTouchAnchorForNotification()
                 }
@@ -180,6 +214,10 @@ class IslandOverlayHandler(
             scheduleDismissTimer()
         }
 
+        touchHandler.onMediaDismissRequested = {
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
+        }
+
         touchHandler.onNotificationExpandToggled = { isExpanded ->
             expandTouchAnchorForNotification()
             mainHandler.removeCallbacks(dismissNotificationRunnable)
@@ -211,6 +249,112 @@ class IslandOverlayHandler(
         }
     }
 
+    private fun registerMediaListener() {
+        if (isMediaSessionRegistered || mediaSessionManager == null) return
+        try {
+            val componentName = ComponentName(service, NotificationListener::class.java)
+            val listener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+                updateActiveMediaSessions(controllers)
+            }
+            activeMediaSessionsListener = listener
+            mediaSessionManager?.addOnActiveSessionsChangedListener(listener, componentName, mainHandler)
+            isMediaSessionRegistered = true
+            updateActiveMediaSessions(mediaSessionManager?.getActiveSessions(componentName), isInitial = true)
+        } catch (_: Exception) {}
+    }
+
+    private fun unregisterMediaListener() {
+        if (!isMediaSessionRegistered) return
+        try { activeMediaSessionsListener?.let { mediaSessionManager?.removeOnActiveSessionsChangedListener(it) } } catch (_: Exception) {}
+        activeMediaSessionsListener = null
+        for ((token, callback) in controllerCallbacks) {
+            monitoredControllers.find { it.sessionToken == token }?.let {
+                try { it.unregisterCallback(callback) } catch (_: Exception) {}
+            }
+        }
+        controllerCallbacks.clear()
+        monitoredControllers.clear()
+        activeMediaController = null
+        currentMediaKey = null
+        overlayView?.dismissMediaPlayback()
+        isMediaSessionRegistered = false
+    }
+
+    private fun updateActiveMediaSessions(controllers: List<MediaController>?, isInitial: Boolean = false) {
+        mainHandler.post {
+            val valid = controllers ?: emptyList()
+            val tokens = valid.map { it.sessionToken }.toSet()
+            controllerCallbacks.entries.removeAll { (token, callback) ->
+                if (tokens.contains(token)) return@removeAll false
+                monitoredControllers.find { it.sessionToken == token }?.let {
+                    try { it.unregisterCallback(callback) } catch (_: Exception) {}
+                }
+                true
+            }
+            monitoredControllers.removeAll { !tokens.contains(it.sessionToken) }
+            valid.forEach { controller ->
+                if (!controllerCallbacks.containsKey(controller.sessionToken)) {
+                    val callback = object : MediaController.Callback() {
+                        override fun onPlaybackStateChanged(state: android.media.session.PlaybackState?) = applyCurrentMediaState()
+                        override fun onMetadataChanged(metadata: MediaMetadata?) = applyCurrentMediaState()
+                        override fun onSessionDestroyed() = applyCurrentMediaState()
+                    }
+                    try {
+                        controller.registerCallback(callback, mainHandler)
+                        controllerCallbacks[controller.sessionToken] = callback
+                        monitoredControllers.add(controller)
+                    } catch (_: Exception) {}
+                }
+            }
+            applyCurrentMediaState()
+        }
+    }
+
+    private fun applyCurrentMediaState() {
+        mainHandler.post {
+            val playing = monitoredControllers.firstOrNull { it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING }
+            activeMediaController = playing
+            val ov = overlayView ?: return@post
+            if (playing == null || ov.isNotificationAlertActive) {
+                if (playing == null) ov.dismissMediaPlayback()
+                return@post
+            }
+            val metadata = playing.metadata
+            val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
+            val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
+            if (title.isBlank() && artist.isBlank()) return@post
+            val key = "${playing.packageName}_${title}_${artist}"
+            if (currentMediaKey == key && ov.isMediaPlaybackActive) return@post
+            currentMediaKey = key
+            handlerScope.launch(Dispatchers.IO) {
+                val artwork = extractMediaArtwork(metadata)
+                withContext(Dispatchers.Main) {
+                    if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive) {
+                        ensureOverlayAttached()
+                        ov.showMediaPlayback(title, artist, artwork)
+                        expandTouchAnchorForNotification()
+                        scheduleDismissTimer()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun extractMediaArtwork(metadata: MediaMetadata?): Bitmap? {
+        var bitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+            ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
+        if (bitmap == null) {
+            val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)
+            val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
+            if (!title.isNullOrBlank()) {
+                val hash = kotlin.math.abs("${title}_$artist".hashCode().toLong())
+                bitmap = NotificationListener.getCachedBitmap(hash)
+                    ?: File(service.cacheDir, "art_$hash.png").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+            }
+        }
+        return bitmap ?: NotificationListener.getLatestArtBitmap()
+    }
+
     private fun unregisterNotificationsListener() {
         if (isNotificationsListenerRegistered) {
             NotificationListener.removeNotificationAlertListener(notificationAlertListener)
@@ -232,11 +376,13 @@ class IslandOverlayHandler(
 
         if (!settingsRepository.isIslandEnabled()) {
             unregisterNotificationsListener()
+            unregisterMediaListener()
             removeOverlay()
             return
         }
 
         registerNotificationsListener()
+        registerMediaListener()
 
         if (overlayView == null) {
             overlayView = IslandOverlayView(service).apply {
@@ -429,6 +575,7 @@ class IslandOverlayHandler(
             service.unregisterReceiver(screenReceiver)
         } catch (_: Exception) {}
         unregisterNotificationsListener()
+        unregisterMediaListener()
         removeOverlay()
     }
 
