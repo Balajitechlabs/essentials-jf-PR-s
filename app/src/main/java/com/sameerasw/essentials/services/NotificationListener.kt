@@ -1756,13 +1756,69 @@ class NotificationListener : NotificationListenerService() {
         val notif = sbn.notification ?: return null
         val extras = notif.extras ?: return null
 
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()
-            ?: return null
+        val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+        val rawTitleBig = extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim()
+        val title = when {
+            !rawTitle.isNullOrBlank() -> rawTitle
+            !rawTitleBig.isNullOrBlank() -> rawTitleBig
+            else -> return null
+        }
 
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: ""
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
+        val summaryText = extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()?.trim()
+
+        var body = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+        if (body.isNullOrBlank()) {
+            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            if (!textLines.isNullOrEmpty()) {
+                body = textLines.filterNotNull().map { it.toString().trim() }.filter { it.isNotBlank() }.joinToString("\n")
+            }
+        }
+        if (body.isNullOrBlank()) {
+            body = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+        }
+        if (body.isNullOrBlank()) {
+            @Suppress("DEPRECATION")
+            val rawMessages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            if (!rawMessages.isNullOrEmpty()) {
+                val formattedMessages = mutableListOf<String>()
+                for (msgObj in rawMessages) {
+                    val msgBundle = msgObj as? Bundle ?: continue
+                    val msgText = msgBundle.getCharSequence("text")?.toString()?.trim() ?: continue
+                    val msgSender = msgBundle.getCharSequence("sender")?.toString()?.trim()
+                    if (!msgSender.isNullOrBlank() && !msgSender.equals("You", ignoreCase = true)) {
+                        formattedMessages.add("$msgSender: $msgText")
+                    } else {
+                        formattedMessages.add(msgText)
+                    }
+                }
+                if (formattedMessages.isNotEmpty()) {
+                    body = formattedMessages.takeLast(7).joinToString("\n")
+                }
+            }
+        }
+
+        val textParts = mutableListOf<String>()
+
+        if (!rawTitleBig.isNullOrBlank() && !rawTitleBig.equals(title, ignoreCase = true)) {
+            textParts.add(rawTitleBig)
+        }
+
+        if (!subText.isNullOrBlank() && !subText.equals(title, ignoreCase = true) && !subText.equals(rawTitleBig, ignoreCase = true)) {
+            textParts.add(subText)
+        }
+
+        if (!body.isNullOrBlank()) {
+            if (!body.equals(title, ignoreCase = true) && !body.equals(rawTitleBig, ignoreCase = true)) {
+                textParts.add(body)
+            }
+        }
+
+        if (textParts.isEmpty() && !summaryText.isNullOrBlank() && !summaryText.equals(title, ignoreCase = true)) {
+            textParts.add(summaryText)
+        }
+
+        var text = textParts.joinToString("\n")
 
         val appName = try {
             val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)

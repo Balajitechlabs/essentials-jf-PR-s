@@ -489,7 +489,7 @@ class IslandOverlayView(context: Context) : View(context) {
             StaticLayout.Builder.obtain(message, 0, message.length, bodyTextPaint, textWidth)
                 .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                 .setLineSpacing(2f * density, 1.0f)
-                .setMaxLines(4)
+                .setMaxLines(7)
                 .setEllipsize(TextUtils.TruncateAt.END)
                 .build()
         } else {
@@ -1141,7 +1141,7 @@ class IslandOverlayView(context: Context) : View(context) {
                             StaticLayout.Builder.obtain(message, 0, message.length, bodyTextPaint, bodyWidth)
                                 .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                                 .setLineSpacing(2f * density, 1.0f)
-                                .setMaxLines(4)
+                                .setMaxLines(7)
                                 .setEllipsize(TextUtils.TruncateAt.END)
                                 .build()
                         } else {
