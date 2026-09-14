@@ -140,6 +140,56 @@ object HapticUtil {
     }
 
     fun performCustomHaptic(
+        context: Context,
+        strength: Float,
+    ) {
+        if (!isAppHapticsEnabled.value) return
+
+        val vibrator =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            try {
+                if (vibrator.areAllPrimitivesSupported(android.os.VibrationEffect.Composition.PRIMITIVE_CLICK)) {
+                    val effect =
+                        android.os.VibrationEffect
+                            .startComposition()
+                            .addPrimitive(
+                                android.os.VibrationEffect.Composition.PRIMITIVE_CLICK,
+                                strength,
+                            ).compose()
+
+                    val attrs =
+                        android.os.VibrationAttributes.createForUsage(android.os.VibrationAttributes.USAGE_TOUCH)
+                    vibrator.vibrate(effect, attrs)
+                    return
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val hasAmplitudeControl = vibrator.hasAmplitudeControl()
+            if (hasAmplitudeControl) {
+                val amplitude = (strength * strength * 255).toInt().coerceIn(1, 255)
+                val effect = android.os.VibrationEffect.createOneShot(12, amplitude)
+                vibrator.vibrate(effect)
+            } else {
+                vibrator.vibrate(15)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(15)
+        }
+    }
+
+    fun performCustomHaptic(
         view: View,
         strength: Float,
     ) {
