@@ -12,12 +12,14 @@ package com.sameerasw.essentials.utils
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
@@ -30,6 +32,7 @@ import android.text.TextUtils
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.LinearInterpolator
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
@@ -123,6 +126,26 @@ class IslandOverlayView(context: Context) : View(context) {
             invalidate()
         }
 
+    var isCatchUpMode: Boolean = false
+        private set
+    var catchUpFraction: Float = 0f
+        private set
+    private var catchUpAnimator: ValueAnimator? = null
+    var onCatchUpModeChanged: ((Boolean) -> Unit)? = null
+
+    private val unreadIconBitmap: Bitmap? by lazy {
+        try {
+            val d = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.rounded_notifications_unread_24)
+            if (d != null) {
+                AppUtil.drawableToBitmap(d, (24f * density).toInt())
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private var activeNotificationAlert: ActiveNotificationAlert? = null
     var isNotificationAlertActive: Boolean = false
         private set
@@ -132,11 +155,13 @@ class IslandOverlayView(context: Context) : View(context) {
     private val notificationPillRect = RectF()
     private val notificationIconClipPath = Path()
     private val notificationContentClipPath = Path()
+    private val catchUpIconClipPath = Path()
 
     private val queuedNotificationAlerts = mutableListOf<ActiveNotificationAlert>()
     private val bubbleFractions = floatArrayOf(0f, 0f)
     private val bubbleAnimators = arrayOfNulls<ValueAnimator>(2)
     private val bubbleRects = arrayOf(RectF(), RectF())
+    private val catchUpUnreadIconRect = RectF()
 
     private var isMerging: Boolean = false
     private var mergeFraction: Float = 1.0f
@@ -244,6 +269,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val catchUpUnreadPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
@@ -289,6 +315,10 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
+
+        if (isCatchUpMode) {
+            exitCatchUpMode(expandToNormal = true)
+        }
 
         if (!isNotificationAlertActive || activeNotificationAlert == null) {
             activeNotificationAlert = alert
@@ -447,11 +477,11 @@ class IslandOverlayView(context: Context) : View(context) {
         val startVal = expandedFraction
         val targetVal = if (expand) 1.0f else 0.0f
         expansionAnimator = ValueAnimator.ofFloat(startVal, targetVal).apply {
-            duration = if (expand) 420L else 320L
+            duration = if (expand) 460L else 420L
             interpolator = if (expand) {
-                AppleSpringInterpolator(dampingRatio = 0.72f, responseTimeSec = 0.46f)
+                AppleSpringInterpolator(dampingRatio = 0.65f, responseTimeSec = 0.50f)
             } else {
-                AppleSpringInterpolator(dampingRatio = 0.78f, responseTimeSec = 0.36f)
+                AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
             }
             addUpdateListener { anim ->
                 expandedFraction = anim.animatedValue as Float
@@ -465,6 +495,48 @@ class IslandOverlayView(context: Context) : View(context) {
             start()
         }
         onExpandedStateChanged?.invoke(expand)
+        onAlertsChanged?.invoke()
+    }
+
+    fun enterCatchUpMode() {
+        if (!isNotificationAlertActive || activeNotificationAlert == null || isCatchUpMode) return
+        isCatchUpMode = true
+        if (isExpanded) {
+            isExpanded = false
+            expandedFraction = 0f
+            expansionAnimator?.cancel()
+        }
+        stopAllMarquees()
+        catchUpAnimator?.cancel()
+        val startVal = catchUpFraction
+        catchUpAnimator = ValueAnimator.ofFloat(startVal, 1.0f).apply {
+            duration = 420L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.66f, responseTimeSec = 0.46f)
+            addUpdateListener { anim ->
+                catchUpFraction = anim.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+        onCatchUpModeChanged?.invoke(true)
+        onAlertsChanged?.invoke()
+    }
+
+    fun exitCatchUpMode(expandToNormal: Boolean = true) {
+        if (!isCatchUpMode) return
+        isCatchUpMode = false
+        catchUpAnimator?.cancel()
+        val startVal = catchUpFraction
+        catchUpAnimator = ValueAnimator.ofFloat(startVal, 0.0f).apply {
+            duration = 460L
+            interpolator = AppleSpringInterpolator(dampingRatio = 0.65f, responseTimeSec = 0.50f)
+            addUpdateListener { anim ->
+                catchUpFraction = anim.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+        onCatchUpModeChanged?.invoke(false)
         onAlertsChanged?.invoke()
     }
 
@@ -573,8 +645,44 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
+    private fun computeCatchUpTargetBounds(alert: ActiveNotificationAlert): RectF {
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val targetPillHeight = cameraRadiusPx * 2f + 14f * density
+        val targetTop = cameraCenterY - targetPillHeight / 2f
+        val targetBottom = cameraCenterY + targetPillHeight / 2f
+        val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
+        val verticalPadding = (targetPillHeight - iconSize) / 2f
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+
+        if (isCenterCamera) {
+            val unreadIconSize = (18f * density)
+            val leftDist = cameraRadiusPx + 10f * density + iconSize + verticalPadding + 4f * density
+            val rightDist = cameraRadiusPx + 10f * density + unreadIconSize + verticalPadding + 4f * density
+            val halfWidth = maxOf(leftDist, rightDist)
+            return RectF(cameraCenterX - halfWidth, targetTop, cameraCenterX + halfWidth, targetBottom)
+        } else {
+            val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
+            val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
+            val unreadIconSize = (18f * density)
+            val targetRight = (iconLeft + iconSize + 14f * density + unreadIconSize + verticalPadding + 6f * density).coerceAtMost(screenWidth - 8f * density)
+            return RectF(targetLeft, targetTop, targetRight, targetBottom)
+        }
+    }
+
     private fun computeNotificationTargetBounds(alert: ActiveNotificationAlert): RectF {
-        val collapsedBounds = computeCollapsedTargetBounds(alert)
+        val normalBounds = computeCollapsedTargetBounds(alert)
+        val collapsedBounds = if (catchUpFraction > 0f) {
+            val catchUpBounds = computeCatchUpTargetBounds(alert)
+            RectF(
+                normalBounds.left + (catchUpBounds.left - normalBounds.left) * catchUpFraction,
+                normalBounds.top + (catchUpBounds.top - normalBounds.top) * catchUpFraction,
+                normalBounds.right + (catchUpBounds.right - normalBounds.right) * catchUpFraction,
+                normalBounds.bottom + (catchUpBounds.bottom - normalBounds.bottom) * catchUpFraction,
+            )
+        } else {
+            normalBounds
+        }
+
         if (expandedFraction <= 0.001f && !isExpanded) {
             return collapsedBounds
         }
@@ -653,10 +761,9 @@ class IslandOverlayView(context: Context) : View(context) {
             bubbleAnimators[i] = null
         }
 
-        if (!isNotificationAlertActive && animatedNotificationFraction <= 0f) return
-
         expansionAnimator?.cancel()
         notificationAnimator?.cancel()
+        catchUpAnimator?.cancel()
 
         val startExpanded = expandedFraction
         val startNotif = animatedNotificationFraction
@@ -674,6 +781,8 @@ class IslandOverlayView(context: Context) : View(context) {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
                     isExpanded = false
                     expandedFraction = 0f
+                    isCatchUpMode = false
+                    catchUpFraction = 0f
                     isNotificationAlertActive = false
                     activeNotificationAlert = null
                     animatedNotificationFraction = 0f
@@ -884,15 +993,22 @@ class IslandOverlayView(context: Context) : View(context) {
             val currentRight = baseRight - (baseRight - initialRight) * dragCollapseFraction
 
             val currentTop = targetTop
-            val initialBottom = cameraCenterY + cameraRadiusPx
-            val baseBottom = initialBottom + (targetBottom - initialBottom) * fraction
-            val currentBottom = baseBottom - (baseBottom - initialBottom) * dragCollapseFraction
+            val currentBottom = if (dragCollapseFraction > 0f) {
+                val initialBottom = cameraCenterY + cameraRadiusPx
+                targetBottom - (targetBottom - initialBottom) * dragCollapseFraction
+            } else {
+                targetBottom
+            }
 
             notificationPillRect.set(currentLeft, currentTop, currentRight, currentBottom)
             val pillRadius = basePillHeight / 2f
             val targetExpCornerRadius = expandedCornerRadiusDp * density
             val expRadius = pillRadius + (targetExpCornerRadius - pillRadius) * expandedFraction
-            val cornerRadius = cameraRadiusPx + (expRadius - cameraRadiusPx) * (fraction * (1f - dragCollapseFraction))
+            val cornerRadius = if (dragCollapseFraction > 0f) {
+                cameraRadiusPx + (expRadius - cameraRadiusPx) * (1f - dragCollapseFraction)
+            } else {
+                expRadius
+            }
 
             notificationPillPaint.color = Color.BLACK
             notificationPillPaint.alpha = 255
@@ -1007,9 +1123,24 @@ class IslandOverlayView(context: Context) : View(context) {
                     0f
                 }
 
-                val textAlpha = (inAlphaProgress * 255).toInt()
+                val textAlpha = (inAlphaProgress * 255 * (1f - catchUpFraction)).toInt().coerceIn(0, 255)
                 notificationSenderPaint.alpha = textAlpha
                 notificationBodyPaint.alpha = textAlpha
+
+                val catchUpIndicatorAlpha = (catchUpFraction * 255).toInt().coerceIn(0, 255)
+                val unreadBmp = unreadIconBitmap
+
+                val dynamicMaterialYouColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    try {
+                        ContextCompat.getColor(context, android.R.color.system_accent1_200)
+                    } catch (_: Exception) {
+                        0xFF80D8FF.toInt()
+                    }
+                } else {
+                    0xFF80D8FF.toInt()
+                }
+
+                val catchUpTintColor = dynamicMaterialYouColor
 
                 if (isCenterCamera) {
                     val iconLeft = currentLeft + verticalPadding + cornerExtraPad + inSlideX
@@ -1018,7 +1149,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                     val displayIcon = alert.icon ?: alert.appIcon
                     if (displayIcon != null) {
-                        iconPaint.alpha = textAlpha
+                        iconPaint.alpha = (inAlphaProgress * 255).toInt().coerceIn(0, 255)
                         val iconScale = 0.85f + 0.15f * inAlphaProgress
                         val iconCenterX = iconRect.centerX()
                         val iconCenterY = iconRect.centerY()
@@ -1030,6 +1161,18 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.clipPath(notificationIconClipPath)
                         canvas.drawBitmap(displayIcon, null, iconRect, iconPaint)
                         canvas.restore()
+                    }
+
+                    if (catchUpIndicatorAlpha > 0 && unreadBmp != null) {
+                        val unreadSize = (16f * density)
+                        val unreadRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
+                        val unreadLeft = unreadRight - unreadSize
+                        val unreadTop = (currentTop + currentBottom) / 2f - unreadSize / 2f
+                        catchUpUnreadIconRect.set(unreadLeft, unreadTop, unreadRight, unreadTop + unreadSize)
+
+                        catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(catchUpTintColor, PorterDuff.Mode.SRC_IN)
+                        catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
+                        canvas.drawBitmap(unreadBmp, null, catchUpUnreadIconRect, catchUpUnreadPaint)
                     }
 
                     if (textAlpha > 0) {
@@ -1067,7 +1210,7 @@ class IslandOverlayView(context: Context) : View(context) {
                                     currentBottom = currentTop + topPad + basePillHeight,
                                     isRightPillEdge = true,
                                     cornerRadius = cornerRadius,
-                                )
+                                    )
                             }
                         }
                     }
@@ -1079,7 +1222,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                     val displayIcon = alert.icon ?: alert.appIcon
                     if (displayIcon != null) {
-                        iconPaint.alpha = textAlpha
+                        iconPaint.alpha = (inAlphaProgress * 255).toInt().coerceIn(0, 255)
                         val iconScale = 0.85f + 0.15f * inAlphaProgress
                         val iconCenterX = iconRect.centerX()
                         val iconCenterY = iconRect.centerY()
@@ -1091,6 +1234,18 @@ class IslandOverlayView(context: Context) : View(context) {
                         canvas.clipPath(notificationIconClipPath)
                         canvas.drawBitmap(displayIcon, null, iconRect, iconPaint)
                         canvas.restore()
+                    }
+
+                    if (catchUpIndicatorAlpha > 0 && unreadBmp != null) {
+                        val unreadSize = (16f * density)
+                        val unreadRight = currentRight - verticalPadding - cornerExtraPad - 2f * density
+                        val unreadLeft = unreadRight - unreadSize
+                        val unreadTop = (currentTop + currentBottom) / 2f - unreadSize / 2f
+                        catchUpUnreadIconRect.set(unreadLeft, unreadTop, unreadRight, unreadTop + unreadSize)
+
+                        catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(catchUpTintColor, PorterDuff.Mode.SRC_IN)
+                        catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
+                        canvas.drawBitmap(unreadBmp, null, catchUpUnreadIconRect, catchUpUnreadPaint)
                     }
 
                     if (textAlpha > 0) {

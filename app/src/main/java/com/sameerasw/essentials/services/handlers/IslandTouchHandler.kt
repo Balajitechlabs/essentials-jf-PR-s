@@ -36,6 +36,7 @@ class IslandTouchHandler(
     var onNotificationDismissRequested: (() -> Unit)? = null
     var onNotificationSwitched: (() -> Unit)? = null
     var onNotificationExpandToggled: ((Boolean) -> Unit)? = null
+    var onCatchUpRestored: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -46,7 +47,7 @@ class IslandTouchHandler(
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val longPressRunnable = Runnable {
-        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true) {
+        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
             isLongPressed = true
             HapticUtil.performRumbleHaptic(service)
             val isNowExpanded = overlayView?.toggleExpansion() ?: false
@@ -146,25 +147,32 @@ class IslandTouchHandler(
                         overlayView?.animateDragSnapBack()
                     } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L && settingsRepository.isIslandTapActionEnabled()) {
                         overlayView?.resetDragOffset()
-                        val action = overlayView?.getActionAt(x, y)
 
-                        if (action != null) {
-                            handleNotificationAction(action)
+                        if (overlayView?.isCatchUpMode == true) {
+                            overlayView?.exitCatchUpMode(expandToNormal = true)
+                            HapticUtil.performStrongTickHaptic(service)
+                            onCatchUpRestored?.invoke()
                         } else {
-                            val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
-                            if (queuedIdx >= 0) {
-                                val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
-                                if (switched) {
-                                    onNotificationSwitched?.invoke()
-                                    HapticUtil.performStrongTickHaptic(service)
-                                }
+                            val action = overlayView?.getActionAt(x, y)
+
+                            if (action != null) {
+                                handleNotificationAction(action)
                             } else {
-                                val alert = overlayView?.getActiveNotificationAlert()
-                                if (alert != null) {
-                                    launchNotificationApp(alert)
-                                    dismissNotification()
+                                val queuedIdx = overlayView?.getQueuedAlertIndexAt(x, y) ?: -1
+                                if (queuedIdx >= 0) {
+                                    val switched = overlayView?.switchToQueuedNotification(queuedIdx) ?: false
+                                    if (switched) {
+                                        onNotificationSwitched?.invoke()
+                                        HapticUtil.performStrongTickHaptic(service)
+                                    }
+                                } else {
+                                    val alert = overlayView?.getActiveNotificationAlert()
+                                    if (alert != null) {
+                                        launchNotificationApp(alert)
+                                        dismissNotification()
+                                    }
+                                    HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                                 }
-                                HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                             }
                         }
                     } else {

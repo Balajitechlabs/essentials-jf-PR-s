@@ -301,6 +301,34 @@ fun IslandSettingsUI(
                 modifier = Modifier.highlight(highlightSetting == "island_show_glow"),
             )
 
+            IconToggleItem(
+                iconRes = R.drawable.rounded_notifications_unread_24,
+                title = stringResource(R.string.island_catch_up_title),
+                description = stringResource(R.string.island_catch_up_desc),
+                isChecked = viewModel.isIslandCatchUpEnabled.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandCatchUpEnabled(checked)
+                },
+                modifier = Modifier.highlight(highlightSetting == "island_catch_up"),
+            )
+
+            if (viewModel.isIslandCatchUpEnabled.value) {
+                ConfigSliderItem(
+                    title = stringResource(R.string.island_catch_up_timeout_title),
+                    value = (viewModel.islandCatchUpTimeoutMs.longValue / 1000f),
+                    onValueChange = {
+                        HapticUtil.performUIHaptic(view)
+                        viewModel.setIslandCatchUpTimeoutMs((it * 1000).toLong())
+                    },
+                    valueRange = 5f..60f,
+                    increment = 5f,
+                    iconRes = R.drawable.rounded_timer_24,
+                    valueFormatter = { "${it.toInt()}s" },
+                    modifier = Modifier.highlight(highlightSetting == "island_catch_up_timeout"),
+                )
+            }
+
             ConfigSliderItem(
                 title = stringResource(R.string.island_timeout_title),
                 value = (viewModel.islandTimeoutMs.longValue / 1000f),
