@@ -192,6 +192,36 @@ fun IslandSettingsUI(
                 valueFormatter = { "${it.toInt()} dp" },
                 modifier = Modifier.highlight(highlightSetting == "island_max_width"),
             )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_width_title),
+                description = stringResource(R.string.island_expanded_width_desc),
+                value = viewModel.islandExpandedWidth.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedWidth(it)
+                },
+                valueRange = 200f..500f,
+                increment = 10f,
+                iconRes = R.drawable.rounded_arrows_outward_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_width"),
+            )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_roundness_title),
+                description = stringResource(R.string.island_expanded_roundness_desc),
+                value = viewModel.islandExpandedRoundness.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedRoundness(it)
+                },
+                valueRange = 0f..40f,
+                increment = 2f,
+                iconRes = R.drawable.rounded_rounded_corner_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_roundness"),
+            )
         }
 
         Text(
@@ -256,6 +286,22 @@ fun IslandSettingsUI(
                 increment = 0.5f,
                 iconRes = R.drawable.rounded_timer_24,
                 valueFormatter = { "%.1fs".format(it) },
+            )
+
+            val infinityText = stringResource(R.string.island_timeout_infinity)
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_timeout_title),
+                description = stringResource(R.string.island_expanded_timeout_desc),
+                value = (viewModel.islandExpandedTimeoutMs.longValue / 1000f),
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedTimeoutMs((it * 1000).toLong())
+                },
+                valueRange = 0f..30f,
+                increment = 1f,
+                iconRes = R.drawable.rounded_schedule_24,
+                valueFormatter = { if (it <= 0f) infinityText else "${it.toInt()}s" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_timeout_ms"),
             )
         }
 
