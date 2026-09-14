@@ -1313,7 +1313,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
             val inAlpha = ((fraction - 0.20f) / 0.80f).coerceIn(0f, 1f)
             val dragAlpha = (1f - dragCollapseFraction * 2.5f).coerceIn(0f, 1f)
-            val baseGlowAlpha = (45f + 85f * expandedFraction) * inAlpha * dragAlpha
+            val baseGlowAlpha = (130f * expandedFraction) * inAlpha * dragAlpha
             val glowAlpha = if (isShowGlow) baseGlowAlpha.toInt().coerceIn(0, 255) else 0
 
             if (glowAlpha > 0) {
