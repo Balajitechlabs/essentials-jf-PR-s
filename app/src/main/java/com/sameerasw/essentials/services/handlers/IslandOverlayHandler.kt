@@ -657,6 +657,7 @@ class IslandOverlayHandler(
         overlayView?.cameraCenterY = cameraCenterY
         overlayView?.cameraRadiusPx = cameraRadiusPx
         overlayView?.maxWidthDp = settingsRepository.getIslandMaxWidth()
+        overlayView?.cutoutGapDp = settingsRepository.getIslandCutoutGap()
         overlayView?.invalidate()
     }
 
@@ -789,7 +790,8 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_Y,
             SettingsRepository.KEY_ISLAND_CAMERA_SIZE,
-            SettingsRepository.KEY_ISLAND_MAX_WIDTH -> updateOverlayPosition()
+            SettingsRepository.KEY_ISLAND_MAX_WIDTH,
+            SettingsRepository.KEY_ISLAND_CUTOUT_GAP -> updateOverlayPosition()
         }
     }
 
