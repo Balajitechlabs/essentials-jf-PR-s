@@ -311,6 +311,7 @@ class IslandOverlayHandler(
     private fun unregisterMediaListener() {
         if (!isMediaSessionRegistered) return
         mainHandler.removeCallbacks(mediaUpdateRunnable)
+        cancelPausedMediaGrace()
         try { activeMediaSessionsListener?.let { mediaSessionManager?.removeOnActiveSessionsChangedListener(it) } } catch (_: Exception) {}
         activeMediaSessionsListener = null
         for ((token, callback) in controllerCallbacks) {
@@ -363,10 +364,18 @@ class IslandOverlayHandler(
     private fun getExcludedMediaPackages(): Set<String> =
         settingsRepository.loadIslandMediaExcludedApps().filter { it.isEnabled }.map { it.packageName }.toSet()
 
+    private var pausedMediaRunnable: Runnable? = null
+
+    private fun cancelPausedMediaGrace() {
+        pausedMediaRunnable?.let { mainHandler.removeCallbacks(it) }
+        pausedMediaRunnable = null
+    }
+
     private fun applyCurrentMediaState() {
         mainHandler.post {
             val ov = overlayView ?: return@post
-            if (!settingsRepository.isIslandShowMediaEnabled()) {
+            if (!settingsRepository.isIslandShowMediaEnabled() || isHiddenByScreenOrLock) {
+                cancelPausedMediaGrace()
                 activeMediaController = null
                 ov.dismissMediaPlayback()
                 return@post
@@ -376,29 +385,53 @@ class IslandOverlayHandler(
                 it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING &&
                     !excludedPackages.contains(it.packageName)
             }
-            activeMediaController = playing
-            if (playing == null || isHiddenByScreenOrLock) {
-                ov.dismissMediaPlayback()
-                return@post
-            }
-            val metadata = playing.metadata
-            val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
-            val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
-            if (title.isBlank() && artist.isBlank()) return@post
-            val key = "${playing.packageName}_${title}_${artist}"
-            if (currentMediaKey == key && ov.isMediaPlaybackActive) return@post
-            val isSameTrackAsBefore = currentMediaKey == key
-            currentMediaKey = key
-            handlerScope.launch(Dispatchers.IO) {
-                val artwork = extractMediaArtwork(metadata)
-                withContext(Dispatchers.Main) {
-                    if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isHiddenByScreenOrLock) {
-                        ensureOverlayAttached()
-                        ov.showMediaPlayback(title, artist, artwork, startCompact = isSameTrackAsBefore)
-                        expandTouchAnchorForNotification()
-                        scheduleDismissTimer()
+
+            if (playing != null) {
+                cancelPausedMediaGrace()
+                activeMediaController = playing
+                ov.setMediaPaused(false)
+                val metadata = playing.metadata
+                val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
+                val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
+                if (title.isBlank() && artist.isBlank()) return@post
+                val key = "${playing.packageName}_${title}_${artist}"
+                if (currentMediaKey == key && ov.isMediaPlaybackActive) return@post
+                val isSameTrackAsBefore = currentMediaKey == key
+                currentMediaKey = key
+                handlerScope.launch(Dispatchers.IO) {
+                    val artwork = extractMediaArtwork(metadata)
+                    withContext(Dispatchers.Main) {
+                        if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isHiddenByScreenOrLock) {
+                            ensureOverlayAttached()
+                            ov.showMediaPlayback(title, artist, artwork, startCompact = isSameTrackAsBefore)
+                            expandTouchAnchorForNotification()
+                            scheduleDismissTimer()
+                        }
                     }
                 }
+                return@post
+            }
+
+            val current = activeMediaController
+            val isCurrentPaused = current != null && ov.isMediaPlaybackActive &&
+                monitoredControllers.any { it.sessionToken == current.sessionToken } &&
+                !excludedPackages.contains(current.packageName) &&
+                current.playbackState?.state == android.media.session.PlaybackState.STATE_PAUSED
+
+            if (isCurrentPaused) {
+                if (pausedMediaRunnable == null) {
+                    ov.setMediaPaused(true)
+                    pausedMediaRunnable = Runnable {
+                        pausedMediaRunnable = null
+                        activeMediaController = null
+                        ov.dismissMediaPlayback()
+                    }
+                    mainHandler.postDelayed(pausedMediaRunnable!!, PAUSED_MEDIA_GRACE_MS)
+                }
+            } else {
+                cancelPausedMediaGrace()
+                activeMediaController = null
+                ov.dismissMediaPlayback()
             }
         }
     }
@@ -684,5 +717,6 @@ class IslandOverlayHandler(
 
     private companion object {
         private const val MEDIA_UPDATE_DEBOUNCE_MS = 2000L
+        private const val PAUSED_MEDIA_GRACE_MS = 3000L
     }
 }
