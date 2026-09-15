@@ -10,18 +10,24 @@
 package com.sameerasw.essentials.ui.features.display
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,9 +35,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sameerasw.essentials.R
@@ -45,6 +54,72 @@ import com.sameerasw.essentials.utils.PermissionUIHelper
 import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.utils.ShellUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
+
+private val ISLAND_PLACEMENT_KEYS = setOf("island_use_auto_detect", "island_camera_size", "island_max_width", "island_expanded_width")
+private val ISLAND_VISUALS_KEYS = setOf("island_expanded_roundness", "island_expanded_padding", "island_expanded_top_padding")
+
+@Composable
+private fun IslandExpandableSection(
+    title: String,
+    iconRes: Int,
+    modifier: Modifier = Modifier,
+    initiallyExpanded: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val view = LocalView.current
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val rotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "island_section_arrow")
+
+    RoundedCardContainer(
+        modifier = modifier,
+        spacing = 2.dp,
+        cornerRadius = 24.dp,
+    ) {
+        ListItem(
+            onClick = {
+                HapticUtil.performVirtualKeyHaptic(view)
+                expanded = !expanded
+            },
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            leadingContent = {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = title,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            trailingContent = {
+                Icon(
+                    painter = painterResource(id = R.drawable.rounded_keyboard_arrow_down_24),
+                    contentDescription = if (expanded) stringResource(R.string.action_collapse) else stringResource(R.string.action_expand),
+                    modifier = Modifier.rotate(rotation),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+        )
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                content = content,
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -109,16 +184,10 @@ fun IslandSettingsUI(
             )
         }
 
-        Text(
-            text = stringResource(R.string.island_section_position),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp),
-        )
-
-        RoundedCardContainer(
-            spacing = 2.dp,
-            cornerRadius = 24.dp,
+        IslandExpandableSection(
+            title = stringResource(R.string.island_section_placement),
+            iconRes = R.drawable.rounded_center_focus_strong_24,
+            initiallyExpanded = highlightSetting in ISLAND_PLACEMENT_KEYS,
         ) {
             IconToggleItem(
                 iconRes = R.drawable.rounded_center_focus_strong_24,
@@ -206,7 +275,13 @@ fun IslandSettingsUI(
                 valueFormatter = { "${it.toInt()} dp" },
                 modifier = Modifier.highlight(highlightSetting == "island_expanded_width"),
             )
+        }
 
+        IslandExpandableSection(
+            title = stringResource(R.string.island_section_visuals),
+            iconRes = R.drawable.rounded_rounded_corner_24,
+            initiallyExpanded = highlightSetting in ISLAND_VISUALS_KEYS,
+        ) {
             ConfigSliderItem(
                 title = stringResource(R.string.island_expanded_roundness_title),
                 value = viewModel.islandExpandedRoundness.floatValue,
@@ -250,6 +325,41 @@ fun IslandSettingsUI(
             )
         }
 
+        IslandExpandableSection(
+            title = stringResource(R.string.island_section_duration),
+            iconRes = R.drawable.rounded_timer_24,
+            initiallyExpanded = highlightSetting == "island_expanded_timeout_ms",
+        ) {
+            ConfigSliderItem(
+                title = stringResource(R.string.island_timeout_title),
+                value = (viewModel.islandTimeoutMs.longValue / 1000f),
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandTimeoutMs((it * 1000).toLong())
+                },
+                valueRange = 2f..10f,
+                increment = 0.5f,
+                iconRes = R.drawable.rounded_timer_24,
+                valueFormatter = { "%.1fs".format(it) },
+            )
+
+            val infinityText = stringResource(R.string.island_timeout_infinity)
+            ConfigSliderItem(
+                title = stringResource(R.string.island_expanded_timeout_title),
+                description = stringResource(R.string.island_expanded_timeout_desc),
+                value = (viewModel.islandExpandedTimeoutMs.longValue / 1000f),
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandExpandedTimeoutMs((it * 1000).toLong())
+                },
+                valueRange = 0f..30f,
+                increment = 1f,
+                iconRes = R.drawable.rounded_schedule_24,
+                valueFormatter = { if (it <= 0f) infinityText else "${it.toInt()}s" },
+                modifier = Modifier.highlight(highlightSetting == "island_expanded_timeout_ms"),
+            )
+        }
+
         Text(
             text = stringResource(R.string.island_section_behavior),
             style = MaterialTheme.typography.titleSmall,
@@ -264,7 +374,6 @@ fun IslandSettingsUI(
             IconToggleItem(
                 iconRes = R.drawable.rounded_notifications_off_24,
                 title = stringResource(R.string.island_suppress_system_heads_up_title),
-                description = stringResource(R.string.island_suppress_system_heads_up_desc),
                 isChecked = viewModel.isIslandSuppressSystemHeadsUp.value,
                 onCheckedChange = { checked ->
                     HapticUtil.performVirtualKeyHaptic(view)
@@ -280,7 +389,6 @@ fun IslandSettingsUI(
             IconToggleItem(
                 iconRes = R.drawable.rounded_mobile_lock_portrait_24,
                 title = stringResource(R.string.island_hide_when_screen_off_title),
-                description = stringResource(R.string.island_hide_when_screen_off_desc),
                 isChecked = viewModel.isIslandHideWhenScreenOff.value,
                 onCheckedChange = { checked ->
                     HapticUtil.performVirtualKeyHaptic(view)
@@ -292,7 +400,6 @@ fun IslandSettingsUI(
             IconToggleItem(
                 iconRes = R.drawable.rounded_blur_on_24,
                 title = stringResource(R.string.island_show_glow_title),
-                description = stringResource(R.string.island_show_glow_desc),
                 isChecked = viewModel.isIslandShowGlow.value,
                 onCheckedChange = { checked ->
                     HapticUtil.performVirtualKeyHaptic(view)
@@ -332,35 +439,6 @@ fun IslandSettingsUI(
                     modifier = Modifier.highlight(highlightSetting == "island_catch_up_timeout"),
                 )
             }
-
-            ConfigSliderItem(
-                title = stringResource(R.string.island_timeout_title),
-                value = (viewModel.islandTimeoutMs.longValue / 1000f),
-                onValueChange = {
-                    HapticUtil.performUIHaptic(view)
-                    viewModel.setIslandTimeoutMs((it * 1000).toLong())
-                },
-                valueRange = 2f..10f,
-                increment = 0.5f,
-                iconRes = R.drawable.rounded_timer_24,
-                valueFormatter = { "%.1fs".format(it) },
-            )
-
-            val infinityText = stringResource(R.string.island_timeout_infinity)
-            ConfigSliderItem(
-                title = stringResource(R.string.island_expanded_timeout_title),
-                description = stringResource(R.string.island_expanded_timeout_desc),
-                value = (viewModel.islandExpandedTimeoutMs.longValue / 1000f),
-                onValueChange = {
-                    HapticUtil.performUIHaptic(view)
-                    viewModel.setIslandExpandedTimeoutMs((it * 1000).toLong())
-                },
-                valueRange = 0f..30f,
-                increment = 1f,
-                iconRes = R.drawable.rounded_schedule_24,
-                valueFormatter = { if (it <= 0f) infinityText else "${it.toInt()}s" },
-                modifier = Modifier.highlight(highlightSetting == "island_expanded_timeout_ms"),
-            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
