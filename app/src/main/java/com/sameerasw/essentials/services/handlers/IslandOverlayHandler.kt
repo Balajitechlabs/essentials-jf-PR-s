@@ -332,27 +332,42 @@ class IslandOverlayHandler(
 
     private fun handleNotificationTimeout() {
         val ov = overlayView ?: return
-        val hasQueuedAlerts = ov.getQueuedAlerts().isNotEmpty()
+        if (ov.isNotificationAlertActive) {
+            val hasQueuedAlerts = ov.getQueuedAlerts().isNotEmpty()
 
-        if (!hasQueuedAlerts && ov.canEnterCatchUp && settingsRepository.isIslandCatchUpEnabled() && ov.isNotificationAlertActive && !ov.isCatchUpMode && !ov.isExpanded) {
-            ov.enterCatchUpMode()
-            expandTouchAnchorForNotification()
-            scheduleCatchUpDismissTimer()
+            if (!hasQueuedAlerts && ov.canEnterCatchUp && settingsRepository.isIslandCatchUpEnabled() && !ov.isCatchUpMode && !ov.isExpanded) {
+                ov.enterCatchUpMode()
+                expandTouchAnchorForNotification()
+                scheduleCatchUpDismissTimer()
+                return
+            }
+
+            val hasNext = ov.advanceToNextNotification()
+            if (hasNext) {
+                expandTouchAnchorForNotification()
+                scheduleDismissTimer()
+            } else {
+                mainHandler.removeCallbacks(dismissNotificationRunnable)
+                if (ov.isMediaPlaybackActive) {
+                    expandTouchAnchorForNotification()
+                } else {
+                    restoreTouchAnchor()
+                }
+            }
             return
         }
 
-        val hasNext = ov.advanceToNextNotification()
-        if (hasNext) {
+        if (ov.isMediaPlaybackActive && !ov.isMediaCompact) {
+            ov.setMediaCompact(true)
             expandTouchAnchorForNotification()
-            scheduleDismissTimer()
+            pollCalendarEvent()
+            return
+        }
+
+        mainHandler.removeCallbacks(dismissNotificationRunnable)
+        if (ov.isMediaPlaybackActive || ov.isCalendarActive) {
+            expandTouchAnchorForNotification()
         } else {
-            if (ov.isMediaPlaybackActive) {
-                ov.setMediaCompact(true)
-                expandTouchAnchorForNotification()
-                pollCalendarEvent()
-                return
-            }
-            mainHandler.removeCallbacks(dismissNotificationRunnable)
             restoreTouchAnchor()
         }
     }
