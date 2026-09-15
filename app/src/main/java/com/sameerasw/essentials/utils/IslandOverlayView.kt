@@ -20,7 +20,7 @@ import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
-import android.graphics.RadialGradient
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -33,6 +33,7 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
+import androidx.palette.graphics.Palette
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.NotificationActionItem
@@ -191,6 +192,33 @@ class IslandOverlayView(context: Context) : View(context) {
         0xFF80D8FF.toInt()
     }
 
+    private fun playerAccentColor(): Int = mediaAccentColor ?: materialYouAccentColor()
+
+    private fun updateMediaAccentColor(artwork: Bitmap?) {
+        if (artwork == null) {
+            mediaAccentSourceArt = null
+            mediaAccentColor = null
+            return
+        }
+        if (mediaAccentSourceArt === artwork) return
+        mediaAccentSourceArt = artwork
+        try {
+            Palette.from(artwork).generate { palette ->
+                val swatch = palette?.vibrantSwatch
+                    ?: palette?.lightVibrantSwatch
+                    ?: palette?.dominantSwatch
+                    ?: palette?.mutedSwatch
+                val raw = swatch?.rgb ?: return@generate
+                val hsv = FloatArray(3)
+                Color.colorToHSV(raw, hsv)
+                hsv[1] = (hsv[1] * 0.75f).coerceIn(0.25f, 0.90f)
+                hsv[2] = (hsv[2] * 1.25f).coerceIn(0.85f, 1.0f)
+                mediaAccentColor = Color.HSVToColor(hsv)
+                invalidate()
+            }
+        } catch (_: Exception) {}
+    }
+
     private var activeNotificationAlert: ActiveNotificationAlert? = null
     var isNotificationAlertActive: Boolean = false
         private set
@@ -215,6 +243,45 @@ class IslandOverlayView(context: Context) : View(context) {
     private var mediaArtworkPrev: Bitmap? = null
     private var mediaContentRollFraction: Float = 1f
     private val mediaContentRollAnimator = AnimatedFloatProperty()
+
+    var isMediaFullPlayerActive: Boolean = false
+        private set
+    var mediaFullPlayerFraction: Float = 0f
+        private set
+    private val mediaFullPlayerAnimator = AnimatedFloatProperty()
+    var mediaProgressFraction: Float = 0f
+        private set
+    var isMediaTransportPlaying: Boolean = true
+        private set
+    var isMediaLiked: Boolean = false
+        private set
+    private var wavyPhase: Float = 0f
+    private var mediaBlurredArtworkSource: Bitmap? = null
+    private var mediaBlurredArtwork: Bitmap? = null
+    private var mediaAccentColor: Int? = null
+    private var mediaAccentSourceArt: Bitmap? = null
+    private val mediaLikeButtonRect = RectF()
+    private val mediaPlayPauseButtonRect = RectF()
+    private val mediaNextButtonRect = RectF()
+    private val cutoutFadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val wavyProgressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val mediaControlBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val mediaFullPlayerPath = Path()
+
+    private fun loadIconBitmap(resId: Int, sizeDp: Float = 22f): Bitmap? = try {
+        ContextCompat.getDrawable(context, resId)?.let { AppUtil.drawableToBitmap(it, (sizeDp * density).toInt()) }
+    } catch (_: Exception) {
+        null
+    }
+
+    private val playIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_play_arrow_24, 26f) }
+    private val pauseIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_pause_24, 26f) }
+    private val skipNextIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_skip_next_24, 24f) }
+    private val favoriteIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_favorite_24, 22f) }
+    private val favoriteOutlineIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.round_favorite_24, 22f) }
 
     var isCalendarActive: Boolean = false
         private set
@@ -538,6 +605,7 @@ class IslandOverlayView(context: Context) : View(context) {
         mediaTitle = title
         mediaArtist = artist
         mediaArtwork = artwork
+        updateMediaAccentColor(artwork)
         if (isNotificationAlertActive) setMediaBubbleVisible(true)
         if (!wasActive) {
             equalizerAnimator.start { invalidate() }
@@ -562,6 +630,7 @@ class IslandOverlayView(context: Context) : View(context) {
     fun setMediaCompact(compact: Boolean) {
         if (!isMediaPlaybackActive || isMediaCompact == compact) return
         isMediaCompact = compact
+        if (compact) setMediaFullPlayer(false)
         mediaCompactAnimator.animateTo(
             from = mediaCompactFraction,
             to = if (compact) 1f else 0f,
@@ -572,6 +641,80 @@ class IslandOverlayView(context: Context) : View(context) {
             },
         )
         onAlertsChanged?.invoke()
+    }
+
+    fun toggleMediaFullPlayer(): Boolean {
+        if (!isMediaPlaybackActive || isMediaCompact) return isMediaFullPlayerActive
+        setMediaFullPlayer(!isMediaFullPlayerActive)
+        return isMediaFullPlayerActive
+    }
+
+    fun setMediaFullPlayer(active: Boolean) {
+        if (isMediaFullPlayerActive == active) return
+        isMediaFullPlayerActive = active
+        mediaFullPlayerAnimator.animateTo(
+            from = mediaFullPlayerFraction,
+            to = if (active) 1f else 0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                mediaFullPlayerFraction = it
+                invalidate()
+            },
+        )
+        refreshWavyProgressAnimation()
+        onAlertsChanged?.invoke()
+    }
+
+    fun setMediaLiked(liked: Boolean) {
+        if (isMediaLiked == liked) return
+        isMediaLiked = liked
+        invalidate()
+    }
+
+    fun setMediaTransportPlaying(playing: Boolean) {
+        if (isMediaTransportPlaying == playing) return
+        isMediaTransportPlaying = playing
+        refreshWavyProgressAnimation()
+        invalidate()
+    }
+
+    private var wavyPhaseAnimator: ValueAnimator? = null
+
+    private fun refreshWavyProgressAnimation() {
+        val shouldRun = isMediaFullPlayerActive && isMediaTransportPlaying
+        if (shouldRun) {
+            if (wavyPhaseAnimator != null) return
+            wavyPhaseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 1200L
+                interpolator = android.view.animation.LinearInterpolator()
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener {
+                    wavyPhase += 0.045f
+                    invalidate()
+                }
+                start()
+            }
+        } else {
+            wavyPhaseAnimator?.cancel()
+            wavyPhaseAnimator = null
+        }
+    }
+
+    fun updateMediaProgress(fraction: Float) {
+        mediaProgressFraction = fraction.coerceIn(0f, 1f)
+        if (mediaFullPlayerFraction > 0.01f) invalidate()
+    }
+
+    fun getMediaControlActionAt(x: Float, y: Float): Int {
+        if (mediaFullPlayerFraction < 0.6f) return -1
+        val pad = 10f * density
+        fun hit(r: RectF) = r.width() > 0f && RectF(r.left - pad, r.top - pad, r.right + pad, r.bottom + pad).contains(x, y)
+        return when {
+            hit(mediaLikeButtonRect) -> 0
+            hit(mediaPlayPauseButtonRect) -> 1
+            hit(mediaNextButtonRect) -> 2
+            else -> -1
+        }
     }
 
     fun setMediaPaused(paused: Boolean) {
@@ -593,6 +736,14 @@ class IslandOverlayView(context: Context) : View(context) {
         mediaRevealOriginRect.setEmpty()
         mediaContentRollAnimator.cancel()
         mediaContentRollFraction = 1f
+        mediaFullPlayerAnimator.cancel()
+        isMediaFullPlayerActive = false
+        mediaFullPlayerFraction = 0f
+        mediaProgressFraction = 0f
+        wavyPhaseAnimator?.cancel()
+        wavyPhaseAnimator = null
+        mediaAccentColor = null
+        mediaAccentSourceArt = null
         mediaAnimator.animateTo(
             from = mediaFraction,
             to = 0f,
@@ -1462,6 +1613,9 @@ class IslandOverlayView(context: Context) : View(context) {
         calendarCompactTimeRollAnimator.cancel()
         mediaContentRollAnimator.cancel()
         mediaMorphAnimator.cancel()
+        mediaFullPlayerAnimator.cancel()
+        wavyPhaseAnimator?.cancel()
+        wavyPhaseAnimator = null
         stopAllMarquees()
     }
 
@@ -1476,7 +1630,7 @@ class IslandOverlayView(context: Context) : View(context) {
         if (alert == null) {
             return when {
                 isCalendarActive -> computeCalendarBounds(calendarCompactFraction.coerceIn(0f, 1f))
-                isMediaPlaybackActive -> computeMediaTargetBounds()
+                isMediaPlaybackActive -> if (isMediaFullPlayerActive) computeMediaFullPlayerTargetBounds() else computeMediaTargetBounds()
                 else -> notificationPillRect
             }
         }
@@ -1578,7 +1732,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private fun currentMediaBounds(): RectF {
-        val fullBounds = computeMediaTargetBounds()
+        val fullBounds = if (isMediaFullPlayerActive) computeMediaFullPlayerTargetBounds() else computeMediaTargetBounds()
         if (!isNotificationAlertActive || mediaBubbleFraction <= 0.001f) return fullBounds
         val bubbleBounds = computeMediaBubbleBounds()
         return RectF(
@@ -1628,6 +1782,57 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private fun computeMediaTargetBounds(): RectF =
         computeMediaBounds(mediaCompactFraction.coerceIn(0f, 1f))
+
+    private fun computeMediaFullPlayerWidthBounds(): RectF {
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+        val maxAllowedWidthPx = (expandedWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+        return if (isCenterCamera) {
+            val halfWidth = (maxAllowedWidthPx / 2f).coerceAtMost(minOf(cameraCenterX - 8f * density, screenWidth - cameraCenterX - 8f * density))
+            RectF(cameraCenterX - halfWidth, 0f, cameraCenterX + halfWidth, 0f)
+        } else {
+            val left = (cameraCenterX - cameraRadiusPx - cutoutGap).coerceAtLeast(8f * density)
+            val right = (left + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
+            RectF(left, 0f, right, 0f)
+        }
+    }
+
+    private fun computeMediaFullPlayerTargetBounds(): RectF {
+        val width = computeMediaFullPlayerWidthBounds()
+        val collapsed = computeMediaTargetBounds()
+        return RectF(width.left, collapsed.top, width.right, collapsed.top + computeMediaFullPlayerHeight())
+    }
+
+    private class MediaFullPlayerMetrics(
+        val topPad: Float,
+        val artSize: Float,
+        val titleGap: Float,
+        val titleTextSize: Float,
+        val artistGap: Float,
+        val artistTextSize: Float,
+        val progressGap: Float,
+        val barGap: Float,
+        val barHeight: Float,
+        val bottomPad: Float,
+    ) {
+        val totalHeight: Float
+            get() = topPad + artSize + titleGap + titleTextSize + artistGap + artistTextSize + progressGap + barGap + barHeight + bottomPad
+    }
+
+    private fun mediaFullPlayerMetrics(): MediaFullPlayerMetrics = MediaFullPlayerMetrics(
+        topPad = cameraRadiusPx * 2f + 28f * density + expandedTopPaddingDp * density,
+        artSize = 88f * density,
+        titleGap = 12f * density,
+        titleTextSize = 16f * density,
+        artistGap = 6f * density,
+        artistTextSize = 13f * density,
+        progressGap = 20f * density,
+        barGap = 20f * density,
+        barHeight = 52f * density,
+        bottomPad = (expandedPaddingDp * density).coerceAtLeast(16f * density),
+    )
+
+    private fun computeMediaFullPlayerHeight(): Float = mediaFullPlayerMetrics().totalHeight
 
     private fun computeSenderAndMessage(alert: ActiveNotificationAlert): Pair<String, String> {
         val appName = alert.appName?.trim() ?: try {
@@ -1767,11 +1972,28 @@ class IslandOverlayView(context: Context) : View(context) {
         val right = initialRight + (target.right - initialRight) * boundsProgress
         mediaPillRect.set(left, target.top, right, target.bottom)
 
+        val fullPlayerT = mediaFullPlayerFraction
+        if (fullPlayerT > 0.001f) {
+            val fpWidth = computeMediaFullPlayerWidthBounds()
+            val fpBottom = mediaPillRect.top + computeMediaFullPlayerHeight()
+            mediaPillRect.set(
+                mediaPillRect.left + (fpWidth.left - mediaPillRect.left) * fullPlayerT,
+                mediaPillRect.top,
+                mediaPillRect.right + (fpWidth.right - mediaPillRect.right) * fullPlayerT,
+                mediaPillRect.bottom + (fpBottom - mediaPillRect.bottom) * fullPlayerT,
+            )
+        }
+        val cornerRadius = height / 2f + ((expandedCornerRadiusDp * density) - height / 2f) * fullPlayerT
+
         notificationPillPaint.color = Color.BLACK
         notificationPillPaint.alpha = 255
-        canvas.drawRoundRect(mediaPillRect, height / 2f, height / 2f, notificationPillPaint)
+        canvas.drawRoundRect(mediaPillRect, cornerRadius, cornerRadius, notificationPillPaint)
 
-        val alpha = (mediaFraction * 255f).toInt().coerceIn(0, 255)
+        if (fullPlayerT > 0.001f) {
+            drawMediaFullPlayerFill(canvas, cornerRadius, fullPlayerT)
+        }
+
+        val alpha = (mediaFraction * 255f * (1f - fullPlayerT)).toInt().coerceIn(0, 255)
         val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
         val pad = (height - iconSize) / 2f
         val artRect = RectF(mediaPillRect.left + pad, mediaPillRect.top + pad, mediaPillRect.left + pad + iconSize, mediaPillRect.top + pad + iconSize)
@@ -1799,7 +2021,7 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         val compactIconRect = RectF(mediaPillRect.right - pad - iconSize, mediaPillRect.top + pad, mediaPillRect.right - pad, mediaPillRect.top + pad + iconSize)
-        equalizerPaint.color = materialYouAccentColor()
+        equalizerPaint.color = playerAccentColor()
         equalizerPaint.alpha = (alpha * mediaCompactFraction).toInt().coerceIn(0, 255)
         drawEqualizerIcon(canvas, compactIconRect, equalizerAnimator.barLevels, equalizerPaint)
 
@@ -1825,6 +2047,217 @@ class IslandOverlayView(context: Context) : View(context) {
                 drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction, alignTextToEnd = true)
             }
         }
+
+        if (fullPlayerT > 0.01f) {
+            drawMediaFullPlayerContent(canvas, (mediaFraction * 255f).toInt().coerceIn(0, 255), fullPlayerT)
+        } else {
+            mediaLikeButtonRect.setEmpty()
+            mediaPlayPauseButtonRect.setEmpty()
+            mediaNextButtonRect.setEmpty()
+        }
+    }
+
+    private fun getBlurredArtwork(): Bitmap? {
+        val art = mediaArtwork ?: return null
+        if (mediaBlurredArtworkSource !== art) {
+            mediaBlurredArtworkSource = art
+            mediaBlurredArtwork = try {
+                val small = Bitmap.createScaledBitmap(art, 8, 8, true)
+                Bitmap.createScaledBitmap(small, art.width.coerceAtLeast(1), art.height.coerceAtLeast(1), true)
+            } catch (_: Exception) {
+                art
+            }
+        }
+        return mediaBlurredArtwork
+    }
+
+    private fun drawMediaFullPlayerFill(canvas: Canvas, cornerRadius: Float, fullPlayerT: Float) {
+        val art = getBlurredArtwork() ?: return
+        val fillAlpha = (170 * fullPlayerT).toInt().coerceIn(0, 255)
+        if (fillAlpha <= 0) return
+        canvas.save()
+        mediaFullPlayerPath.reset()
+        mediaFullPlayerPath.addRoundRect(mediaPillRect, cornerRadius, cornerRadius, Path.Direction.CW)
+        canvas.clipPath(mediaFullPlayerPath)
+
+        val rectW = mediaPillRect.width()
+        val rectH = mediaPillRect.height()
+        if (rectW > 0f && rectH > 0f && art.width > 0 && art.height > 0) {
+            val srcAspect = art.width.toFloat() / art.height.toFloat()
+            val dstAspect = rectW / rectH
+            val srcRect = if (srcAspect > dstAspect) {
+                val srcW = (art.height * dstAspect).toInt().coerceIn(1, art.width)
+                val srcX = (art.width - srcW) / 2
+                Rect(srcX, 0, srcX + srcW, art.height)
+            } else {
+                val srcH = (art.width / dstAspect).toInt().coerceIn(1, art.height)
+                val srcY = (art.height - srcH) / 2
+                Rect(0, srcY, art.width, srcY + srcH)
+            }
+            iconPaint.alpha = fillAlpha
+            iconPaint.colorFilter = null
+            canvas.drawBitmap(art, srcRect, mediaPillRect, iconPaint)
+        }
+
+        val cameraAreaBottom = cameraCenterY + cameraRadiusPx + 4f * density
+        val fadeBottom = mediaPillRect.bottom
+        val maxAllowedFadeHeight = (fadeBottom - cameraAreaBottom).coerceAtLeast(40f * density)
+        val fadeHeight = (170f * density).coerceAtMost(maxAllowedFadeHeight)
+        val fadeTop = fadeBottom - fadeHeight
+        val overlayAlpha = (255 * fullPlayerT).toInt().coerceIn(0, 255)
+
+        cutoutFadePaint.shader = null
+        cutoutFadePaint.color = Color.BLACK
+        cutoutFadePaint.alpha = overlayAlpha
+        canvas.drawRect(mediaPillRect.left, mediaPillRect.top, mediaPillRect.right, fadeTop, cutoutFadePaint)
+
+        cutoutFadePaint.shader = LinearGradient(
+            0f, fadeBottom, 0f, fadeTop,
+            intArrayOf(Color.TRANSPARENT, Color.argb(150, 0, 0, 0), Color.BLACK),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        cutoutFadePaint.alpha = overlayAlpha
+        canvas.drawRect(mediaPillRect.left, fadeTop, mediaPillRect.right, fadeBottom, cutoutFadePaint)
+        canvas.restore()
+    }
+
+    private fun drawWavyProgress(canvas: Canvas, left: Float, centerY: Float, right: Float, progress: Float, baseAlpha: Int) {
+        val width = right - left
+        if (width <= 0f) return
+        val amplitude = 4.5f * density
+        val wavelength = 22f * density
+        val gap = 6f * density
+        val progressX = left + width * progress.coerceIn(0f, 1f)
+        val activeStrokeWidth = 5f * density
+        val trackStrokeWidth = 4f * density
+
+        if (progressX > left) {
+            wavyProgressPaint.strokeWidth = activeStrokeWidth
+            wavyProgressPaint.color = playerAccentColor()
+            wavyProgressPaint.alpha = baseAlpha
+            val activePath = Path()
+            var x = left
+            var first = true
+            val step = 1.5f * density
+            while (x <= progressX) {
+                val y = centerY + kotlin.math.sin((x - left) / wavelength * 2f * Math.PI.toFloat() + wavyPhase) * amplitude
+                if (first) {
+                    activePath.moveTo(x, y)
+                    first = false
+                } else {
+                    activePath.lineTo(x, y)
+                }
+                x += step
+            }
+            canvas.drawPath(activePath, wavyProgressPaint)
+        }
+
+        val trackStart = progressX + gap
+        if (trackStart < right) {
+            wavyProgressPaint.strokeWidth = trackStrokeWidth
+            wavyProgressPaint.color = Color.WHITE
+            wavyProgressPaint.alpha = (baseAlpha * 0.3f).toInt().coerceIn(0, 255)
+            canvas.drawLine(trackStart, centerY, right, centerY, wavyProgressPaint)
+        }
+    }
+
+    private fun drawMediaControlButtons(canvas: Canvas, barRect: RectF, alpha: Int) {
+        val rects = arrayOf(mediaLikeButtonRect, mediaPlayPauseButtonRect, mediaNextButtonRect)
+        val icons = arrayOf(
+            (if (isMediaLiked) favoriteIconBitmap else favoriteOutlineIconBitmap) to (if (isMediaLiked) playerAccentColor() else Color.WHITE),
+            (if (isMediaTransportPlaying) pauseIconBitmap else playIconBitmap) to Color.WHITE,
+            skipNextIconBitmap to Color.WHITE,
+        )
+        val count = rects.size
+        val gap = 4f * density
+        val outerRadius = barRect.height() / 2f
+        val innerRadius = 4f * density
+        val segmentWidth = (barRect.width() - gap * (count - 1)) / count
+
+        for (i in 0 until count) {
+            val left = barRect.left + i * (segmentWidth + gap)
+            rects[i].set(left, barRect.top, left + segmentWidth, barRect.bottom)
+
+            val radii = when (i) {
+                0 -> floatArrayOf(outerRadius, outerRadius, innerRadius, innerRadius, innerRadius, innerRadius, outerRadius, outerRadius)
+                count - 1 -> floatArrayOf(innerRadius, innerRadius, outerRadius, outerRadius, outerRadius, outerRadius, innerRadius, innerRadius)
+                else -> floatArrayOf(innerRadius, innerRadius, innerRadius, innerRadius, innerRadius, innerRadius, innerRadius, innerRadius)
+            }
+            mediaFullPlayerPath.reset()
+            mediaFullPlayerPath.addRoundRect(rects[i], radii, Path.Direction.CW)
+            mediaControlBgPaint.color = Color.WHITE
+            mediaControlBgPaint.alpha = (alpha * 0.14f).toInt().coerceIn(0, 255)
+            canvas.drawPath(mediaFullPlayerPath, mediaControlBgPaint)
+
+            val (icon, tint) = icons[i]
+            if (icon != null) {
+                val iconSize = rects[i].height() * 0.46f
+                val iconRect = RectF(
+                    rects[i].centerX() - iconSize / 2f,
+                    rects[i].centerY() - iconSize / 2f,
+                    rects[i].centerX() + iconSize / 2f,
+                    rects[i].centerY() + iconSize / 2f,
+                )
+                iconPaint.alpha = alpha
+                iconPaint.colorFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN)
+                canvas.drawBitmap(icon, null, iconRect, iconPaint)
+                iconPaint.colorFilter = null
+            }
+        }
+    }
+
+    private fun drawMediaFullPlayerContent(canvas: Canvas, baseAlpha: Int, fullPlayerT: Float) {
+        val contentAlpha = (baseAlpha * fullPlayerT).toInt().coerceIn(0, 255)
+        if (contentAlpha <= 0) {
+            mediaLikeButtonRect.setEmpty()
+            mediaPlayPauseButtonRect.setEmpty()
+            mediaNextButtonRect.setEmpty()
+            return
+        }
+        val m = mediaFullPlayerMetrics()
+        val pillLeft = mediaPillRect.left
+        val pillRight = mediaPillRect.right
+        val pillCenterX = (pillLeft + pillRight) / 2f
+        val artRect = RectF(
+            pillCenterX - m.artSize / 2f,
+            mediaPillRect.top + m.topPad,
+            pillCenterX + m.artSize / 2f,
+            mediaPillRect.top + m.topPad + m.artSize,
+        )
+
+        mediaArtwork?.let {
+            iconPaint.alpha = contentAlpha
+            iconPaint.colorFilter = null
+            canvas.save()
+            mediaFullPlayerPath.reset()
+            mediaFullPlayerPath.addRoundRect(artRect, 20f * density, 20f * density, Path.Direction.CW)
+            canvas.clipPath(mediaFullPlayerPath)
+            canvas.drawBitmap(it, null, artRect, iconPaint)
+            canvas.restore()
+        }
+
+        notificationBodyPaint.alpha = contentAlpha
+        notificationBodyPaint.textSize = m.titleTextSize
+        notificationBodyPaint.textAlign = Paint.Align.CENTER
+        val titleY = artRect.bottom + m.titleGap + m.titleTextSize
+        canvas.drawText(mediaTitle, pillCenterX, titleY, notificationBodyPaint)
+        notificationBodyPaint.textAlign = Paint.Align.LEFT
+
+        notificationSenderPaint.alpha = contentAlpha
+        notificationSenderPaint.textSize = m.artistTextSize
+        notificationSenderPaint.textAlign = Paint.Align.CENTER
+        val artistY = titleY + m.artistTextSize + m.artistGap
+        canvas.drawText(mediaArtist, pillCenterX, artistY, notificationSenderPaint)
+        notificationSenderPaint.textAlign = Paint.Align.LEFT
+
+        val progressY = artistY + m.progressGap
+        drawWavyProgress(canvas, pillLeft + 16f * density, progressY, pillRight - 16f * density, mediaProgressFraction, contentAlpha)
+
+        val barTop = progressY + m.barGap
+        val barRect = RectF(pillLeft + 12f * density, barTop, pillRight - 12f * density, barTop + m.barHeight)
+
+        drawMediaControlButtons(canvas, barRect, contentAlpha)
     }
 
     override fun onDraw(canvas: Canvas) {
