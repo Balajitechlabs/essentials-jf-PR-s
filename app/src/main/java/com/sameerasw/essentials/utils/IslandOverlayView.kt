@@ -209,6 +209,13 @@ class IslandOverlayView(context: Context) : View(context) {
     private var mediaBubbleFraction: Float = 0f
     private val mediaPillRect = RectF()
 
+    // Rolls the title/artist/artwork up-and-out while the new track rolls in, mirroring Status Glance's ticker.
+    private var mediaTitlePrev: String = ""
+    private var mediaArtistPrev: String = ""
+    private var mediaArtworkPrev: Bitmap? = null
+    private var mediaContentRollFraction: Float = 1f
+    private val mediaContentRollAnimator = AnimatedFloatProperty()
+
     var isCalendarActive: Boolean = false
         private set
     var isCalendarCompact: Boolean = true
@@ -222,6 +229,10 @@ class IslandOverlayView(context: Context) : View(context) {
     private var calendarFraction: Float = 0f
     private var calendarCompactFraction: Float = 1f
     private val calendarPillRect = RectF()
+
+    private var calendarCompactTimePrev: String = ""
+    private var calendarCompactTimeRollFraction: Float = 1f
+    private val calendarCompactTimeRollAnimator = AnimatedFloatProperty()
     private val calendarIconRevealAnimator = AnimatedFloatProperty()
     private var calendarIconRevealFraction: Float = 1f
 
@@ -507,6 +518,22 @@ class IslandOverlayView(context: Context) : View(context) {
         if (!isIslandEnabled) return
 
         val wasActive = isMediaPlaybackActive
+        val contentChanged = wasActive && (title != mediaTitle || artist != mediaArtist || artwork !== mediaArtwork)
+        if (contentChanged) {
+            mediaTitlePrev = mediaTitle
+            mediaArtistPrev = mediaArtist
+            mediaArtworkPrev = mediaArtwork
+            mediaContentRollFraction = 0f
+            mediaContentRollAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    mediaContentRollFraction = it
+                    invalidate()
+                },
+            )
+        }
         isMediaPlaybackActive = true
         mediaTitle = title
         mediaArtist = artist
@@ -564,6 +591,8 @@ class IslandOverlayView(context: Context) : View(context) {
         mediaMorphAnimator.cancel()
         mediaMorphFraction = 1f
         mediaRevealOriginRect.setEmpty()
+        mediaContentRollAnimator.cancel()
+        mediaContentRollFraction = 1f
         mediaAnimator.animateTo(
             from = mediaFraction,
             to = 0f,
@@ -592,6 +621,19 @@ class IslandOverlayView(context: Context) : View(context) {
         if (!isIslandEnabled || isNotificationAlertActive || (isMediaPlaybackActive && !isMediaCompact)) return
         val wasActive = isCalendarActive
         val mergingFromMedia = !wasActive && isMediaPlaybackActive
+        if (wasActive && !mergingFromMedia && compactTimeText != calendarCompactTimeText) {
+            calendarCompactTimePrev = calendarCompactTimeText
+            calendarCompactTimeRollFraction = 0f
+            calendarCompactTimeRollAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    calendarCompactTimeRollFraction = it
+                    invalidate()
+                },
+            )
+        }
         isCalendarActive = true
         calendarEventTitle = title
         calendarFullTimeText = fullTimeText
@@ -668,6 +710,8 @@ class IslandOverlayView(context: Context) : View(context) {
         calendarCompactAnimator.cancel()
         calendarIconRevealAnimator.cancel()
         calendarIconRevealFraction = 1f
+        calendarCompactTimeRollAnimator.cancel()
+        calendarCompactTimeRollFraction = 1f
         calendarAnimator.animateTo(
             from = calendarFraction,
             to = 0f,
@@ -684,6 +728,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 calendarEventTitle = ""
                 calendarLocationText = ""
                 calendarCompactTimeText = ""
+                calendarCompactTimePrev = ""
                 calendarFullTimeText = ""
                 if (isMediaPlaybackActive) reclaimMediaPillFromBubble()
                 onDismissAnimationEnd?.invoke()
@@ -794,10 +839,22 @@ class IslandOverlayView(context: Context) : View(context) {
                 val compactTextRight = calendarPillRect.right - pad
                 val compactTextLeft = iconRect.right + 6f * density
                 if (compactTextRight > compactTextLeft) {
-                    notificationBodyPaint.alpha = compactAlpha
                     notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
                     val textY = (calendarPillRect.top + calendarPillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
-                    canvas.drawText(calendarCompactTimeText, compactTextRight - notificationBodyPaint.measureText(calendarCompactTimeText), textY, notificationBodyPaint)
+                    drawRollingText(
+                        canvas = canvas,
+                        paint = notificationBodyPaint,
+                        oldText = calendarCompactTimePrev,
+                        newText = calendarCompactTimeText,
+                        fraction = calendarCompactTimeRollFraction,
+                        edgeX = compactTextRight,
+                        baseY = textY,
+                        clipLeft = compactTextLeft,
+                        clipTop = calendarPillRect.top,
+                        clipRight = compactTextRight,
+                        clipBottom = calendarPillRect.bottom,
+                        baseAlpha = compactAlpha,
+                    )
                 }
             }
         }
@@ -834,6 +891,52 @@ class IslandOverlayView(context: Context) : View(context) {
         )
     }
 
+    private class RollLayers(val oldOffsetY: Float, val oldAlpha: Float, val newOffsetY: Float, val newAlpha: Float)
+
+    private fun computeRollLayers(fraction: Float, rowHeight: Float): RollLayers {
+        val dist = rowHeight * 0.9f
+        return RollLayers(
+            oldOffsetY = -fraction * dist,
+            oldAlpha = 1f - fraction,
+            newOffsetY = (1f - fraction) * dist,
+            newAlpha = fraction,
+        )
+    }
+
+    private fun drawRollingText(
+        canvas: Canvas,
+        paint: Paint,
+        oldText: String,
+        newText: String,
+        fraction: Float,
+        edgeX: Float,
+        baseY: Float,
+        clipLeft: Float,
+        clipTop: Float,
+        clipRight: Float,
+        clipBottom: Float,
+        baseAlpha: Int,
+        alignEnd: Boolean = true,
+    ) {
+        if (baseAlpha <= 0) return
+        fun drawX(text: String) = if (alignEnd) edgeX - paint.measureText(text) else edgeX
+        if (fraction >= 0.999f || oldText == newText) {
+            paint.alpha = baseAlpha
+            canvas.drawText(newText, drawX(newText), baseY, paint)
+            return
+        }
+        val rows = computeRollLayers(fraction, clipBottom - clipTop)
+        canvas.save()
+        canvas.clipRect(clipLeft, clipTop, clipRight, clipBottom)
+        if (oldText.isNotBlank()) {
+            paint.alpha = (baseAlpha * rows.oldAlpha).toInt().coerceIn(0, 255)
+            canvas.drawText(oldText, drawX(oldText), baseY + rows.oldOffsetY, paint)
+        }
+        paint.alpha = (baseAlpha * rows.newAlpha).toInt().coerceIn(0, 255)
+        canvas.drawText(newText, drawX(newText), baseY + rows.newOffsetY, paint)
+        canvas.restore()
+    }
+
     // Morphs media's bounds from [origin] to its target with alpha untouched — one smooth resize.
     private fun beginMediaPillMorph(origin: RectF) {
         mediaRevealOriginRect.set(origin)
@@ -866,6 +969,8 @@ class IslandOverlayView(context: Context) : View(context) {
         calendarCompactAnimator.cancel()
         calendarIconRevealAnimator.cancel()
         calendarIconRevealFraction = 1f
+        calendarCompactTimeRollAnimator.cancel()
+        calendarCompactTimeRollFraction = 1f
         isCalendarActive = false
         isCalendarCompact = true
         calendarFraction = 0f
@@ -873,6 +978,7 @@ class IslandOverlayView(context: Context) : View(context) {
         calendarEventTitle = ""
         calendarLocationText = ""
         calendarCompactTimeText = ""
+        calendarCompactTimePrev = ""
         calendarFullTimeText = ""
 
         beginMediaPillMorph(origin)
@@ -1353,6 +1459,8 @@ class IslandOverlayView(context: Context) : View(context) {
         calendarAnimator.cancel()
         calendarCompactAnimator.cancel()
         calendarIconRevealAnimator.cancel()
+        calendarCompactTimeRollAnimator.cancel()
+        mediaContentRollAnimator.cancel()
         mediaMorphAnimator.cancel()
         stopAllMarquees()
     }
@@ -1668,8 +1776,20 @@ class IslandOverlayView(context: Context) : View(context) {
         val pad = (height - iconSize) / 2f
         val artRect = RectF(mediaPillRect.left + pad, mediaPillRect.top + pad, mediaPillRect.left + pad + iconSize, mediaPillRect.top + pad + iconSize)
         if (mediaFraction > 0.5f) trailingBubbleRects[MEDIA_BUBBLE_KEY] = RectF(artRect)
+        val artRollFraction = mediaContentRollFraction
+        if (artRollFraction < 0.999f) {
+            mediaArtworkPrev?.let {
+                iconPaint.alpha = (alpha * (1f - artRollFraction)).toInt().coerceIn(0, 255)
+                canvas.save()
+                notificationIconClipPath.reset()
+                notificationIconClipPath.addCircle(artRect.centerX(), artRect.centerY(), iconSize / 2f, Path.Direction.CW)
+                canvas.clipPath(notificationIconClipPath)
+                canvas.drawBitmap(it, null, artRect, iconPaint)
+                canvas.restore()
+            }
+        }
         mediaArtwork?.let {
-            iconPaint.alpha = alpha
+            iconPaint.alpha = (alpha * artRollFraction).toInt().coerceIn(0, 255)
             canvas.save()
             notificationIconClipPath.reset()
             notificationIconClipPath.addCircle(artRect.centerX(), artRect.centerY(), iconSize / 2f, Path.Direction.CW)
@@ -1695,8 +1815,15 @@ class IslandOverlayView(context: Context) : View(context) {
             val compactIconReserve = mediaPillRect.right - (compactIconRect.left - 8f * density)
             val titleRight = pillTextRightEdge(mediaPillRect.right, reservedRight = compactIconReserve * mediaCompactFraction)
             val mediaRevealFraction = mediaFraction * (1f - mediaCompactFraction)
-            drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f, mediaRevealFraction)
-            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction, alignTextToEnd = true)
+            if (mediaContentRollFraction < 0.999f) {
+                val artistY = (mediaPillRect.top + mediaPillRect.bottom) / 2f + notificationSenderPaint.textSize * 0.35f
+                val titleY = (mediaPillRect.top + mediaPillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
+                drawRollingText(canvas, notificationSenderPaint, mediaArtistPrev, mediaArtist, mediaContentRollFraction, artistLeft, artistY, artistLeft, mediaPillRect.top, artistRight, mediaPillRect.bottom, textAlpha, alignEnd = false)
+                drawRollingText(canvas, notificationBodyPaint, mediaTitlePrev, mediaTitle, mediaContentRollFraction, titleRight, titleY, titleLeft, mediaPillRect.top, titleRight, mediaPillRect.bottom, textAlpha, alignEnd = true)
+            } else {
+                drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f, mediaRevealFraction)
+                drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction, alignTextToEnd = true)
+            }
         }
     }
 
