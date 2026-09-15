@@ -1310,7 +1310,7 @@ class IslandOverlayView(context: Context) : View(context) {
             val titleRight = pillTextRightEdge(mediaPillRect.right, reservedRight = compactIconReserve * mediaCompactFraction)
             val mediaRevealFraction = mediaFraction * (1f - mediaCompactFraction)
             drawMarqueeText(canvas, mediaArtist, notificationSenderPaint, leftMarquee, artistLeft, artistRight, mediaPillRect.top, mediaPillRect.bottom, false, height / 2f, mediaRevealFraction)
-            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction)
+            drawMarqueeText(canvas, mediaTitle, notificationBodyPaint, rightMarquee, titleLeft, titleRight, mediaPillRect.top, mediaPillRect.bottom, true, height / 2f, mediaRevealFraction, alignTextToEnd = true)
         }
     }
 
@@ -1605,6 +1605,7 @@ class IslandOverlayView(context: Context) : View(context) {
                                     currentBottom = currentTop + topPad + basePillHeight,
                                     isRightPillEdge = true,
                                     cornerRadius = cornerRadius,
+                                    alignTextToEnd = true,
                                     )
                             }
                         }
@@ -1909,6 +1910,7 @@ class IslandOverlayView(context: Context) : View(context) {
         isRightPillEdge: Boolean,
         cornerRadius: Float,
         revealFraction: Float = animatedNotificationFraction,
+        alignTextToEnd: Boolean = false,
     ) {
         val availableWidth = (clipRight - clipLeft).coerceAtLeast(10f * density)
         if (revealFraction >= 0.98f) {
@@ -1972,7 +1974,8 @@ class IslandOverlayView(context: Context) : View(context) {
             canvas.save()
             val textClipRect = RectF(clipLeft, currentTop, clipRight, currentBottom)
             canvas.clipRect(textClipRect)
-            canvas.drawText(text, clipLeft, textY, paint)
+            val textX = if (alignTextToEnd) (clipRight - paint.measureText(text)).coerceAtLeast(clipLeft) else clipLeft
+            canvas.drawText(text, textX, textY, paint)
             canvas.restore()
         }
     }
