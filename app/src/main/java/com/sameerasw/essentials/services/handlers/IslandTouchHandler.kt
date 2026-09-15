@@ -286,6 +286,12 @@ class IslandTouchHandler(
                     } else {
                         overlayView?.animateDragSnapBack()
                     }
+                } else if (overlayView?.isCalendarActive == true) {
+                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.toggleCalendarExpansion()
+                        onCalendarToggled?.invoke()
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    }
                 } else if (overlayView?.isMediaPlaybackActive == true) {
                     val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
                     val isSwipeTowardCamera = IslandSwipeDirections.classify(downX, dx, dy, cameraX, touchSlopPx).isTowardCamera
@@ -305,12 +311,6 @@ class IslandTouchHandler(
                         overlayView?.animateDragSnapBack()
                     } else {
                         overlayView?.resetDragOffset()
-                    }
-                } else if (overlayView?.isCalendarActive == true) {
-                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
-                        overlayView?.toggleCalendarExpansion()
-                        onCalendarToggled?.invoke()
-                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                     }
                 } else {
                     overlayView?.resetDragOffset()
