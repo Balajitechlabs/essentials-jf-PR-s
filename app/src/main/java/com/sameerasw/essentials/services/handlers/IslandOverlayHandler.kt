@@ -40,6 +40,7 @@ import android.content.ComponentName
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.services.NotificationListener
+import com.sameerasw.essentials.utils.CalendarEventUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
 import java.io.File
@@ -108,6 +109,7 @@ class IslandOverlayHandler(
                         mainHandler.removeCallbacks(dismissNotificationRunnable)
                         overlayView?.dismissNotificationAlert()
                         overlayView?.dismissMediaPlayback()
+                        overlayView?.dismissCalendarEvent()
                         restoreTouchAnchor()
                     }
                 }
@@ -118,15 +120,18 @@ class IslandOverlayHandler(
                         mainHandler.removeCallbacks(dismissNotificationRunnable)
                         overlayView?.dismissNotificationAlert()
                         overlayView?.dismissMediaPlayback()
+                        overlayView?.dismissCalendarEvent()
                         restoreTouchAnchor()
                     } else {
                         applyCurrentMediaState()
+                        pollCalendarEvent()
                     }
                 }
                 Intent.ACTION_USER_PRESENT -> {
                     isScreenOff = false
                     isLocked = false
                     applyCurrentMediaState()
+                    pollCalendarEvent()
                 }
             }
         }
@@ -142,6 +147,52 @@ class IslandOverlayHandler(
             overlayView?.setMediaCompact(true)
         }
         scheduleDismissTimer()
+    }
+
+    private var currentCalendarEventStartMillis: Long = 0L
+    private val revertCalendarExpansionRunnable = Runnable {
+        overlayView?.setCalendarCompact(true)
+        expandTouchAnchorForNotification()
+    }
+    private val calendarPollRunnable = Runnable { pollCalendarEvent() }
+
+    private fun scheduleCalendarPoll() {
+        mainHandler.removeCallbacks(calendarPollRunnable)
+        mainHandler.postDelayed(calendarPollRunnable, CALENDAR_POLL_INTERVAL_MS)
+    }
+
+    private fun pollCalendarEvent() {
+        scheduleCalendarPoll()
+        if (!settingsRepository.isIslandEnabled() || !settingsRepository.isIslandShowCalendarEnabled()) {
+            overlayView?.dismissCalendarEvent()
+            return
+        }
+        ensureOverlayAttached()
+        val ov = overlayView ?: return
+        if (ov.isNotificationAlertActive || ov.isMediaPlaybackActive || isHiddenByScreenOrLock) return
+
+        handlerScope.launch(Dispatchers.IO) {
+            val timeframe = settingsRepository.getStatusGlanceCalendarTimeframe()
+            val selectedIds = settingsRepository.getStatusGlanceCalendarSelectedCalendars().mapNotNull { it.toLongOrNull() }.toSet()
+            val showAllDay = settingsRepository.isStatusGlanceCalendarShowAllDayEnabled()
+            val event = CalendarEventUtil.queryNextUpcomingEvent(service, timeframe, selectedIds, showAllDay)
+            withContext(Dispatchers.Main) {
+                val liveOv = overlayView ?: return@withContext
+                if (liveOv.isNotificationAlertActive || liveOv.isMediaPlaybackActive || isHiddenByScreenOrLock) return@withContext
+                if (event == null) {
+                    liveOv.dismissCalendarEvent()
+                    currentCalendarEventStartMillis = 0L
+                    return@withContext
+                }
+                currentCalendarEventStartMillis = event.startTimeMillis
+                val now = System.currentTimeMillis()
+                val fullTime = CalendarEventUtil.formatRelativeTime(service, event.startTimeMillis, now)
+                val compactTime = CalendarEventUtil.formatRelativeTimeCompact(event.startTimeMillis, now)
+                ensureOverlayAttached()
+                liveOv.showCalendarEvent(event.title, fullTime, compactTime, event.location.orEmpty())
+                expandTouchAnchorForNotification()
+            }
+        }
     }
 
     private fun handleNotificationTimeout() {
@@ -194,6 +245,7 @@ class IslandOverlayHandler(
 
             mainHandler.post {
                 ensureOverlayAttached()
+                overlayView?.dismissCalendarEvent()
                 overlayView?.showNotificationAlert(alert)
                 expandTouchAnchorForNotification()
                 if (overlayView?.isCatchUpMode == true) {
@@ -278,7 +330,17 @@ class IslandOverlayHandler(
             }
         }
 
+        touchHandler.onCalendarToggled = {
+            expandTouchAnchorForNotification()
+            mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+            if (overlayView?.isCalendarCompact == false) {
+                val expTimeout = settingsRepository.getIslandExpandedTimeoutMs().takeIf { it > 0L } ?: CALENDAR_DEFAULT_EXPANDED_MS
+                mainHandler.postDelayed(revertCalendarExpansionRunnable, expTimeout)
+            }
+        }
+
         updateOverlay()
+        scheduleCalendarPoll()
     }
 
     fun onConfigurationChanged() {
@@ -390,6 +452,7 @@ class IslandOverlayHandler(
                 cancelPausedMediaGrace()
                 activeMediaController = playing
                 ov.setMediaPaused(false)
+                ov.dismissCalendarEvent()
                 val metadata = playing.metadata
                 val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
                 val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
@@ -494,6 +557,7 @@ class IslandOverlayHandler(
                 }
                 this.onDismissAnimationEnd = {
                     restoreTouchAnchor()
+                    pollCalendarEvent()
                 }
             }
 
@@ -670,6 +734,8 @@ class IslandOverlayHandler(
         try {
             service.unregisterReceiver(screenReceiver)
         } catch (_: Exception) {}
+        mainHandler.removeCallbacks(calendarPollRunnable)
+        mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
         unregisterNotificationsListener()
         unregisterMediaListener()
         removeOverlay()
@@ -684,6 +750,9 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_SHOW_MEDIA,
             SettingsRepository.KEY_ISLAND_MEDIA_EXCLUDED_APPS -> {
                 applyCurrentMediaState()
+            }
+            SettingsRepository.KEY_ISLAND_SHOW_CALENDAR -> {
+                pollCalendarEvent()
             }
             SettingsRepository.KEY_ISLAND_EXPANDED_WIDTH -> {
                 overlayView?.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
@@ -702,9 +771,11 @@ class IslandOverlayHandler(
                     mainHandler.removeCallbacks(dismissNotificationRunnable)
                     overlayView?.dismissNotificationAlert()
                     overlayView?.dismissMediaPlayback()
+                    overlayView?.dismissCalendarEvent()
                     restoreTouchAnchor()
                 } else {
                     applyCurrentMediaState()
+                    pollCalendarEvent()
                 }
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
@@ -718,5 +789,7 @@ class IslandOverlayHandler(
     private companion object {
         private const val MEDIA_UPDATE_DEBOUNCE_MS = 2000L
         private const val PAUSED_MEDIA_GRACE_MS = 3000L
+        private const val CALENDAR_POLL_INTERVAL_MS = 60000L
+        private const val CALENDAR_DEFAULT_EXPANDED_MS = 8000L
     }
 }

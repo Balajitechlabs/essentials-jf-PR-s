@@ -186,6 +186,7 @@ class MainViewModel : ViewModel() {
     val islandCatchUpTimeoutMs = mutableLongStateOf(10000L)
     val isIslandShowGlow = mutableStateOf(true)
     val isIslandShowMedia = mutableStateOf(true)
+    val isIslandShowCalendar = mutableStateOf(false)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -196,6 +197,7 @@ class MainViewModel : ViewModel() {
     val isStatusGlanceShowFlashlight = mutableStateOf(true)
     val isStatusGlanceShowCalendar = mutableStateOf(true)
     val statusGlanceCalendarTimeframe = mutableStateOf("today")
+    val statusGlanceCalendarShowAllDay = mutableStateOf(false)
     val statusGlanceSelectedCalendarIds = mutableStateOf<Set<String>>(emptySet())
     val statusGlanceAvailableCalendars = mutableStateListOf<CalendarAccount>()
     val isStatusGlanceShowMedia = mutableStateOf(true)
@@ -772,6 +774,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_STATUS_GLANCE_CALENDAR_TIMEFRAME ->
                         statusGlanceCalendarTimeframe.value = settingsRepository.getStatusGlanceCalendarTimeframe()
+
+                    SettingsRepository.KEY_STATUS_GLANCE_CALENDAR_SHOW_ALL_DAY ->
+                        statusGlanceCalendarShowAllDay.value = settingsRepository.isStatusGlanceCalendarShowAllDayEnabled()
 
                     SettingsRepository.KEY_STATUS_GLANCE_CALENDAR_SELECTED_CALENDARS ->
                         statusGlanceSelectedCalendarIds.value = settingsRepository.getStatusGlanceCalendarSelectedCalendars()
@@ -2112,6 +2117,7 @@ class MainViewModel : ViewModel() {
         islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
         isIslandShowGlow.value = settingsRepository.isIslandShowGlowEnabled()
         isIslandShowMedia.value = settingsRepository.isIslandShowMediaEnabled()
+        isIslandShowCalendar.value = settingsRepository.isIslandShowCalendarEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -2121,6 +2127,7 @@ class MainViewModel : ViewModel() {
         isStatusGlanceShowFlashlight.value = settingsRepository.isStatusGlanceShowFlashlightEnabled()
         isStatusGlanceShowCalendar.value = settingsRepository.isStatusGlanceShowCalendarEnabled()
         statusGlanceCalendarTimeframe.value = settingsRepository.getStatusGlanceCalendarTimeframe()
+        statusGlanceCalendarShowAllDay.value = settingsRepository.isStatusGlanceCalendarShowAllDayEnabled()
         statusGlanceSelectedCalendarIds.value = settingsRepository.getStatusGlanceCalendarSelectedCalendars()
         isStatusGlanceShowMedia.value = settingsRepository.isStatusGlanceShowMediaEnabled()
         isStatusGlanceShowTime.value = settingsRepository.isStatusGlanceShowTimeEnabled()
@@ -4959,6 +4966,11 @@ class MainViewModel : ViewModel() {
         settingsRepository.setIslandShowMediaEnabled(enabled)
     }
 
+    fun setIslandShowCalendar(enabled: Boolean) {
+        isIslandShowCalendar.value = enabled
+        settingsRepository.setIslandShowCalendarEnabled(enabled)
+    }
+
     fun loadIslandMediaApps(context: Context): List<AppSelection> = settingsRepository.loadIslandMediaExcludedApps()
 
     fun saveIslandMediaApps(context: Context, apps: List<AppSelection>) {
@@ -5062,6 +5074,11 @@ class MainViewModel : ViewModel() {
     fun setStatusGlanceCalendarTimeframe(timeframe: String) {
         statusGlanceCalendarTimeframe.value = timeframe
         settingsRepository.setStatusGlanceCalendarTimeframe(timeframe)
+    }
+
+    fun setStatusGlanceCalendarShowAllDay(enabled: Boolean) {
+        statusGlanceCalendarShowAllDay.value = enabled
+        settingsRepository.setStatusGlanceCalendarShowAllDayEnabled(enabled)
     }
 
     fun fetchStatusGlanceCalendars(context: Context) {

@@ -2578,6 +2578,7 @@
     <string name="status_glance_calendar_timeframe_24_hours">24 hrs</string>
     <string name="status_glance_calendar_timeframe_today">today</string>
     <string name="status_glance_calendar_timeframe_next">Next</string>
+    <string name="status_glance_calendar_show_all_day_title">Show all day events</string>
     <string name="status_glance_calendar_select_calendars_title">Calendars to show</string>
     <string name="status_glance_calendar_no_calendars">No calendars found on device</string>
     <string name="status_glance_calendar_event_in_time">in %1$s</string>
