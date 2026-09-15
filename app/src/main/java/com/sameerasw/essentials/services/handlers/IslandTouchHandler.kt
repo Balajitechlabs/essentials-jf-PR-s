@@ -40,6 +40,7 @@ class IslandTouchHandler(
     var onCatchUpRestored: (() -> Unit)? = null
     var onMediaDismissRequested: (() -> Unit)? = null
     var onMediaTapped: (() -> Unit)? = null
+    var onCalendarToggled: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -304,6 +305,12 @@ class IslandTouchHandler(
                         overlayView?.animateDragSnapBack()
                     } else {
                         overlayView?.resetDragOffset()
+                    }
+                } else if (overlayView?.isCalendarActive == true) {
+                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.toggleCalendarExpansion()
+                        onCalendarToggled?.invoke()
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                     }
                 } else {
                     overlayView?.resetDragOffset()

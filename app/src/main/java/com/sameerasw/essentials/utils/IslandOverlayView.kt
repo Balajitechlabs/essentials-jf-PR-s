@@ -161,6 +161,15 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
+    private val calendarIconBitmap: Bitmap? by lazy {
+        try {
+            val d = ContextCompat.getDrawable(context, R.drawable.rounded_calendar_today_24)
+            d?.let { AppUtil.drawableToBitmap(it, (24f * density).toInt()) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private val equalizerAnimator = EqualizerAnimator()
     private val equalizerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
@@ -191,6 +200,21 @@ class IslandOverlayView(context: Context) : View(context) {
     private var mediaCompactFraction: Float = 0f
     private var mediaBubbleFraction: Float = 0f
     private val mediaPillRect = RectF()
+
+    var isCalendarActive: Boolean = false
+        private set
+    var isCalendarCompact: Boolean = true
+        private set
+    private var calendarEventTitle: String = ""
+    private var calendarLocationText: String = ""
+    private var calendarCompactTimeText: String = ""
+    private var calendarFullTimeText: String = ""
+    private val calendarAnimator = AnimatedFloatProperty()
+    private val calendarCompactAnimator = AnimatedFloatProperty()
+    private var calendarFraction: Float = 0f
+    private var calendarCompactFraction: Float = 1f
+    private val calendarPillRect = RectF()
+
     var animatedNotificationFraction: Float = 0f
         private set
     private val notificationAnimator = AnimatedFloatProperty()
@@ -547,6 +571,167 @@ class IslandOverlayView(context: Context) : View(context) {
                 onAlertsChanged?.invoke()
             },
         )
+    }
+
+    fun showCalendarEvent(title: String, fullTimeText: String, compactTimeText: String, location: String) {
+        if (!isIslandEnabled || isMediaPlaybackActive || isNotificationAlertActive) return
+        val wasActive = isCalendarActive
+        isCalendarActive = true
+        calendarEventTitle = title
+        calendarFullTimeText = fullTimeText
+        calendarCompactTimeText = compactTimeText
+        calendarLocationText = location
+        if (!wasActive) {
+            isCalendarCompact = true
+            calendarCompactFraction = 1f
+            calendarAnimator.animateTo(
+                from = calendarFraction,
+                to = 1f,
+                spec = IslandTransitionSpec.ContentShow,
+                onUpdate = {
+                    calendarFraction = it
+                    invalidate()
+                },
+            )
+            onAlertsChanged?.invoke()
+        } else {
+            invalidate()
+        }
+    }
+
+    fun setCalendarCompact(compact: Boolean) {
+        if (!isCalendarActive || isCalendarCompact == compact) return
+        isCalendarCompact = compact
+        calendarCompactAnimator.animateTo(
+            from = calendarCompactFraction,
+            to = if (compact) 1f else 0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                calendarCompactFraction = it
+                invalidate()
+            },
+        )
+        onAlertsChanged?.invoke()
+    }
+
+    fun toggleCalendarExpansion(): Boolean {
+        if (!isCalendarActive) return false
+        setCalendarCompact(!isCalendarCompact)
+        return !isCalendarCompact
+    }
+
+    fun dismissCalendarEvent() {
+        if (!isCalendarActive) return
+        calendarCompactAnimator.cancel()
+        calendarAnimator.animateTo(
+            from = calendarFraction,
+            to = 0f,
+            spec = IslandTransitionSpec.MediaDismiss,
+            onUpdate = {
+                calendarFraction = it
+                invalidate()
+            },
+            onEnd = {
+                isCalendarActive = false
+                isCalendarCompact = true
+                calendarFraction = 0f
+                calendarCompactFraction = 1f
+                calendarEventTitle = ""
+                calendarLocationText = ""
+                calendarCompactTimeText = ""
+                calendarFullTimeText = ""
+                onDismissAnimationEnd?.invoke()
+                onAlertsChanged?.invoke()
+            },
+        )
+    }
+
+    private fun computeCalendarBounds(compactFraction: Float): RectF {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val top = cameraCenterY - height / 2f
+        val bottom = cameraCenterY + height / 2f
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
+        val maxWidth = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
+        val normalHalfWidth = (maxWidth / 2f).coerceAtMost(
+            minOf(cameraCenterX - 8f * density, screenWidth - cameraCenterX - 8f * density),
+        )
+        val normalBounds = if (isCenterCamera) {
+            RectF(cameraCenterX - normalHalfWidth, top, cameraCenterX + normalHalfWidth, bottom)
+        } else {
+            val left = (cameraCenterX - cameraRadiusPx - 10f * density).coerceAtLeast(8f * density)
+            val right = (left + maxWidth).coerceAtMost(screenWidth - 8f * density)
+            RectF(left, top, right, bottom)
+        }
+
+        val compactBounds = if (isCenterCamera) {
+            val sideWidth = cameraRadiusPx + 10f * density + iconSize + 12f * density
+            RectF(cameraCenterX - sideWidth, top, cameraCenterX + sideWidth, bottom)
+        } else {
+            val left = (cameraCenterX - cameraRadiusPx - 10f * density).coerceAtLeast(8f * density)
+            val right = (cameraCenterX + cameraRadiusPx + 12f * density + iconSize + 18f * density)
+                .coerceAtMost(screenWidth - 8f * density)
+            RectF(left, top, right, bottom)
+        }
+
+        return RectF(
+            normalBounds.left + (compactBounds.left - normalBounds.left) * compactFraction,
+            top,
+            normalBounds.right + (compactBounds.right - normalBounds.right) * compactFraction,
+            bottom,
+        )
+    }
+
+    private fun drawCalendarEvent(canvas: Canvas) {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val initialLeft = cameraCenterX - cameraRadiusPx
+        val initialRight = cameraCenterX + cameraRadiusPx
+        val target = computeCalendarBounds(calendarCompactFraction)
+        val left = initialLeft + (target.left - initialLeft) * calendarFraction
+        val right = initialRight + (target.right - initialRight) * calendarFraction
+        calendarPillRect.set(left, target.top, right, target.bottom)
+
+        notificationPillPaint.color = Color.BLACK
+        notificationPillPaint.alpha = 255
+        canvas.drawRoundRect(calendarPillRect, height / 2f, height / 2f, notificationPillPaint)
+
+        val alpha = (calendarFraction * 255f).toInt().coerceIn(0, 255)
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val pad = (height - iconSize) / 2f
+        val iconRect = RectF(calendarPillRect.left + pad, calendarPillRect.top + pad, calendarPillRect.left + pad + iconSize, calendarPillRect.top + pad + iconSize)
+        calendarIconBitmap?.let {
+            iconPaint.alpha = alpha
+            iconPaint.colorFilter = PorterDuffColorFilter(materialYouAccentColor(), PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(it, null, iconRect, iconPaint)
+        }
+        iconPaint.colorFilter = null
+
+        val compactTextRight = calendarPillRect.right - pad
+        val compactTextLeft = iconRect.right + 6f * density
+        val compactAlpha = (alpha * calendarCompactFraction).toInt().coerceIn(0, 255)
+        if (compactAlpha > 0 && compactTextRight > compactTextLeft) {
+            notificationBodyPaint.alpha = compactAlpha
+            notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+            val textY = (calendarPillRect.top + calendarPillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
+            canvas.drawText(calendarCompactTimeText, compactTextRight - notificationBodyPaint.measureText(calendarCompactTimeText), textY, notificationBodyPaint)
+        }
+
+        val textAlpha = (alpha * (1f - calendarCompactFraction)).toInt().coerceIn(0, 255)
+        if (textAlpha > 0) {
+            notificationSenderPaint.alpha = textAlpha
+            notificationBodyPaint.alpha = textAlpha
+            notificationSenderPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+            notificationBodyPaint.textSize = notificationSenderPaint.textSize
+            val nameLeft = iconRect.right + 8f * density
+            val nameRight = cameraCenterX - cameraRadiusPx - 8f * density
+            val timeLeft = cameraCenterX + cameraRadiusPx + 10f * density
+            val timeRight = pillTextRightEdge(calendarPillRect.right)
+            val calendarRevealFraction = calendarFraction * (1f - calendarCompactFraction)
+            val rightText = if (calendarLocationText.isNotBlank()) "$calendarFullTimeText • $calendarLocationText" else calendarFullTimeText
+            drawMarqueeText(canvas, calendarEventTitle, notificationSenderPaint, leftMarquee, nameLeft, nameRight, calendarPillRect.top, calendarPillRect.bottom, false, height / 2f, calendarRevealFraction)
+            drawMarqueeText(canvas, rightText, notificationBodyPaint, rightMarquee, timeLeft, timeRight, calendarPillRect.top, calendarPillRect.bottom, true, height / 2f, calendarRevealFraction, alignTextToEnd = true)
+        }
     }
 
     private fun setMediaBubbleVisible(visible: Boolean) {
@@ -1053,6 +1238,8 @@ class IslandOverlayView(context: Context) : View(context) {
             bubbleAnimators[i].cancel()
         }
         equalizerAnimator.stop()
+        calendarAnimator.cancel()
+        calendarCompactAnimator.cancel()
         stopAllMarquees()
     }
 
@@ -1064,7 +1251,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun getTotalAlertsBounds(): RectF {
         val alert = activeNotificationAlert
-        if (alert == null) return if (isMediaPlaybackActive) computeMediaTargetBounds() else notificationPillRect
+        if (alert == null) {
+            return when {
+                isMediaPlaybackActive -> computeMediaTargetBounds()
+                isCalendarActive -> computeCalendarBounds(calendarCompactFraction.coerceIn(0f, 1f))
+                else -> notificationPillRect
+            }
+        }
         val mainBounds = computeNotificationTargetBounds(alert)
         val numBubbles = queuedNotificationAlerts.size
         if (numBubbles == 0 || expandedFraction >= 0.99f) return unionWithMediaBounds(mainBounds)
@@ -1389,7 +1582,11 @@ class IslandOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
 
         val alert: ActiveNotificationAlert = activeNotificationAlert ?: run {
-            if (isMediaPlaybackActive && mediaFraction > 0.001f) drawMediaPlayback(canvas)
+            if (isMediaPlaybackActive && mediaFraction > 0.001f) {
+                drawMediaPlayback(canvas)
+            } else if (isCalendarActive && calendarFraction > 0.001f) {
+                drawCalendarEvent(canvas)
+            }
             return
         }
         if (animatedNotificationFraction > 0.001f) {
