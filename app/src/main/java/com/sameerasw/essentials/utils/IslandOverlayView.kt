@@ -234,6 +234,8 @@ class IslandOverlayView(context: Context) : View(context) {
     private val trailingBubbleRects = mutableMapOf<Any, RectF>()
 
     private val mediaRevealOriginRect = RectF()
+    private var mediaMorphFraction: Float = 1f
+    private val mediaMorphAnimator = AnimatedFloatProperty()
     private val mediaDockOriginRect = RectF()
 
     // Media takes one of the TOTAL_BUBBLE_BUDGET slots when docked; the queue gets the rest.
@@ -549,6 +551,9 @@ class IslandOverlayView(context: Context) : View(context) {
         if (!isMediaPlaybackActive) return
         mediaCompactAnimator.cancel()
         mediaBubbleAnimator.cancel()
+        mediaMorphAnimator.cancel()
+        mediaMorphFraction = 1f
+        mediaRevealOriginRect.setEmpty()
         mediaAnimator.animateTo(
             from = mediaFraction,
             to = 0f,
@@ -574,7 +579,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     fun showCalendarEvent(title: String, fullTimeText: String, compactTimeText: String, location: String) {
-        if (!isIslandEnabled || isMediaPlaybackActive || isNotificationAlertActive) return
+        if (!isIslandEnabled || isNotificationAlertActive || (isMediaPlaybackActive && !isMediaCompact)) return
         val wasActive = isCalendarActive
         isCalendarActive = true
         calendarEventTitle = title
@@ -640,6 +645,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 calendarLocationText = ""
                 calendarCompactTimeText = ""
                 calendarFullTimeText = ""
+                if (isMediaPlaybackActive) reclaimMediaPillFromBubble()
                 onDismissAnimationEnd?.invoke()
                 onAlertsChanged?.invoke()
             },
@@ -707,14 +713,35 @@ class IslandOverlayView(context: Context) : View(context) {
         }
         iconPaint.colorFilter = null
 
-        val compactTextRight = calendarPillRect.right - pad
-        val compactTextLeft = iconRect.right + 6f * density
         val compactAlpha = (alpha * calendarCompactFraction).toInt().coerceIn(0, 255)
-        if (compactAlpha > 0 && compactTextRight > compactTextLeft) {
-            notificationBodyPaint.alpha = compactAlpha
-            notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
-            val textY = (calendarPillRect.top + calendarPillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
-            canvas.drawText(calendarCompactTimeText, compactTextRight - notificationBodyPaint.measureText(calendarCompactTimeText), textY, notificationBodyPaint)
+        if (compactAlpha > 0) {
+            if (isMediaPlaybackActive) {
+                val mediaIconRect = RectF(calendarPillRect.right - pad - iconSize, calendarPillRect.top + pad, calendarPillRect.right - pad, calendarPillRect.top + pad + iconSize)
+                trailingBubbleRects[MEDIA_BUBBLE_KEY] = RectF(mediaIconRect)
+                val art = mediaArtwork
+                if (art != null) {
+                    catchUpIconClipPath.reset()
+                    catchUpIconClipPath.addCircle(mediaIconRect.centerX(), mediaIconRect.centerY(), iconSize / 2f, Path.Direction.CW)
+                    canvas.save()
+                    canvas.clipPath(catchUpIconClipPath)
+                    iconPaint.alpha = compactAlpha
+                    canvas.drawBitmap(art, null, mediaIconRect, iconPaint)
+                    canvas.restore()
+                } else {
+                    equalizerPaint.color = materialYouAccentColor()
+                    equalizerPaint.alpha = compactAlpha
+                    drawEqualizerIcon(canvas, mediaIconRect, equalizerAnimator.barLevels, equalizerPaint)
+                }
+            } else {
+                val compactTextRight = calendarPillRect.right - pad
+                val compactTextLeft = iconRect.right + 6f * density
+                if (compactTextRight > compactTextLeft) {
+                    notificationBodyPaint.alpha = compactAlpha
+                    notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+                    val textY = (calendarPillRect.top + calendarPillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
+                    canvas.drawText(calendarCompactTimeText, compactTextRight - notificationBodyPaint.measureText(calendarCompactTimeText), textY, notificationBodyPaint)
+                }
+            }
         }
 
         val textAlpha = (alpha * (1f - calendarCompactFraction)).toInt().coerceIn(0, 255)
@@ -749,22 +776,47 @@ class IslandOverlayView(context: Context) : View(context) {
         )
     }
 
-    private fun reclaimMediaPillFromBubble() {
-        val bubbleRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return
-        if (bubbleRect.isEmpty) return
-        mediaRevealOriginRect.set(bubbleRect)
-        mediaAnimator.animateTo(
+    // Morphs media's bounds from [origin] to its target with alpha untouched — one smooth resize.
+    private fun beginMediaPillMorph(origin: RectF) {
+        mediaRevealOriginRect.set(origin)
+        mediaMorphFraction = 0f
+        mediaMorphAnimator.animateTo(
             from = 0f,
             to = 1f,
-            spec = IslandTransitionSpec.ContentShow,
+            spec = IslandTransitionSpec.ModeChange,
             onUpdate = {
-                mediaFraction = it
+                mediaMorphFraction = it
                 invalidate()
             },
             onEnd = {
                 mediaRevealOriginRect.setEmpty()
             },
         )
+    }
+
+    private fun reclaimMediaPillFromBubble() {
+        val bubbleRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return
+        if (bubbleRect.isEmpty) return
+        beginMediaPillMorph(bubbleRect)
+    }
+
+    fun reclaimMediaFromCalendar() {
+        if (!isCalendarActive || !isMediaPlaybackActive) return
+        val origin = RectF(calendarPillRect)
+
+        calendarAnimator.cancel()
+        calendarCompactAnimator.cancel()
+        isCalendarActive = false
+        isCalendarCompact = true
+        calendarFraction = 0f
+        calendarCompactFraction = 1f
+        calendarEventTitle = ""
+        calendarLocationText = ""
+        calendarCompactTimeText = ""
+        calendarFullTimeText = ""
+
+        beginMediaPillMorph(origin)
+        onAlertsChanged?.invoke()
     }
 
     private fun animateBubbleIn(index: Int) {
@@ -1240,6 +1292,7 @@ class IslandOverlayView(context: Context) : View(context) {
         equalizerAnimator.stop()
         calendarAnimator.cancel()
         calendarCompactAnimator.cancel()
+        mediaMorphAnimator.cancel()
         stopAllMarquees()
     }
 
@@ -1253,8 +1306,8 @@ class IslandOverlayView(context: Context) : View(context) {
         val alert = activeNotificationAlert
         if (alert == null) {
             return when {
-                isMediaPlaybackActive -> computeMediaTargetBounds()
                 isCalendarActive -> computeCalendarBounds(calendarCompactFraction.coerceIn(0f, 1f))
+                isMediaPlaybackActive -> computeMediaTargetBounds()
                 else -> notificationPillRect
             }
         }
@@ -1325,6 +1378,11 @@ class IslandOverlayView(context: Context) : View(context) {
             }
             val mediaBubbleRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return false
             return RectF(mediaBubbleRect.left - pad, mediaBubbleRect.top - pad, mediaBubbleRect.right + pad, mediaBubbleRect.bottom + pad).contains(x, y)
+        }
+        if (isCalendarActive) {
+            if (!isCalendarCompact) return false
+            val mediaIconRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return false
+            return RectF(mediaIconRect.left - pad, mediaIconRect.top - pad, mediaIconRect.right + pad, mediaIconRect.bottom + pad).contains(x, y)
         }
         val bounds = currentMediaBounds()
         return RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad).contains(x, y)
@@ -1518,12 +1576,15 @@ class IslandOverlayView(context: Context) : View(context) {
         val height = cameraRadiusPx * 2f + 14f * density
         val initialLeft: Float
         val initialRight: Float
+        val boundsProgress: Float
         if (!mediaRevealOriginRect.isEmpty) {
             initialLeft = mediaRevealOriginRect.left
             initialRight = mediaRevealOriginRect.right
+            boundsProgress = mediaMorphFraction
         } else {
             initialLeft = cameraCenterX - cameraRadiusPx
             initialRight = cameraCenterX + cameraRadiusPx
+            boundsProgress = mediaFraction
         }
         val collapseFraction = when (dragCollapseTarget) {
             DragCollapseTarget.CAMERA -> 0f
@@ -1533,8 +1594,8 @@ class IslandOverlayView(context: Context) : View(context) {
             (mediaCompactFraction + (1f - mediaCompactFraction) * dragCollapseFraction * collapseFraction)
                 .coerceIn(0f, 1f),
         )
-        val left = initialLeft + (target.left - initialLeft) * mediaFraction
-        val right = initialRight + (target.right - initialRight) * mediaFraction
+        val left = initialLeft + (target.left - initialLeft) * boundsProgress
+        val right = initialRight + (target.right - initialRight) * boundsProgress
         mediaPillRect.set(left, target.top, right, target.bottom)
 
         notificationPillPaint.color = Color.BLACK
@@ -1582,10 +1643,10 @@ class IslandOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
 
         val alert: ActiveNotificationAlert = activeNotificationAlert ?: run {
-            if (isMediaPlaybackActive && mediaFraction > 0.001f) {
-                drawMediaPlayback(canvas)
-            } else if (isCalendarActive && calendarFraction > 0.001f) {
+            if (isCalendarActive && calendarFraction > 0.001f) {
                 drawCalendarEvent(canvas)
+            } else if (isMediaPlaybackActive && mediaFraction > 0.001f) {
+                drawMediaPlayback(canvas)
             }
             return
         }

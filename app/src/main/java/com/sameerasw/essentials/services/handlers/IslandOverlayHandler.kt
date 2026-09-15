@@ -169,7 +169,8 @@ class IslandOverlayHandler(
         }
         ensureOverlayAttached()
         val ov = overlayView ?: return
-        if (ov.isNotificationAlertActive || ov.isMediaPlaybackActive || isHiddenByScreenOrLock) return
+        // Media at normal size has focus — don't re-merge calendar in until it goes compact again.
+        if (ov.isNotificationAlertActive || isHiddenByScreenOrLock || (ov.isMediaPlaybackActive && !ov.isMediaCompact)) return
 
         handlerScope.launch(Dispatchers.IO) {
             val timeframe = settingsRepository.getStatusGlanceCalendarTimeframe()
@@ -178,7 +179,7 @@ class IslandOverlayHandler(
             val event = CalendarEventUtil.queryNextUpcomingEvent(service, timeframe, selectedIds, showAllDay)
             withContext(Dispatchers.Main) {
                 val liveOv = overlayView ?: return@withContext
-                if (liveOv.isNotificationAlertActive || liveOv.isMediaPlaybackActive || isHiddenByScreenOrLock) return@withContext
+                if (liveOv.isNotificationAlertActive || isHiddenByScreenOrLock || (liveOv.isMediaPlaybackActive && !liveOv.isMediaCompact)) return@withContext
                 if (event == null) {
                     liveOv.dismissCalendarEvent()
                     currentCalendarEventStartMillis = 0L
@@ -214,6 +215,7 @@ class IslandOverlayHandler(
             if (ov.isMediaPlaybackActive) {
                 ov.setMediaCompact(true)
                 expandTouchAnchorForNotification()
+                pollCalendarEvent()
                 return
             }
             mainHandler.removeCallbacks(dismissNotificationRunnable)
@@ -311,7 +313,12 @@ class IslandOverlayHandler(
 
         touchHandler.onMediaTapped = {
             overlayView?.setMediaCompact(false)
-            overlayView?.dismissNotificationAlert()
+            if (overlayView?.isCalendarActive == true) {
+                mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+                overlayView?.reclaimMediaFromCalendar()
+            } else {
+                overlayView?.dismissNotificationAlert()
+            }
             scheduleDismissTimer()
         }
 
@@ -452,7 +459,6 @@ class IslandOverlayHandler(
                 cancelPausedMediaGrace()
                 activeMediaController = playing
                 ov.setMediaPaused(false)
-                ov.dismissCalendarEvent()
                 val metadata = playing.metadata
                 val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
                 val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
@@ -469,6 +475,7 @@ class IslandOverlayHandler(
                             ov.showMediaPlayback(title, artist, artwork, startCompact = isSameTrackAsBefore)
                             expandTouchAnchorForNotification()
                             scheduleDismissTimer()
+                            pollCalendarEvent()
                         }
                     }
                 }
