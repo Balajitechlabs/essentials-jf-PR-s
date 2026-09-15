@@ -17,6 +17,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -94,9 +95,45 @@ class IslandOverlayHandler(
 
     private var isScreenOff = false
     private var isLocked = false
+    private var isLandscape = false
+    private var isFullscreenApp = false
 
-    private val isHiddenByScreenOrLock: Boolean
-        get() = settingsRepository.isIslandHideWhenScreenOffEnabled() && (isScreenOff || isLocked || keyguardManager?.isKeyguardLocked == true)
+    private val isIslandContentSuppressed: Boolean
+        get() = isSuppressedByOrientationOrFullscreen ||
+            (settingsRepository.isIslandHideWhenScreenOffEnabled() && (isScreenOff || isLocked || keyguardManager?.isKeyguardLocked == true))
+
+    private val isSuppressedByOrientationOrFullscreen: Boolean
+        get() = isLandscape || isFullscreenApp
+
+    fun setFullscreen(fullscreen: Boolean) {
+        if (isFullscreenApp == fullscreen) return
+        isFullscreenApp = fullscreen
+        applyOrientationSuppression()
+    }
+
+    private fun applyOrientationSuppression() {
+        if (!settingsRepository.isIslandEnabled()) return
+        if (isSuppressedByOrientationOrFullscreen) {
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
+            mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+            overlayView?.dismissNotificationAlert()
+            overlayView?.dismissMediaPlayback()
+            overlayView?.dismissCalendarEvent()
+            unregisterNotificationsListener()
+            unregisterMediaListener()
+            removeOverlay()
+            if (settingsRepository.isIslandSuppressSystemHeadsUpEnabled()) {
+                settingsRepository.applyHeadsUpSuppression(false)
+            }
+        } else {
+            ensureOverlayAttached()
+            if (settingsRepository.isIslandSuppressSystemHeadsUpEnabled()) {
+                settingsRepository.applyHeadsUpSuppression(true)
+            }
+            applyCurrentMediaState()
+            pollCalendarEvent()
+        }
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -116,7 +153,7 @@ class IslandOverlayHandler(
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenOff = false
                     isLocked = keyguardManager?.isKeyguardLocked ?: false
-                    if (isHiddenByScreenOrLock) {
+                    if (isIslandContentSuppressed) {
                         mainHandler.removeCallbacks(dismissNotificationRunnable)
                         overlayView?.dismissNotificationAlert()
                         overlayView?.dismissMediaPlayback()
@@ -170,7 +207,7 @@ class IslandOverlayHandler(
         ensureOverlayAttached()
         val ov = overlayView ?: return
         // Media at normal size has focus — don't re-merge calendar in until it goes compact again.
-        if (ov.isNotificationAlertActive || isHiddenByScreenOrLock || (ov.isMediaPlaybackActive && !ov.isMediaCompact)) return
+        if (ov.isNotificationAlertActive || isIslandContentSuppressed || (ov.isMediaPlaybackActive && !ov.isMediaCompact)) return
 
         handlerScope.launch(Dispatchers.IO) {
             val timeframe = settingsRepository.getStatusGlanceCalendarTimeframe()
@@ -179,7 +216,7 @@ class IslandOverlayHandler(
             val event = CalendarEventUtil.queryNextUpcomingEvent(service, timeframe, selectedIds, showAllDay)
             withContext(Dispatchers.Main) {
                 val liveOv = overlayView ?: return@withContext
-                if (liveOv.isNotificationAlertActive || isHiddenByScreenOrLock || (liveOv.isMediaPlaybackActive && !liveOv.isMediaCompact)) return@withContext
+                if (liveOv.isNotificationAlertActive || isIslandContentSuppressed || (liveOv.isMediaPlaybackActive && !liveOv.isMediaCompact)) return@withContext
                 if (event == null) {
                     liveOv.dismissCalendarEvent()
                     currentCalendarEventStartMillis = 0L
@@ -243,7 +280,7 @@ class IslandOverlayHandler(
     private val notificationAlertListener = object : NotificationListener.NotificationAlertListener {
         override fun onNotificationAlertPosted(alert: ActiveNotificationAlert) {
             if (!settingsRepository.isIslandEnabled()) return
-            if (isHiddenByScreenOrLock) return
+            if (isIslandContentSuppressed) return
 
             mainHandler.post {
                 ensureOverlayAttached()
@@ -279,6 +316,7 @@ class IslandOverlayHandler(
     init {
         settingsRepository.registerOnSharedPreferenceChangeListener(this)
         windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        isLandscape = service.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
@@ -351,7 +389,12 @@ class IslandOverlayHandler(
     }
 
     fun onConfigurationChanged() {
-        if (settingsRepository.isIslandEnabled()) {
+        val landscape = service.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscape != landscape) {
+            isLandscape = landscape
+            applyOrientationSuppression()
+        }
+        if (settingsRepository.isIslandEnabled() && !isSuppressedByOrientationOrFullscreen) {
             updateOverlayPosition()
         }
     }
@@ -443,7 +486,7 @@ class IslandOverlayHandler(
     private fun applyCurrentMediaState() {
         mainHandler.post {
             val ov = overlayView ?: return@post
-            if (!settingsRepository.isIslandShowMediaEnabled() || isHiddenByScreenOrLock) {
+            if (!settingsRepository.isIslandShowMediaEnabled() || isIslandContentSuppressed) {
                 cancelPausedMediaGrace()
                 activeMediaController = null
                 ov.dismissMediaPlayback()
@@ -470,7 +513,7 @@ class IslandOverlayHandler(
                 handlerScope.launch(Dispatchers.IO) {
                     val artwork = extractMediaArtwork(metadata)
                     withContext(Dispatchers.Main) {
-                        if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isHiddenByScreenOrLock) {
+                        if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isIslandContentSuppressed) {
                             ensureOverlayAttached()
                             ov.showMediaPlayback(title, artist, artwork, startCompact = isSameTrackAsBefore)
                             expandTouchAnchorForNotification()
@@ -540,7 +583,7 @@ class IslandOverlayHandler(
     private fun updateOverlay() {
         val wm = windowManager ?: return
 
-        if (!settingsRepository.isIslandEnabled()) {
+        if (!settingsRepository.isIslandEnabled() || isSuppressedByOrientationOrFullscreen) {
             unregisterNotificationsListener()
             unregisterMediaListener()
             removeOverlay()
@@ -775,7 +818,7 @@ class IslandOverlayHandler(
                 overlayView?.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
             }
             SettingsRepository.KEY_ISLAND_HIDE_WHEN_SCREEN_OFF -> {
-                if (isHiddenByScreenOrLock) {
+                if (isIslandContentSuppressed) {
                     mainHandler.removeCallbacks(dismissNotificationRunnable)
                     overlayView?.dismissNotificationAlert()
                     overlayView?.dismissMediaPlayback()

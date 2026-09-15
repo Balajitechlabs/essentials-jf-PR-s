@@ -2621,6 +2621,10 @@
     <string name="island_section_actions">Actions</string>
     <string name="island_action_tap_title">Single tap</string>
     <string name="island_action_tap_desc">Open app</string>
+    <string name="island_tap_action_title">Tap action</string>
+    <string name="island_tap_action_desc">Choose what tap and long press do</string>
+    <string name="island_tap_action_open">Open</string>
+    <string name="island_tap_action_expand">Expand</string>
     <string name="island_action_swipe_up_title">Swipe up</string>
     <string name="island_action_swipe_up_desc">Dismiss</string>
 
