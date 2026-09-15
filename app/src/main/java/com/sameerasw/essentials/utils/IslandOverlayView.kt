@@ -461,7 +461,7 @@ class IslandOverlayView(context: Context) : View(context) {
         onAlertsChanged?.invoke()
     }
 
-    fun showMediaPlayback(title: String, artist: String, artwork: Bitmap?) {
+    fun showMediaPlayback(title: String, artist: String, artwork: Bitmap?, startCompact: Boolean = false) {
         if (!isIslandEnabled) return
 
         val wasActive = isMediaPlaybackActive
@@ -472,8 +472,8 @@ class IslandOverlayView(context: Context) : View(context) {
         if (isNotificationAlertActive) setMediaBubbleVisible(true)
         if (!wasActive) {
             trimQueueTo(maxQueuedBubbleSlots)
-            isMediaCompact = false
-            mediaCompactFraction = 0f
+            isMediaCompact = startCompact
+            mediaCompactFraction = if (startCompact) 1f else 0f
             mediaAnimator.animateTo(
                 from = mediaFraction,
                 to = 1f,
@@ -2033,7 +2033,7 @@ class IslandOverlayView(context: Context) : View(context) {
             canvas.save()
             val textClipRect = RectF(clipLeft, currentTop, clipRight, currentBottom)
             canvas.clipRect(textClipRect)
-            val textX = if (alignTextToEnd) (clipRight - paint.measureText(text)).coerceAtLeast(clipLeft) else clipLeft
+            val textX = if (alignTextToEnd) (clipRight - paint.measureText(text) - 8f * density).coerceAtLeast(clipLeft) else clipLeft
             canvas.drawText(text, textX, textY, paint)
             canvas.restore()
         }
