@@ -44,7 +44,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.sameerasw.essentials.R
+import com.sameerasw.essentials.data.repository.SettingsRepository
+import com.sameerasw.essentials.ui.components.menus.SegmentedDropdownMenuItem
 import com.sameerasw.essentials.ui.components.sliders.ConfigSliderItem
+import com.sameerasw.essentials.ui.core.cards.ConfigPickerItem
 import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
@@ -410,6 +413,33 @@ fun IslandSettingsUI(
                 },
                 modifier = Modifier.highlight(highlightSetting == "island_show_glow"),
             )
+
+            val tapActionLabel = if (viewModel.islandTapAction.value == SettingsRepository.ISLAND_TAP_ACTION_EXPAND) {
+                stringResource(R.string.island_tap_action_expand)
+            } else {
+                stringResource(R.string.island_tap_action_open)
+            }
+            ConfigPickerItem(
+                title = stringResource(R.string.island_tap_action_title),
+                selectedValue = tapActionLabel,
+                iconRes = R.drawable.rounded_touch_app_24,
+                modifier = Modifier.fillMaxWidth().highlight(highlightSetting == "island_tap_action"),
+            ) {
+                SegmentedDropdownMenuItem(
+                    text = { Text(stringResource(R.string.island_tap_action_open)) },
+                    onClick = {
+                        HapticUtil.performVirtualKeyHaptic(view)
+                        viewModel.setIslandTapAction(SettingsRepository.ISLAND_TAP_ACTION_OPEN)
+                    },
+                )
+                SegmentedDropdownMenuItem(
+                    text = { Text(stringResource(R.string.island_tap_action_expand)) },
+                    onClick = {
+                        HapticUtil.performVirtualKeyHaptic(view)
+                        viewModel.setIslandTapAction(SettingsRepository.ISLAND_TAP_ACTION_EXPAND)
+                    },
+                )
+            }
         }
 
         Text(

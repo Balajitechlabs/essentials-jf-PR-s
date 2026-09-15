@@ -591,6 +591,7 @@ class ScreenOffAccessibilityService :
                         val isFullscreen = isCoveringFullDisplay && !hasStatusBar
                         duoOverlayHandler.setFullscreen(isFullscreen)
                         statusGlanceHandler.setFullscreen(isFullscreen)
+                        islandOverlayHandler.setFullscreen(isFullscreen)
                     }
                 }
             } catch (_: Exception) {}
