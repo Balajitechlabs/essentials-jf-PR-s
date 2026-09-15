@@ -196,10 +196,15 @@ class IslandOverlayView(context: Context) : View(context) {
     private val queuedNotificationAlerts = mutableListOf<ActiveNotificationAlert>()
     private val bubbleFractions = floatArrayOf(0f, 0f)
     private val bubbleAnimators = arrayOf(AnimatedFloatProperty(), AnimatedFloatProperty())
+    private val bubbleSlots = floatArrayOf(0f, 1f)
+    private val bubbleSlotAnimators = arrayOf(AnimatedFloatProperty(), AnimatedFloatProperty())
     private val catchUpUnreadIconRect = RectF()
 
     private val leadingBubbleRects = mutableMapOf<Any, RectF>()
     private val trailingBubbleRects = mutableMapOf<Any, RectF>()
+
+    private val mediaRevealOriginRect = RectF()
+    private val mediaDockOriginRect = RectF()
 
     // Media takes one of the TOTAL_BUBBLE_BUDGET slots when docked; the queue gets the rest.
     private val isMediaBubbleOccupyingSlot: Boolean
@@ -210,8 +215,7 @@ class IslandOverlayView(context: Context) : View(context) {
     private fun trimQueueTo(maxSize: Int) {
         while (queuedNotificationAlerts.size > maxSize) {
             queuedNotificationAlerts.removeAt(0)
-            bubbleFractions[0] = bubbleFractions[1]
-            bubbleFractions[1] = 0f
+            shiftBubbleRankDown()
         }
     }
 
@@ -403,6 +407,9 @@ class IslandOverlayView(context: Context) : View(context) {
     fun showNotificationAlert(alert: ActiveNotificationAlert) {
         if (!isIslandEnabled) return
 
+        if (isMediaPlaybackActive && !isNotificationAlertActive) {
+            trailingBubbleRects[MEDIA_BUBBLE_KEY]?.let { mediaDockOriginRect.set(it) }
+        }
         if (isMediaPlaybackActive) setMediaBubbleVisible(true)
         canEnterCatchUp = true
 
@@ -467,7 +474,6 @@ class IslandOverlayView(context: Context) : View(context) {
             trimQueueTo(maxQueuedBubbleSlots)
             isMediaCompact = false
             mediaCompactFraction = 0f
-            mediaBubbleFraction = if (isNotificationAlertActive) 1f else 0f
             mediaAnimator.animateTo(
                 from = mediaFraction,
                 to = 1f,
@@ -540,8 +546,28 @@ class IslandOverlayView(context: Context) : View(context) {
         )
     }
 
+    private fun reclaimMediaPillFromBubble() {
+        val bubbleRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return
+        if (bubbleRect.isEmpty) return
+        mediaRevealOriginRect.set(bubbleRect)
+        mediaAnimator.animateTo(
+            from = 0f,
+            to = 1f,
+            spec = IslandTransitionSpec.ContentShow,
+            onUpdate = {
+                mediaFraction = it
+                invalidate()
+            },
+            onEnd = {
+                mediaRevealOriginRect.setEmpty()
+            },
+        )
+    }
+
     private fun animateBubbleIn(index: Int) {
         if (index !in 0..1) return
+        bubbleSlotAnimators[index].cancel()
+        bubbleSlots[index] = index.toFloat()
         val startVal = bubbleFractions[index]
         bubbleAnimators[index].animateTo(
             from = startVal,
@@ -552,6 +578,23 @@ class IslandOverlayView(context: Context) : View(context) {
                 invalidate()
             },
         )
+    }
+
+    private fun shiftBubbleRankDown() {
+        bubbleFractions[0] = bubbleFractions[1]
+        bubbleFractions[1] = 0f
+        bubbleSlots[0] = 1f
+        bubbleSlotAnimators[0].animateTo(
+            from = 1f,
+            to = 0f,
+            spec = IslandTransitionSpec.BubbleIn,
+            onUpdate = {
+                bubbleSlots[0] = it
+                invalidate()
+            },
+        )
+        bubbleSlotAnimators[1].cancel()
+        bubbleSlots[1] = 1f
     }
 
     fun getQueuedAlertIndexAt(x: Float, y: Float): Int {
@@ -589,8 +632,7 @@ class IslandOverlayView(context: Context) : View(context) {
         mergeFraction = 0f
 
         if (index == 0 && queuedNotificationAlerts.isNotEmpty()) {
-            bubbleFractions[0] = bubbleFractions[1]
-            bubbleFractions[1] = 0f
+            shiftBubbleRankDown()
         } else {
             bubbleFractions[index] = 0f
             if (queuedNotificationAlerts.isEmpty()) {
@@ -916,8 +958,7 @@ class IslandOverlayView(context: Context) : View(context) {
         if (idx >= 0) {
             queuedNotificationAlerts.removeAt(idx)
             if (idx == 0 && queuedNotificationAlerts.isNotEmpty()) {
-                bubbleFractions[0] = bubbleFractions[1]
-                bubbleFractions[1] = 0f
+                shiftBubbleRankDown()
             } else {
                 bubbleFractions[idx] = 0f
             }
@@ -938,8 +979,11 @@ class IslandOverlayView(context: Context) : View(context) {
         queuedNotificationAlerts.clear()
         bubbleFractions[0] = 0f
         bubbleFractions[1] = 0f
+        bubbleSlots[0] = 0f
+        bubbleSlots[1] = 1f
         for (i in 0..1) {
             bubbleAnimators[i].cancel()
+            bubbleSlotAnimators[i].cancel()
         }
 
         expansionAnimator.cancel()
@@ -965,7 +1009,10 @@ class IslandOverlayView(context: Context) : View(context) {
                 isNotificationAlertActive = false
                 activeNotificationAlert = null
                 animatedNotificationFraction = 0f
-                if (isMediaPlaybackActive) setMediaBubbleVisible(false)
+                if (isMediaPlaybackActive) {
+                    setMediaBubbleVisible(false)
+                    reclaimMediaPillFromBubble()
+                }
                 invalidate()
                 onDismissAnimationEnd?.invoke()
                 onAlertsChanged?.invoke()
@@ -1225,6 +1272,7 @@ class IslandOverlayView(context: Context) : View(context) {
             val artLeft = artRight - iconSize
             val artTop = (currentTop + currentBottom) / 2f - iconSize / 2f
             val artRect = RectF(artLeft, artTop, artRight, artTop + iconSize)
+            trailingBubbleRects[MEDIA_BUBBLE_KEY] = RectF(artRect)
             val art = mediaArtwork
             if (art != null) {
                 catchUpIconClipPath.reset()
@@ -1258,8 +1306,15 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private fun drawMediaPlayback(canvas: Canvas) {
         val height = cameraRadiusPx * 2f + 14f * density
-        val initialLeft = cameraCenterX - cameraRadiusPx
-        val initialRight = cameraCenterX + cameraRadiusPx
+        val initialLeft: Float
+        val initialRight: Float
+        if (!mediaRevealOriginRect.isEmpty) {
+            initialLeft = mediaRevealOriginRect.left
+            initialRight = mediaRevealOriginRect.right
+        } else {
+            initialLeft = cameraCenterX - cameraRadiusPx
+            initialRight = cameraCenterX + cameraRadiusPx
+        }
         val collapseFraction = when (dragCollapseTarget) {
             DragCollapseTarget.CAMERA -> 0f
             DragCollapseTarget.COMPACT -> 1f
@@ -1280,6 +1335,7 @@ class IslandOverlayView(context: Context) : View(context) {
         val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
         val pad = (height - iconSize) / 2f
         val artRect = RectF(mediaPillRect.left + pad, mediaPillRect.top + pad, mediaPillRect.left + pad + iconSize, mediaPillRect.top + pad + iconSize)
+        if (mediaFraction > 0.5f) trailingBubbleRects[MEDIA_BUBBLE_KEY] = RectF(artRect)
         mediaArtwork?.let {
             iconPaint.alpha = alpha
             canvas.save()
@@ -1349,9 +1405,11 @@ class IslandOverlayView(context: Context) : View(context) {
                     key = i,
                     visibleFraction = bubbleFractions[i] * queueVisibleFraction,
                     icon = queuedAlert.icon ?: queuedAlert.appIcon,
+                    slot = bubbleSlots[i],
                 )
             }
-            val trailingBubbleSpecs = if (isMediaPlaybackActive && !isCatchUpMode) {
+            if (mediaBubbleFraction > 0.98f) mediaDockOriginRect.setEmpty()
+            val trailingBubbleSpecs = if (isMediaPlaybackActive && mediaBubbleFraction > 0.01f) {
                 listOf(
                     IslandBubbleSpec(
                         key = MEDIA_BUBBLE_KEY,
@@ -1359,6 +1417,7 @@ class IslandOverlayView(context: Context) : View(context) {
                         icon = mediaArtwork ?: musicIconBitmap,
                         iconShape = if (mediaArtwork != null) IslandBubbleIconShape.CIRCLE else IslandBubbleIconShape.ROUNDED_SQUARE,
                         iconTint = if (mediaArtwork == null) Color.WHITE else null,
+                        enterFrom = if (!mediaDockOriginRect.isEmpty) mediaDockOriginRect else null,
                     ),
                 )
             } else {
