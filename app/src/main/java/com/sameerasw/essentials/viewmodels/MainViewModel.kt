@@ -183,6 +183,7 @@ class MainViewModel : ViewModel() {
     val isIslandHideWhenScreenOff = mutableStateOf(true)
     val islandTimeoutMs = mutableLongStateOf(4500L)
     val isIslandTapActionEnabled = mutableStateOf(true)
+    val islandTapAction = mutableStateOf(SettingsRepository.ISLAND_TAP_ACTION_OPEN)
     val isIslandSwipeUpActionEnabled = mutableStateOf(true)
     val isIslandCatchUpEnabled = mutableStateOf(false)
     val islandCatchUpTimeoutMs = mutableLongStateOf(10000L)
@@ -749,6 +750,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_ISLAND_TAP_ACTION_ENABLED ->
                         isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
+
+                    SettingsRepository.KEY_ISLAND_TAP_ACTION ->
+                        islandTapAction.value = settingsRepository.getIslandTapAction()
 
                     SettingsRepository.KEY_ISLAND_SWIPE_UP_ACTION_ENABLED ->
                         isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
@@ -2124,6 +2128,7 @@ class MainViewModel : ViewModel() {
         isIslandHideWhenScreenOff.value = settingsRepository.isIslandHideWhenScreenOffEnabled()
         islandTimeoutMs.longValue = settingsRepository.getIslandTimeoutMs()
         isIslandTapActionEnabled.value = settingsRepository.isIslandTapActionEnabled()
+        islandTapAction.value = settingsRepository.getIslandTapAction()
         isIslandSwipeUpActionEnabled.value = settingsRepository.isIslandSwipeUpActionEnabled()
         isIslandCatchUpEnabled.value = settingsRepository.isIslandCatchUpEnabled()
         islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
@@ -4971,6 +4976,11 @@ class MainViewModel : ViewModel() {
     fun setIslandTapActionEnabled(enabled: Boolean) {
         isIslandTapActionEnabled.value = enabled
         settingsRepository.setIslandTapActionEnabled(enabled)
+    }
+
+    fun setIslandTapAction(value: String) {
+        islandTapAction.value = value
+        settingsRepository.setIslandTapAction(value)
     }
 
     fun setIslandSwipeUpActionEnabled(enabled: Boolean) {

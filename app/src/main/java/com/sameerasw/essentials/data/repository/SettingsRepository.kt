@@ -419,6 +419,9 @@ class SettingsRepository(
         const val KEY_ISLAND_HIDE_WHEN_SCREEN_OFF = "island_hide_when_screen_off"
         const val KEY_ISLAND_TIMEOUT_MS = "island_timeout_ms"
         const val KEY_ISLAND_TAP_ACTION_ENABLED = "island_tap_action_enabled"
+        const val KEY_ISLAND_TAP_ACTION = "island_tap_action"
+        const val ISLAND_TAP_ACTION_OPEN = "open"
+        const val ISLAND_TAP_ACTION_EXPAND = "expand"
         const val KEY_ISLAND_SWIPE_UP_ACTION_ENABLED = "island_swipe_up_action_enabled"
         const val KEY_ISLAND_SHOW_GLOW = "island_show_glow"
         const val KEY_ISLAND_EXPANDED_WIDTH = "island_expanded_width"
@@ -3387,6 +3390,9 @@ class SettingsRepository(
 
     fun isIslandTapActionEnabled(): Boolean = getBoolean(KEY_ISLAND_TAP_ACTION_ENABLED, true)
     fun setIslandTapActionEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_TAP_ACTION_ENABLED, enabled)
+
+    fun getIslandTapAction(): String = getString(KEY_ISLAND_TAP_ACTION, ISLAND_TAP_ACTION_OPEN) ?: ISLAND_TAP_ACTION_OPEN
+    fun setIslandTapAction(value: String) = putString(KEY_ISLAND_TAP_ACTION, value)
 
     fun isIslandSwipeUpActionEnabled(): Boolean = getBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, true)
     fun setIslandSwipeUpActionEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SWIPE_UP_ACTION_ENABLED, enabled)

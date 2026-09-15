@@ -76,8 +76,16 @@ class IslandTouchHandler(
         if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
             isLongPressed = true
             HapticUtil.performStrongTickHaptic(service)
-            val isNowExpanded = overlayView?.toggleExpansion() ?: false
-            onNotificationExpandToggled?.invoke(isNowExpanded)
+            if (settingsRepository.getIslandTapAction() == SettingsRepository.ISLAND_TAP_ACTION_EXPAND) {
+                val alert = overlayView?.getActiveNotificationAlert()
+                if (alert != null) {
+                    launchNotificationApp(alert)
+                    dismissNotification()
+                }
+            } else {
+                val isNowExpanded = overlayView?.toggleExpansion() ?: false
+                onNotificationExpandToggled?.invoke(isNowExpanded)
+            }
         }
     }
 
@@ -273,6 +281,10 @@ class IslandTouchHandler(
                                         onNotificationSwitched?.invoke()
                                         HapticUtil.performStrongTickHaptic(service)
                                     }
+                                } else if (settingsRepository.getIslandTapAction() == SettingsRepository.ISLAND_TAP_ACTION_EXPAND) {
+                                    HapticUtil.performStrongTickHaptic(service)
+                                    val isNowExpanded = overlayView?.toggleExpansion() ?: false
+                                    onNotificationExpandToggled?.invoke(isNowExpanded)
                                 } else {
                                     val alert = overlayView?.getActiveNotificationAlert()
                                     if (alert != null) {

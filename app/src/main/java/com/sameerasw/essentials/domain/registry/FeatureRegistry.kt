@@ -757,6 +757,11 @@ object FeatureRegistry {
                             "island_tap_action_enabled",
                         ),
                         SearchSetting(
+                            R.string.island_tap_action_title,
+                            R.string.island_tap_action_desc,
+                            "island_tap_action",
+                        ),
+                        SearchSetting(
                             R.string.island_action_swipe_up_title,
                             R.string.island_action_swipe_up_desc,
                             "island_swipe_up_action_enabled",
