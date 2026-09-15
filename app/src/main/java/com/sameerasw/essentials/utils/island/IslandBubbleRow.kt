@@ -29,6 +29,8 @@ class IslandBubbleSpec(
     val iconTint: Int? = null,
     val slot: Float = 0f,
     val enterFrom: RectF? = null,
+    // Drawn instead of [icon] when it's null — for non-bitmap content like an animated glyph.
+    val customIconDraw: ((Canvas, RectF) -> Unit)? = null,
 )
 
 object IslandBubbleRow {
@@ -119,6 +121,11 @@ object IslandBubbleRow {
                 paint.alpha = (frac * 255).toInt().coerceIn(0, 255)
                 canvas.drawBitmap(icon, null, iconRect, paint)
                 canvas.restore()
+            } else {
+                bubble.customIconDraw?.let { draw ->
+                    val iconRect = RectF(rect.left + iconPad, rect.top + iconPad, rect.right - iconPad, rect.bottom - iconPad)
+                    draw(canvas, iconRect)
+                }
             }
 
             canvas.restoreToCount(saveCount)

@@ -38,6 +38,8 @@ import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
+import com.sameerasw.essentials.utils.island.EqualizerAnimator
+import com.sameerasw.essentials.utils.island.drawEqualizerIcon
 import com.sameerasw.essentials.utils.island.IslandBubbleIconShape
 import com.sameerasw.essentials.utils.island.IslandBubbleRow
 import com.sameerasw.essentials.utils.island.IslandBubbleSide
@@ -159,13 +161,17 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    private val musicIconBitmap: Bitmap? by lazy {
+    private val equalizerAnimator = EqualizerAnimator()
+    private val equalizerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+    private fun materialYouAccentColor(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         try {
-            val drawable = ContextCompat.getDrawable(context, R.drawable.rounded_music_note_24)
-            drawable?.let { AppUtil.drawableToBitmap(it, (24f * density).toInt()) }
+            ContextCompat.getColor(context, android.R.color.system_accent1_200)
         } catch (_: Exception) {
-            null
+            0xFF80D8FF.toInt()
         }
+    } else {
+        0xFF80D8FF.toInt()
     }
 
     private var activeNotificationAlert: ActiveNotificationAlert? = null
@@ -471,6 +477,7 @@ class IslandOverlayView(context: Context) : View(context) {
         mediaArtwork = artwork
         if (isNotificationAlertActive) setMediaBubbleVisible(true)
         if (!wasActive) {
+            equalizerAnimator.start { invalidate() }
             trimQueueTo(maxQueuedBubbleSlots)
             isMediaCompact = startCompact
             mediaCompactFraction = if (startCompact) 1f else 0f
@@ -504,6 +511,16 @@ class IslandOverlayView(context: Context) : View(context) {
         onAlertsChanged?.invoke()
     }
 
+    fun setMediaPaused(paused: Boolean) {
+        if (!isMediaPlaybackActive) return
+        if (paused) {
+            setMediaCompact(true)
+            equalizerAnimator.freezeFlat { invalidate() }
+        } else if (equalizerAnimator.isFrozenFlat()) {
+            equalizerAnimator.start { invalidate() }
+        }
+    }
+
     fun dismissMediaPlayback() {
         if (!isMediaPlaybackActive) return
         mediaCompactAnimator.cancel()
@@ -517,6 +534,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 invalidate()
             },
             onEnd = {
+                equalizerAnimator.stop()
                 isMediaPlaybackActive = false
                 isMediaCompact = false
                 mediaFraction = 0f
@@ -1034,6 +1052,7 @@ class IslandOverlayView(context: Context) : View(context) {
         for (i in 0..1) {
             bubbleAnimators[i].cancel()
         }
+        equalizerAnimator.stop()
         stopAllMarquees()
     }
 
@@ -1283,11 +1302,9 @@ class IslandOverlayView(context: Context) : View(context) {
                 canvas.drawBitmap(art, null, artRect, iconPaint)
                 canvas.restore()
             } else {
-                musicIconBitmap?.let {
-                    catchUpUnreadPaint.alpha = catchUpIndicatorAlpha
-                    catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                    canvas.drawBitmap(it, null, artRect, catchUpUnreadPaint)
-                }
+                equalizerPaint.color = materialYouAccentColor()
+                equalizerPaint.alpha = catchUpIndicatorAlpha
+                drawEqualizerIcon(canvas, artRect, equalizerAnimator.barLevels, equalizerPaint)
             }
             return
         }
@@ -1347,11 +1364,9 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         val compactIconRect = RectF(mediaPillRect.right - pad - iconSize, mediaPillRect.top + pad, mediaPillRect.right - pad, mediaPillRect.top + pad + iconSize)
-        musicIconBitmap?.let {
-            catchUpUnreadPaint.alpha = (alpha * mediaCompactFraction).toInt().coerceIn(0, 255)
-            catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-            canvas.drawBitmap(it, null, compactIconRect, catchUpUnreadPaint)
-        }
+        equalizerPaint.color = materialYouAccentColor()
+        equalizerPaint.alpha = (alpha * mediaCompactFraction).toInt().coerceIn(0, 255)
+        drawEqualizerIcon(canvas, compactIconRect, equalizerAnimator.barLevels, equalizerPaint)
 
         val textAlpha = (alpha * (1f - mediaCompactFraction)).toInt().coerceIn(0, 255)
         if (textAlpha > 0) {
@@ -1410,14 +1425,23 @@ class IslandOverlayView(context: Context) : View(context) {
             }
             if (mediaBubbleFraction > 0.98f) mediaDockOriginRect.setEmpty()
             val trailingBubbleSpecs = if (isMediaPlaybackActive && mediaBubbleFraction > 0.01f) {
+                val bubbleFrac = mediaBubbleFraction * queueVisibleFraction
                 listOf(
                     IslandBubbleSpec(
                         key = MEDIA_BUBBLE_KEY,
-                        visibleFraction = mediaBubbleFraction * queueVisibleFraction,
-                        icon = mediaArtwork ?: musicIconBitmap,
-                        iconShape = if (mediaArtwork != null) IslandBubbleIconShape.CIRCLE else IslandBubbleIconShape.ROUNDED_SQUARE,
-                        iconTint = if (mediaArtwork == null) Color.WHITE else null,
+                        visibleFraction = bubbleFrac,
+                        icon = mediaArtwork,
+                        iconShape = IslandBubbleIconShape.CIRCLE,
                         enterFrom = if (!mediaDockOriginRect.isEmpty) mediaDockOriginRect else null,
+                        customIconDraw = if (mediaArtwork == null) {
+                            { canvas, iconRect ->
+                                equalizerPaint.color = materialYouAccentColor()
+                                equalizerPaint.alpha = (bubbleFrac * 255).toInt().coerceIn(0, 255)
+                                drawEqualizerIcon(canvas, iconRect, equalizerAnimator.barLevels, equalizerPaint)
+                            }
+                        } else {
+                            null
+                        },
                     ),
                 )
             } else {
@@ -1589,18 +1613,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
                 val catchUpIndicatorAlpha = (catchUpFraction * 255).toInt().coerceIn(0, 255)
                 val unreadBmp = unreadIconBitmap
-
-                val dynamicMaterialYouColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    try {
-                        ContextCompat.getColor(context, android.R.color.system_accent1_200)
-                    } catch (_: Exception) {
-                        0xFF80D8FF.toInt()
-                    }
-                } else {
-                    0xFF80D8FF.toInt()
-                }
-
-                val catchUpTintColor = dynamicMaterialYouColor
+                val catchUpTintColor = materialYouAccentColor()
 
                 if (isCenterCamera) {
                     val iconLeft = currentLeft + verticalPadding + cornerExtraPad + inSlideX
