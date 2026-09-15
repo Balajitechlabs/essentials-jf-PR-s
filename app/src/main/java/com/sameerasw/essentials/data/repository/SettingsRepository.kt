@@ -414,6 +414,7 @@ class SettingsRepository(
         const val KEY_ISLAND_CAMERA_OFFSET_Y = "island_camera_offset_y"
         const val KEY_ISLAND_CAMERA_SIZE = "island_camera_size"
         const val KEY_ISLAND_MAX_WIDTH = "island_max_width"
+        const val KEY_ISLAND_CUTOUT_GAP = "island_cutout_gap"
         const val KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP = "island_suppress_system_heads_up"
         const val KEY_ISLAND_HIDE_WHEN_SCREEN_OFF = "island_hide_when_screen_off"
         const val KEY_ISLAND_TIMEOUT_MS = "island_timeout_ms"
@@ -3368,6 +3369,9 @@ class SettingsRepository(
 
     fun getIslandMaxWidth(): Float = getFloat(KEY_ISLAND_MAX_WIDTH, 360f)
     fun setIslandMaxWidth(value: Float) = putFloat(KEY_ISLAND_MAX_WIDTH, value)
+
+    fun getIslandCutoutGap(): Float = getFloat(KEY_ISLAND_CUTOUT_GAP, 6f)
+    fun setIslandCutoutGap(value: Float) = putFloat(KEY_ISLAND_CUTOUT_GAP, value)
 
     fun isIslandSuppressSystemHeadsUpEnabled(): Boolean = getBoolean(KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP, false)
     fun setIslandSuppressSystemHeadsUpEnabled(enabled: Boolean) {

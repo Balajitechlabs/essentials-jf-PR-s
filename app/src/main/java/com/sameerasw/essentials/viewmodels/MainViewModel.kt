@@ -173,6 +173,7 @@ class MainViewModel : ViewModel() {
     val islandCameraOffsetY = mutableFloatStateOf(3f)
     val islandCameraSize = mutableFloatStateOf(1.0f)
     val islandMaxWidth = mutableFloatStateOf(360f)
+    val islandCutoutGap = mutableFloatStateOf(6f)
     val islandExpandedWidth = mutableFloatStateOf(360f)
     val islandExpandedRoundness = mutableFloatStateOf(24f)
     val islandExpandedPadding = mutableFloatStateOf(16f)
@@ -733,6 +734,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_ISLAND_MAX_WIDTH ->
                         islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
+
+                    SettingsRepository.KEY_ISLAND_CUTOUT_GAP ->
+                        islandCutoutGap.floatValue = settingsRepository.getIslandCutoutGap()
 
                     SettingsRepository.KEY_ISLAND_SUPPRESS_SYSTEM_HEADS_UP ->
                         isIslandSuppressSystemHeadsUp.value = settingsRepository.isIslandSuppressSystemHeadsUpEnabled()
@@ -2110,6 +2114,7 @@ class MainViewModel : ViewModel() {
         islandCameraOffsetY.floatValue = settingsRepository.getIslandCameraOffsetY()
         islandCameraSize.floatValue = settingsRepository.getIslandCameraSize()
         islandMaxWidth.floatValue = settingsRepository.getIslandMaxWidth()
+        islandCutoutGap.floatValue = settingsRepository.getIslandCutoutGap()
         islandExpandedWidth.floatValue = settingsRepository.getIslandExpandedWidth()
         islandExpandedRoundness.floatValue = settingsRepository.getIslandExpandedRoundness()
         islandExpandedPadding.floatValue = settingsRepository.getIslandExpandedPadding()
@@ -4916,6 +4921,11 @@ class MainViewModel : ViewModel() {
     fun setIslandMaxWidth(value: Float) {
         islandMaxWidth.floatValue = value
         settingsRepository.setIslandMaxWidth(value)
+    }
+
+    fun setIslandCutoutGap(value: Float) {
+        islandCutoutGap.floatValue = value
+        settingsRepository.setIslandCutoutGap(value)
     }
 
     fun setIslandExpandedWidth(value: Float) {

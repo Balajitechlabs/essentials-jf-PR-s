@@ -57,7 +57,7 @@ import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.utils.ShellUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
 
-private val ISLAND_PLACEMENT_KEYS = setOf("island_use_auto_detect", "island_camera_size", "island_max_width", "island_expanded_width")
+private val ISLAND_PLACEMENT_KEYS = setOf("island_use_auto_detect", "island_camera_size", "island_max_width", "island_expanded_width", "island_cutout_gap")
 private val ISLAND_VISUALS_KEYS = setOf("island_expanded_roundness", "island_expanded_padding", "island_expanded_top_padding")
 
 @Composable
@@ -278,6 +278,20 @@ fun IslandSettingsUI(
                 iconRes = R.drawable.rounded_arrows_outward_24,
                 valueFormatter = { "${it.toInt()} dp" },
                 modifier = Modifier.highlight(highlightSetting == "island_expanded_width"),
+            )
+
+            ConfigSliderItem(
+                title = stringResource(R.string.island_cutout_gap_title),
+                value = viewModel.islandCutoutGap.floatValue,
+                onValueChange = {
+                    HapticUtil.performUIHaptic(view)
+                    viewModel.setIslandCutoutGap(it)
+                },
+                valueRange = 0f..16f,
+                increment = 1f,
+                iconRes = R.drawable.rounded_arrows_outward_24,
+                valueFormatter = { "${it.toInt()} dp" },
+                modifier = Modifier.highlight(highlightSetting == "island_cutout_gap"),
             )
         }
 
