@@ -2603,6 +2603,7 @@
     <string name="island_section_placement">Placement</string>
     <string name="island_section_visuals">Visuals</string>
     <string name="island_section_duration">Duration</string>
+    <string name="island_section_notifications">Notifications</string>
     <string name="island_auto_detect_title">Auto-detect camera</string>
     <string name="island_auto_detect_desc">Automatically locate the front camera cutout</string>
     <string name="island_camera_offset_x_title">Horizontal position</string>

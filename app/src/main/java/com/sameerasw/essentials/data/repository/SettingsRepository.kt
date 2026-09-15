@@ -418,6 +418,8 @@ class SettingsRepository(
         const val KEY_ISLAND_EXPANDED_TIMEOUT_MS = "island_expanded_timeout_ms"
         const val KEY_ISLAND_CATCH_UP_ENABLED = "island_catch_up_enabled"
         const val KEY_ISLAND_CATCH_UP_TIMEOUT_MS = "island_catch_up_timeout_ms"
+        const val KEY_ISLAND_SHOW_MEDIA = "island_show_media"
+        const val KEY_ISLAND_MEDIA_EXCLUDED_APPS = "island_media_excluded_apps"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3322,6 +3324,14 @@ class SettingsRepository(
 
     fun getIslandCatchUpTimeoutMs(): Long = getLong(KEY_ISLAND_CATCH_UP_TIMEOUT_MS, 10000L)
     fun setIslandCatchUpTimeoutMs(value: Long) = putLong(KEY_ISLAND_CATCH_UP_TIMEOUT_MS, value)
+
+    fun isIslandShowMediaEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_MEDIA, true)
+    fun setIslandShowMediaEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_MEDIA, enabled)
+
+    fun loadIslandMediaExcludedApps() = loadAppSelection(KEY_ISLAND_MEDIA_EXCLUDED_APPS)
+    fun saveIslandMediaExcludedApps(apps: List<AppSelection>) = saveAppSelection(KEY_ISLAND_MEDIA_EXCLUDED_APPS, apps)
+    fun updateIslandMediaExcludedAppSelection(packageName: String, enabled: Boolean) =
+        updateAppSelection(KEY_ISLAND_MEDIA_EXCLUDED_APPS, packageName, enabled)
 
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1

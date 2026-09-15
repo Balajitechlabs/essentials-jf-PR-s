@@ -185,6 +185,7 @@ class MainViewModel : ViewModel() {
     val isIslandCatchUpEnabled = mutableStateOf(false)
     val islandCatchUpTimeoutMs = mutableLongStateOf(10000L)
     val isIslandShowGlow = mutableStateOf(true)
+    val isIslandShowMedia = mutableStateOf(true)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -2110,6 +2111,7 @@ class MainViewModel : ViewModel() {
         isIslandCatchUpEnabled.value = settingsRepository.isIslandCatchUpEnabled()
         islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
         isIslandShowGlow.value = settingsRepository.isIslandShowGlowEnabled()
+        isIslandShowMedia.value = settingsRepository.isIslandShowMediaEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -4950,6 +4952,21 @@ class MainViewModel : ViewModel() {
     fun setIslandShowGlow(enabled: Boolean) {
         isIslandShowGlow.value = enabled
         settingsRepository.setIslandShowGlowEnabled(enabled)
+    }
+
+    fun setIslandShowMedia(enabled: Boolean) {
+        isIslandShowMedia.value = enabled
+        settingsRepository.setIslandShowMediaEnabled(enabled)
+    }
+
+    fun loadIslandMediaApps(context: Context): List<AppSelection> = settingsRepository.loadIslandMediaExcludedApps()
+
+    fun saveIslandMediaApps(context: Context, apps: List<AppSelection>) {
+        settingsRepository.saveIslandMediaExcludedApps(apps)
+    }
+
+    fun updateIslandMediaAppEnabled(context: Context, packageName: String, enabled: Boolean) {
+        settingsRepository.updateIslandMediaExcludedAppSelection(packageName, enabled)
     }
 
     fun triggerIslandPreview(context: Context) {
