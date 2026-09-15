@@ -233,7 +233,8 @@ class IslandOverlayView(context: Context) : View(context) {
     private val mediaCompactAnimator = AnimatedFloatProperty()
     private val mediaBubbleAnimator = AnimatedFloatProperty()
     private var mediaFraction: Float = 0f
-    private var mediaCompactFraction: Float = 0f
+    var mediaCompactFraction: Float = 0f
+        private set
     private var mediaBubbleFraction: Float = 0f
     private val mediaPillRect = RectF()
 
@@ -280,8 +281,8 @@ class IslandOverlayView(context: Context) : View(context) {
     private val playIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_play_arrow_24, 26f) }
     private val pauseIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_pause_24, 26f) }
     private val skipNextIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_skip_next_24, 24f) }
-    private val favoriteIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_favorite_24, 22f) }
-    private val favoriteOutlineIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.round_favorite_24, 22f) }
+    private val favoriteIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.round_favorite_24, 22f) }
+    private val favoriteOutlineIconBitmap: Bitmap? by lazy { loadIconBitmap(R.drawable.rounded_favorite_24, 22f) }
 
     var isCalendarActive: Boolean = false
         private set
@@ -417,6 +418,7 @@ class IslandOverlayView(context: Context) : View(context) {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
         val startX = dragTranslationX
         val targetX = if (direction > 0f) (screenWidth * 0.85f) else (-screenWidth * 0.85f)
+        val hasQueued = queuedNotificationAlerts.isNotEmpty()
         val startNotif = animatedNotificationFraction
         dragAnimator.animateTo(
             from = 0f,
@@ -424,11 +426,14 @@ class IslandOverlayView(context: Context) : View(context) {
             spec = IslandTransitionSpec.SwipeDismiss,
             onUpdate = { f ->
                 dragTranslationX = startX + (targetX - startX) * f
-                animatedNotificationFraction = startNotif * (1f - f)
+                if (!hasQueued) {
+                    animatedNotificationFraction = startNotif * (1f - f)
+                }
                 invalidate()
             },
             onEnd = {
                 resetDragOffset()
+                animatedNotificationFraction = 1f
                 onEnd()
             },
         )
@@ -656,14 +661,24 @@ class IslandOverlayView(context: Context) : View(context) {
         }
     }
 
-    fun setMediaCompact(compact: Boolean) {
-        if (!isMediaPlaybackActive || isMediaCompact == compact) return
-        isMediaCompact = compact
-        if (compact) setMediaFullPlayer(false)
+    fun updateMediaCompactFraction(fraction: Float) {
+        if (!isMediaPlaybackActive || isMediaFullPlayerActive) return
+        mediaCompactAnimator.cancel()
+        mediaCompactFraction = fraction.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    fun animateMediaToCompact(targetCompact: Boolean) {
+        if (!isMediaPlaybackActive) return
+        isMediaCompact = targetCompact
+        if (targetCompact) setMediaFullPlayer(false)
+        resetDragOffset()
+        val fromVal = mediaCompactFraction
+        val targetVal = if (targetCompact) 1f else 0f
         mediaCompactAnimator.animateTo(
-            from = mediaCompactFraction,
-            to = if (compact) 1f else 0f,
-            spec = IslandTransitionSpec.ModeChange,
+            from = fromVal,
+            to = targetVal,
+            spec = if (targetCompact) IslandTransitionSpec.ModeChange else IslandTransitionSpec.DragSnapBack,
             onUpdate = {
                 mediaCompactFraction = it
                 invalidate()
@@ -673,6 +688,11 @@ class IslandOverlayView(context: Context) : View(context) {
             },
         )
         onAlertsChanged?.invoke()
+    }
+
+    fun setMediaCompact(compact: Boolean) {
+        if (!isMediaPlaybackActive || isMediaCompact == compact) return
+        animateMediaToCompact(compact)
     }
 
     fun toggleMediaFullPlayer(): Boolean {
@@ -2045,15 +2065,8 @@ class IslandOverlayView(context: Context) : View(context) {
             initialRight = cameraCenterX + cameraRadiusPx
             boundsProgress = mediaFraction
         }
-        val collapseFraction = when (dragCollapseTarget) {
-            DragCollapseTarget.CAMERA -> 0f
-            DragCollapseTarget.COMPACT -> 1f
-        }
         val fullPlayerT = mediaFullPlayerFraction
-        val targetCollapsed = computeMediaBounds(
-            (mediaCompactFraction + (1f - mediaCompactFraction) * dragCollapseFraction * collapseFraction)
-                .coerceIn(0f, 1f),
-        )
+        val targetCollapsed = computeMediaBounds(mediaCompactFraction.coerceIn(0f, 1f))
         val target = if (fullPlayerT > 0.001f) {
             val fpWidth = computeMediaFullPlayerWidthBounds()
             val fpBottom = baseTop + computeMediaFullPlayerHeight()

@@ -189,15 +189,14 @@ class IslandTouchHandler(
                                 downX > cameraX -> (-dx - graceAreaPx).coerceAtLeast(0f)
                                 else -> (abs(dx) - graceAreaPx).coerceAtLeast(0f)
                             }
-                            val maxDragDist = 140f * density
+                            val maxDragDist = 120f * density
                             val dragFraction = (dragDistTowardsCamera / maxDragDist).coerceIn(0f, 1f)
                             overlayView?.updateDragTranslation(0f, 0f)
-                            val collapseTarget = if (overlayView?.isNotificationAlertActive == true) {
-                                IslandOverlayView.DragCollapseTarget.CAMERA
-                            } else {
-                                IslandOverlayView.DragCollapseTarget.COMPACT
+                            if (overlayView?.isNotificationAlertActive == true) {
+                                overlayView?.updateDragCollapseFraction(dragFraction, IslandOverlayView.DragCollapseTarget.CAMERA)
+                            } else if (overlayView?.isMediaPlaybackActive == true && overlayView?.isMediaCompact == false) {
+                                overlayView?.updateMediaCompactFraction(dragFraction)
                             }
-                            overlayView?.updateDragCollapseFraction(dragFraction, collapseTarget)
                         } else {
                             val effectiveDx = if (dx > 0) dx - graceAreaPx else dx + graceAreaPx
                             overlayView?.updateDragCollapseFraction(0f)
@@ -231,6 +230,11 @@ class IslandTouchHandler(
 
                 if (isMediaTouch && overlayView?.isMediaPlaybackActive == true) {
                     val controlAction = overlayView?.getMediaControlActionAt(x, y) ?: -1
+                    val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
+                    val swipe = IslandSwipeDirections.classify(downX, dx, dy, cameraX, touchSlopPx)
+                    val isSwipeTowardCamera = swipe.isTowardCamera || (swipe.isSwipeUp && overlayView?.isMediaFullPlayerActive != true)
+                    val currentCompactFraction = overlayView?.mediaCompactFraction ?: 0f
+
                     if (controlAction >= 0 && totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
                         overlayView?.resetDragOffset()
                         onMediaControlTapped?.invoke(controlAction)
@@ -246,13 +250,24 @@ class IslandTouchHandler(
                             }
                             HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
                         }
+                    } else if (isDragging && overlayView?.isMediaCompact == false) {
+                        val shouldCompact = isSwipeTowardCamera || currentCompactFraction > 0.35f
+                        if (shouldCompact) {
+                            HapticUtil.performRumbleHaptic(service)
+                            HapticUtil.performStrongTickHaptic(service)
+                            overlayView?.animateMediaToCompact(true)
+                        } else {
+                            overlayView?.animateMediaToCompact(false)
+                        }
+                    } else if (isSwipeTowardCamera && overlayView?.isMediaCompact == false) {
+                        HapticUtil.performRumbleHaptic(service)
+                        HapticUtil.performStrongTickHaptic(service)
+                        overlayView?.animateMediaToCompact(true)
                     } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
                         overlayView?.resetDragOffset()
                         overlayView?.setMediaCompact(false)
                         onMediaTapped?.invoke()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
-                    } else if (isDragging) {
-                        overlayView?.animateDragSnapBack()
                     } else {
                         overlayView?.resetDragOffset()
                     }
@@ -371,7 +386,11 @@ class IslandTouchHandler(
 
             MotionEvent.ACTION_CANCEL -> {
                 mainHandler.removeCallbacks(longPressRunnable)
-                overlayView?.animateDragSnapBack()
+                if (overlayView?.isMediaPlaybackActive == true && overlayView?.isMediaCompact == false && overlayView?.isNotificationAlertActive != true) {
+                    overlayView?.animateMediaToCompact(false)
+                } else {
+                    overlayView?.animateDragSnapBack()
+                }
                 isTouchActive = false
                 isLongPressed = false
                 isDragging = false
