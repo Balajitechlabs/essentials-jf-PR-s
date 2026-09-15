@@ -65,7 +65,7 @@ class IslandOverlayView(context: Context) : View(context) {
     var touchHandler: IslandTouchHandler? = null
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!isNotificationAlertActive && !isMediaPlaybackActive) return false
+        if (!isNotificationAlertActive && !isMediaPlaybackActive && !isCalendarActive) return false
         val x = event.x
         val y = event.y
 
@@ -668,6 +668,9 @@ class IslandOverlayView(context: Context) : View(context) {
                 mediaCompactFraction = it
                 invalidate()
             },
+            onEnd = {
+                onAlertsChanged?.invoke()
+            },
         )
         onAlertsChanged?.invoke()
     }
@@ -688,6 +691,9 @@ class IslandOverlayView(context: Context) : View(context) {
             onUpdate = {
                 mediaFullPlayerFraction = it
                 invalidate()
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
             },
         )
         refreshWavyProgressAnimation()
@@ -878,6 +884,9 @@ class IslandOverlayView(context: Context) : View(context) {
             onUpdate = {
                 calendarCompactFraction = it
                 invalidate()
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
             },
         )
         onAlertsChanged?.invoke()
@@ -1673,8 +1682,32 @@ class IslandOverlayView(context: Context) : View(context) {
         val alert = activeNotificationAlert
         if (alert == null) {
             return when {
-                isCalendarActive -> computeCalendarBounds(calendarCompactFraction.coerceIn(0f, 1f))
-                isMediaPlaybackActive -> if (isMediaFullPlayerActive) computeMediaFullPlayerTargetBounds() else computeMediaTargetBounds()
+                isCalendarActive -> {
+                    val target = computeCalendarBounds(if (isCalendarCompact) 1f else 0f)
+                    if (!calendarPillRect.isEmpty) {
+                        RectF(
+                            minOf(target.left, calendarPillRect.left),
+                            minOf(target.top, calendarPillRect.top),
+                            maxOf(target.right, calendarPillRect.right),
+                            maxOf(target.bottom, calendarPillRect.bottom),
+                        )
+                    } else {
+                        target
+                    }
+                }
+                isMediaPlaybackActive -> {
+                    val target = if (isMediaFullPlayerActive) computeMediaFullPlayerTargetBounds() else computeMediaTargetBounds()
+                    if (!mediaPillRect.isEmpty) {
+                        RectF(
+                            minOf(target.left, mediaPillRect.left),
+                            minOf(target.top, mediaPillRect.top),
+                            maxOf(target.right, mediaPillRect.right),
+                            maxOf(target.bottom, mediaPillRect.bottom),
+                        )
+                    } else {
+                        target
+                    }
+                }
                 else -> notificationPillRect
             }
         }
@@ -1737,7 +1770,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun isPointInsideMedia(x: Float, y: Float): Boolean {
         if (!isMediaPlaybackActive) return false
-        val pad = 12f * density
+        val pad = 16f * density
         if (isNotificationAlertActive) {
             if (isCatchUpMode) {
                 val rect = RectF(notificationPillRect.left - pad, notificationPillRect.top - pad, notificationPillRect.right + pad, notificationPillRect.bottom + pad)
@@ -1752,7 +1785,13 @@ class IslandOverlayView(context: Context) : View(context) {
             return RectF(mediaIconRect.left - pad, mediaIconRect.top - pad, mediaIconRect.right + pad, mediaIconRect.bottom + pad).contains(x, y)
         }
         val bounds = currentMediaBounds()
-        return RectF(bounds.left - pad, bounds.top - pad, bounds.right + pad, bounds.bottom + pad).contains(x, y)
+        val touchRect = RectF(
+            minOf(bounds.left, mediaPillRect.left.takeIf { it > 0f } ?: bounds.left) - pad,
+            minOf(bounds.top, mediaPillRect.top.takeIf { it > 0f } ?: bounds.top) - pad,
+            maxOf(bounds.right, mediaPillRect.right.takeIf { it > 0f } ?: bounds.right) + pad,
+            maxOf(bounds.bottom, mediaPillRect.bottom.takeIf { it > 0f } ?: bounds.bottom) + pad,
+        )
+        return touchRect.contains(x, y)
     }
 
     private fun unionWithMediaBounds(bounds: RectF): RectF {
@@ -1825,7 +1864,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private fun computeMediaTargetBounds(): RectF =
-        computeMediaBounds(mediaCompactFraction.coerceIn(0f, 1f))
+        computeMediaBounds(if (isMediaCompact) 1f else 0f)
 
     private fun computeMediaFullPlayerWidthBounds(): RectF {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
