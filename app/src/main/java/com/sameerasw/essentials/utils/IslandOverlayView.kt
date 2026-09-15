@@ -404,10 +404,16 @@ class IslandOverlayView(context: Context) : View(context) {
         if (!isIslandEnabled) return
 
         if (isMediaPlaybackActive) setMediaBubbleVisible(true)
-
         canEnterCatchUp = true
+
         if (isCatchUpMode) {
-            exitCatchUpMode()
+            if (activeNotificationAlert?.key == alert.key) {
+                activeNotificationAlert = alert
+                invalidate()
+            } else {
+                dismissCatchUpAndShow(alert)
+            }
+            return
         }
 
         if (!isNotificationAlertActive || activeNotificationAlert == null) {
@@ -697,6 +703,35 @@ class IslandOverlayView(context: Context) : View(context) {
             },
             onEnd = {
                 onAlertsChanged?.invoke()
+            },
+        )
+        onCatchUpModeChanged?.invoke(false)
+        onAlertsChanged?.invoke()
+    }
+
+    private fun dismissCatchUpAndShow(newAlert: ActiveNotificationAlert) {
+        stopAllMarquees()
+        isCatchUpMode = false
+        canEnterCatchUp = true
+        catchUpAnimator.cancel()
+
+        val startNotif = animatedNotificationFraction
+        val startCatchUp = catchUpFraction
+        notificationAnimator.animateTo(
+            from = 1.0f,
+            to = 0.0f,
+            spec = IslandTransitionSpec.notificationDismiss(wasExpanded = false),
+            onUpdate = { f ->
+                animatedNotificationFraction = startNotif * f
+                catchUpFraction = startCatchUp * f
+                invalidate()
+            },
+            onEnd = {
+                animatedNotificationFraction = 0f
+                catchUpFraction = 0f
+                activeNotificationAlert = null
+                isNotificationAlertActive = false
+                showNotificationAlert(newAlert)
             },
         )
         onCatchUpModeChanged?.invoke(false)
