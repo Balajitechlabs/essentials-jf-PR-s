@@ -47,6 +47,7 @@ import com.sameerasw.essentials.R
 import com.sameerasw.essentials.ui.components.sliders.ConfigSliderItem
 import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
+import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.HapticUtil
@@ -131,6 +132,7 @@ fun IslandSettingsUI(
     val context = LocalContext.current
     val view = LocalView.current
     var requestingPermissionsFor by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
+    var showMediaAppSelectionSheet by remember { mutableStateOf(false) }
 
     if (requestingPermissionsFor != null) {
         val (titleRes, permKeys) = requestingPermissionsFor!!
@@ -372,21 +374,6 @@ fun IslandSettingsUI(
             cornerRadius = 24.dp,
         ) {
             IconToggleItem(
-                iconRes = R.drawable.rounded_notifications_off_24,
-                title = stringResource(R.string.island_suppress_system_heads_up_title),
-                isChecked = viewModel.isIslandSuppressSystemHeadsUp.value,
-                onCheckedChange = { checked ->
-                    HapticUtil.performVirtualKeyHaptic(view)
-                    if (checked && !PermissionUtils.canWriteSecureSettings(context) && !ShellUtils.isAvailable(context)) {
-                        requestingPermissionsFor = Pair(R.string.island_suppress_system_heads_up_title, listOf("WRITE_SECURE_SETTINGS"))
-                    } else {
-                        viewModel.setIslandSuppressSystemHeadsUp(checked)
-                    }
-                },
-                modifier = Modifier.highlight(highlightSetting == "island_suppress_system_heads_up"),
-            )
-
-            IconToggleItem(
                 iconRes = R.drawable.rounded_mobile_lock_portrait_24,
                 title = stringResource(R.string.island_hide_when_screen_off_title),
                 isChecked = viewModel.isIslandHideWhenScreenOff.value,
@@ -406,6 +393,33 @@ fun IslandSettingsUI(
                     viewModel.setIslandShowGlow(checked)
                 },
                 modifier = Modifier.highlight(highlightSetting == "island_show_glow"),
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.island_section_notifications),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+        )
+
+        RoundedCardContainer(
+            spacing = 2.dp,
+            cornerRadius = 24.dp,
+        ) {
+            IconToggleItem(
+                iconRes = R.drawable.rounded_notifications_off_24,
+                title = stringResource(R.string.island_suppress_system_heads_up_title),
+                isChecked = viewModel.isIslandSuppressSystemHeadsUp.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    if (checked && !PermissionUtils.canWriteSecureSettings(context) && !ShellUtils.isAvailable(context)) {
+                        requestingPermissionsFor = Pair(R.string.island_suppress_system_heads_up_title, listOf("WRITE_SECURE_SETTINGS"))
+                    } else {
+                        viewModel.setIslandSuppressSystemHeadsUp(checked)
+                    }
+                },
+                modifier = Modifier.highlight(highlightSetting == "island_suppress_system_heads_up"),
             )
 
             IconToggleItem(
@@ -441,6 +455,41 @@ fun IslandSettingsUI(
             }
         }
 
+        Text(
+            text = stringResource(R.string.duo_section_what_to_show),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+        )
+
+        RoundedCardContainer(
+            spacing = 2.dp,
+            cornerRadius = 24.dp,
+        ) {
+            IconToggleItem(
+                iconRes = R.drawable.rounded_motion_play_24,
+                title = stringResource(R.string.duo_show_media_title),
+                isChecked = viewModel.isIslandShowMedia.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandShowMedia(checked)
+                },
+                onSettingsClick = { showMediaAppSelectionSheet = true },
+                modifier = Modifier.highlight(highlightSetting == "island_show_media"),
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    if (showMediaAppSelectionSheet) {
+        AppSelectionSheet(
+            title = stringResource(R.string.duo_media_skip_apps_title),
+            onDismissRequest = { showMediaAppSelectionSheet = false },
+            onLoadApps = { viewModel.loadIslandMediaApps(it) },
+            onSaveApps = { ctx, apps -> viewModel.saveIslandMediaApps(ctx, apps) },
+            onAppToggle = { ctx, pkg, enabled -> viewModel.updateIslandMediaAppEnabled(ctx, pkg, enabled) },
+            context = context,
+        )
     }
 }

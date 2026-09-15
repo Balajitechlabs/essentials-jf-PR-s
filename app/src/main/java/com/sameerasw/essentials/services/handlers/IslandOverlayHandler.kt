@@ -360,11 +360,23 @@ class IslandOverlayHandler(
         }
     }
 
+    private fun getExcludedMediaPackages(): Set<String> =
+        settingsRepository.loadIslandMediaExcludedApps().filter { it.isEnabled }.map { it.packageName }.toSet()
+
     private fun applyCurrentMediaState() {
         mainHandler.post {
-            val playing = monitoredControllers.firstOrNull { it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING }
-            activeMediaController = playing
             val ov = overlayView ?: return@post
+            if (!settingsRepository.isIslandShowMediaEnabled()) {
+                activeMediaController = null
+                ov.dismissMediaPlayback()
+                return@post
+            }
+            val excludedPackages = getExcludedMediaPackages()
+            val playing = monitoredControllers.firstOrNull {
+                it.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING &&
+                    !excludedPackages.contains(it.packageName)
+            }
+            activeMediaController = playing
             if (playing == null || isHiddenByScreenOrLock) {
                 ov.dismissMediaPlayback()
                 return@post
@@ -634,6 +646,10 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_ENABLED -> updateOverlay()
             SettingsRepository.KEY_ISLAND_SHOW_GLOW -> {
                 overlayView?.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+            }
+            SettingsRepository.KEY_ISLAND_SHOW_MEDIA,
+            SettingsRepository.KEY_ISLAND_MEDIA_EXCLUDED_APPS -> {
+                applyCurrentMediaState()
             }
             SettingsRepository.KEY_ISLAND_EXPANDED_WIDTH -> {
                 overlayView?.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
