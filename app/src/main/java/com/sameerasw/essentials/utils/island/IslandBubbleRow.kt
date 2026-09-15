@@ -27,13 +27,18 @@ class IslandBubbleSpec(
     val icon: Bitmap?,
     val iconShape: IslandBubbleIconShape = IslandBubbleIconShape.ROUNDED_SQUARE,
     val iconTint: Int? = null,
+    val slot: Float = 0f,
+    val enterFrom: RectF? = null,
 )
 
 object IslandBubbleRow {
     fun reservedWidth(bubbles: List<IslandBubbleSpec>, bubbleSize: Float, bubbleGap: Float): Float {
-        var width = 0f
-        for (bubble in bubbles) width += (bubbleSize + bubbleGap) * bubble.visibleFraction
-        return width
+        var maxExtent = 0f
+        for (bubble in bubbles) {
+            val extent = (bubble.slot + 1f) * (bubbleSize + bubbleGap) * bubble.visibleFraction
+            if (extent > maxExtent) maxExtent = extent
+        }
+        return maxExtent
     }
 
     fun draw(
@@ -53,41 +58,52 @@ object IslandBubbleRow {
         extraGap: Float = 0f,
     ) {
         outRects.clear()
-        var running = anchorEdge
-        val radius = bubbleSize / 2f
-        val iconSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
-        val iconPad = (bubbleSize - iconSize) / 2f
         val clipPath = Path()
         val gap = bubbleGap + extraGap
+        val step = bubbleSize + gap
 
         for (bubble in bubbles) {
             val frac = bubble.visibleFraction
             if (frac <= 0.01f) continue
 
-            val left: Float
-            val right: Float
+            val targetLeft: Float
+            val targetRight: Float
             if (side == IslandBubbleSide.LEADING) {
-                right = running - gap
-                left = right - bubbleSize
-                running = left
+                targetRight = anchorEdge - gap - bubble.slot * step
+                targetLeft = targetRight - bubbleSize
             } else {
-                left = running + gap
-                right = left + bubbleSize
-                running = right
+                targetLeft = anchorEdge + gap + bubble.slot * step
+                targetRight = targetLeft + bubbleSize
             }
 
-            val rect = RectF(left, top, right, bottom)
+            val origin = bubble.enterFrom
+            val rect = if (origin != null) {
+                RectF(
+                    origin.left + (targetLeft - origin.left) * frac,
+                    origin.top + (top - origin.top) * frac,
+                    origin.right + (targetRight - origin.right) * frac,
+                    origin.bottom + (bottom - origin.bottom) * frac,
+                )
+            } else {
+                RectF(targetLeft, top, targetRight, bottom)
+            }
             outRects[bubble.key] = rect
 
+            val radius = rect.height() / 2f
+            val iconSize = (rect.height() - 12f * density).coerceAtLeast(14f * density)
+            val iconPad = (rect.height() - iconSize) / 2f
+
             val saveCount = canvas.save()
-            canvas.scale(frac, frac, rect.centerX(), rect.centerY())
+            if (origin == null) {
+                canvas.scale(frac, frac, rect.centerX(), rect.centerY())
+            }
 
             pillPaint.alpha = (frac * 255).toInt().coerceIn(0, 255)
             canvas.drawRoundRect(rect, radius, radius, pillPaint)
 
             val icon = bubble.icon
             if (icon != null) {
-                val iconRect = RectF(left + iconPad, top + iconPad, left + iconPad + iconSize, top + iconPad + iconSize)
+                val iconRect = RectF(rect.left + iconPad, rect.top + iconPad, rect.right - iconPad, rect.bottom - iconPad)
                 clipPath.reset()
                 if (bubble.iconShape == IslandBubbleIconShape.CIRCLE) {
                     clipPath.addCircle(iconRect.centerX(), iconRect.centerY(), iconSize / 2f, Path.Direction.CW)
