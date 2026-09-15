@@ -41,6 +41,9 @@ class IslandTouchHandler(
     var onMediaDismissRequested: (() -> Unit)? = null
     var onMediaTapped: (() -> Unit)? = null
     var onCalendarToggled: (() -> Unit)? = null
+    var onMediaFullPlayerToggled: ((Boolean) -> Unit)? = null
+    var onMediaControlTapped: ((Int) -> Unit)? = null
+    var onMediaBackgroundTapped: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -54,20 +57,31 @@ class IslandTouchHandler(
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    private val isPlainMediaLongPressEligible: Boolean
+        get() = isMediaTouch &&
+            overlayView?.isMediaPlaybackActive == true &&
+            overlayView?.isMediaCompact == false &&
+            overlayView?.isNotificationAlertActive == false &&
+            overlayView?.isCalendarActive == false
+
+    private val isLongPressEligible: Boolean
+        get() = (overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) ||
+            isPlainMediaLongPressEligible
+
     private val longPressRampRunnable1 = Runnable {
-        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+        if (isTouchActive && !isDragging && isLongPressEligible) {
             HapticUtil.performCustomHaptic(service, 0.18f)
         }
     }
 
     private val longPressRampRunnable2 = Runnable {
-        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+        if (isTouchActive && !isDragging && isLongPressEligible) {
             HapticUtil.performCustomHaptic(service, 0.42f)
         }
     }
 
     private val longPressRampRunnable3 = Runnable {
-        if (isTouchActive && !isDragging && overlayView?.isNotificationAlertActive == true && overlayView?.isCatchUpMode != true) {
+        if (isTouchActive && !isDragging && isLongPressEligible) {
             HapticUtil.performCustomHaptic(service, 0.70f)
         }
     }
@@ -86,6 +100,11 @@ class IslandTouchHandler(
                 val isNowExpanded = overlayView?.toggleExpansion() ?: false
                 onNotificationExpandToggled?.invoke(isNowExpanded)
             }
+        } else if (isTouchActive && !isDragging && isPlainMediaLongPressEligible) {
+            isLongPressed = true
+            HapticUtil.performStrongTickHaptic(service)
+            val isNowExpanded = overlayView?.toggleMediaFullPlayer() ?: false
+            onMediaFullPlayerToggled?.invoke(isNowExpanded)
         }
     }
 
@@ -211,7 +230,23 @@ class IslandTouchHandler(
                 val totalDist = hypot(dx, dy)
 
                 if (isMediaTouch && overlayView?.isMediaPlaybackActive == true) {
-                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                    val controlAction = overlayView?.getMediaControlActionAt(x, y) ?: -1
+                    if (controlAction >= 0 && totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.resetDragOffset()
+                        onMediaControlTapped?.invoke(controlAction)
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    } else if (overlayView?.isMediaFullPlayerActive == true) {
+                        overlayView?.resetDragOffset()
+                        if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                            if (settingsRepository.getIslandTapAction() == SettingsRepository.ISLAND_TAP_ACTION_EXPAND) {
+                                val isNowExpanded = overlayView?.toggleMediaFullPlayer() ?: false
+                                onMediaFullPlayerToggled?.invoke(isNowExpanded)
+                            } else {
+                                onMediaBackgroundTapped?.invoke()
+                            }
+                            HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                        }
+                    } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
                         overlayView?.resetDragOffset()
                         overlayView?.setMediaCompact(false)
                         onMediaTapped?.invoke()
