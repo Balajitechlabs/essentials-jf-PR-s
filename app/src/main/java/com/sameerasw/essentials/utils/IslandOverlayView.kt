@@ -54,6 +54,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private companion object {
         private const val MEDIA_BUBBLE_KEY = "media"
+        private const val TOTAL_BUBBLE_BUDGET = 2
     }
 
     private val density = resources.displayMetrics.density
@@ -199,6 +200,20 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private val leadingBubbleRects = mutableMapOf<Any, RectF>()
     private val trailingBubbleRects = mutableMapOf<Any, RectF>()
+
+    // Media takes one of the TOTAL_BUBBLE_BUDGET slots when docked; the queue gets the rest.
+    private val isMediaBubbleOccupyingSlot: Boolean
+        get() = isMediaPlaybackActive && !isCatchUpMode
+    private val maxQueuedBubbleSlots: Int
+        get() = TOTAL_BUBBLE_BUDGET - (if (isMediaBubbleOccupyingSlot) 1 else 0)
+
+    private fun trimQueueTo(maxSize: Int) {
+        while (queuedNotificationAlerts.size > maxSize) {
+            queuedNotificationAlerts.removeAt(0)
+            bubbleFractions[0] = bubbleFractions[1]
+            bubbleFractions[1] = 0f
+        }
+    }
 
     private var isMerging: Boolean = false
     private var mergeFraction: Float = 1.0f
@@ -426,12 +441,7 @@ class IslandOverlayView(context: Context) : View(context) {
             return
         }
 
-        if (queuedNotificationAlerts.size >= 2) {
-            queuedNotificationAlerts.removeAt(0)
-            bubbleFractions[0] = bubbleFractions[1]
-            bubbleFractions[1] = 0f
-        }
-
+        trimQueueTo((maxQueuedBubbleSlots - 1).coerceAtLeast(0))
         queuedNotificationAlerts.add(alert)
         val bubbleIdx = queuedNotificationAlerts.size - 1
         animateBubbleIn(bubbleIdx)
@@ -448,6 +458,7 @@ class IslandOverlayView(context: Context) : View(context) {
         mediaArtwork = artwork
         if (isNotificationAlertActive) setMediaBubbleVisible(true)
         if (!wasActive) {
+            trimQueueTo(maxQueuedBubbleSlots)
             isMediaCompact = false
             mediaCompactFraction = 0f
             mediaBubbleFraction = if (isNotificationAlertActive) 1f else 0f
