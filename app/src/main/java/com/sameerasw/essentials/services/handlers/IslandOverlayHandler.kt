@@ -114,6 +114,7 @@ class IslandOverlayHandler(
     private fun applyOrientationSuppression() {
         if (!settingsRepository.isIslandEnabled()) return
         if (isSuppressedByOrientationOrFullscreen) {
+            val preservedMediaKey = currentMediaKey
             mainHandler.removeCallbacks(dismissNotificationRunnable)
             mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
             overlayView?.dismissNotificationAlert()
@@ -121,6 +122,7 @@ class IslandOverlayHandler(
             overlayView?.dismissCalendarEvent()
             unregisterNotificationsListener()
             unregisterMediaListener()
+            currentMediaKey = preservedMediaKey
             removeOverlay()
             if (settingsRepository.isIslandSuppressSystemHeadsUpEnabled()) {
                 settingsRepository.applyHeadsUpSuppression(false)
