@@ -195,6 +195,101 @@ class IslandOverlayHandler(
     }
     private val calendarPollRunnable = Runnable { pollCalendarEvent() }
 
+    private val mediaProgressRunnable = Runnable { tickMediaProgress() }
+
+    private fun tickMediaProgress() {
+        val ov = overlayView ?: return
+        val controller = activeMediaController
+        if (!ov.isMediaFullPlayerActive || controller == null) return
+        val state = controller.playbackState
+        val duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+        if (state != null && duration > 0L) {
+            val elapsedMs = if (state.state == android.media.session.PlaybackState.STATE_PLAYING) {
+                (android.os.SystemClock.elapsedRealtime() - state.lastPositionUpdateTime) * state.playbackSpeed
+            } else {
+                0f
+            }
+            val position = (state.position + elapsedMs).coerceIn(0f, duration.toFloat())
+            ov.updateMediaProgress(position / duration.toFloat())
+        }
+        mainHandler.postDelayed(mediaProgressRunnable, 200L)
+    }
+
+    private fun isControllerLiked(controller: MediaController): Boolean {
+        try {
+            val metadata = controller.metadata
+            if (metadata != null) {
+                val rating = metadata.getRating(MediaMetadata.METADATA_KEY_USER_RATING)
+                if (rating != null && rating.isRated) {
+                    val liked = rating.hasHeart() ||
+                        rating.isThumbUp ||
+                        (rating.ratingStyle == android.media.Rating.RATING_PERCENTAGE && rating.percentRating >= 50)
+                    if (liked) return true
+                }
+            }
+            val playbackState = controller.playbackState
+            if (playbackState != null) {
+                for (action in playbackState.customActions) {
+                    val name = action.name?.toString().orEmpty()
+                    if (name.contains("Unheart", ignoreCase = true) ||
+                        name.contains("Unlike", ignoreCase = true) ||
+                        name.contains("Remove from", ignoreCase = true)
+                    ) {
+                        return true
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return false
+    }
+
+    private fun handleMediaControlAction(action: Int) {
+        val controller = activeMediaController ?: return
+        when (action) {
+            0 -> {
+                service.sendBroadcast(Intent(NotificationListener.ACTION_LIKE_CURRENT_SONG).setPackage(service.packageName))
+                mainHandler.postDelayed({
+                    activeMediaController?.let { overlayView?.setMediaLiked(isControllerLiked(it)) }
+                }, 400L)
+            }
+            1 -> {
+                if (controller.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING) {
+                    controller.transportControls.pause()
+                } else {
+                    controller.transportControls.play()
+                }
+            }
+            2 -> controller.transportControls.skipToNext()
+        }
+    }
+
+    private fun handleMediaBackgroundTap() {
+        val controller = activeMediaController ?: return
+        try {
+            val sessionActivity = controller.sessionActivity
+            if (sessionActivity != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val options = android.app.ActivityOptions.makeBasic().apply {
+                        pendingIntentBackgroundActivityStartMode =
+                            android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }
+                    sessionActivity.send(service, 0, null, null, null, null, options.toBundle())
+                } else {
+                    sessionActivity.send()
+                }
+                return
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val launchIntent = service.packageManager.getLaunchIntentForPackage(controller.packageName)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                service.startActivity(launchIntent)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun scheduleCalendarPoll() {
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.postDelayed(calendarPollRunnable, CALENDAR_POLL_INTERVAL_MS)
@@ -386,6 +481,25 @@ class IslandOverlayHandler(
             }
         }
 
+        touchHandler.onMediaFullPlayerToggled = { isActive ->
+            expandTouchAnchorForNotification()
+            mainHandler.removeCallbacks(dismissNotificationRunnable)
+            mainHandler.removeCallbacks(mediaProgressRunnable)
+            if (isActive) {
+                tickMediaProgress()
+            } else {
+                scheduleDismissTimer()
+            }
+        }
+
+        touchHandler.onMediaBackgroundTapped = {
+            handleMediaBackgroundTap()
+        }
+
+        touchHandler.onMediaControlTapped = { action ->
+            handleMediaControlAction(action)
+        }
+
         updateOverlay()
         scheduleCalendarPoll()
     }
@@ -425,6 +539,7 @@ class IslandOverlayHandler(
     private fun unregisterMediaListener() {
         if (!isMediaSessionRegistered) return
         mainHandler.removeCallbacks(mediaUpdateRunnable)
+        mainHandler.removeCallbacks(mediaProgressRunnable)
         cancelPausedMediaGrace()
         try { activeMediaSessionsListener?.let { mediaSessionManager?.removeOnActiveSessionsChangedListener(it) } } catch (_: Exception) {}
         activeMediaSessionsListener = null
@@ -504,6 +619,8 @@ class IslandOverlayHandler(
                 cancelPausedMediaGrace()
                 activeMediaController = playing
                 ov.setMediaPaused(false)
+                ov.setMediaTransportPlaying(true)
+                ov.setMediaLiked(isControllerLiked(playing))
                 val metadata = playing.metadata
                 val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()
                 val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
@@ -534,6 +651,7 @@ class IslandOverlayHandler(
                 current.playbackState?.state == android.media.session.PlaybackState.STATE_PAUSED
 
             if (isCurrentPaused) {
+                ov.setMediaTransportPlaying(false)
                 if (pausedMediaRunnable == null) {
                     ov.setMediaPaused(true)
                     pausedMediaRunnable = Runnable {
@@ -560,10 +678,28 @@ class IslandOverlayHandler(
             if (!title.isNullOrBlank()) {
                 val hash = kotlin.math.abs("${title}_$artist".hashCode().toLong())
                 bitmap = NotificationListener.getCachedBitmap(hash)
-                    ?: File(service.cacheDir, "art_$hash.png").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                if (bitmap == null) {
+                    val artFile = File(service.cacheDir, "art_$hash.png")
+                    if (artFile.exists()) {
+                        try {
+                            bitmap = BitmapFactory.decodeFile(artFile.absolutePath)
+                        } catch (_: Exception) {}
+                    }
+                }
             }
         }
-        return bitmap ?: NotificationListener.getLatestArtBitmap()
+        if (bitmap == null) {
+            bitmap = NotificationListener.getLatestArtBitmap()
+        }
+        if (bitmap == null) {
+            val tempArtFile = File(service.cacheDir, "temp_album_art.png")
+            if (tempArtFile.exists()) {
+                try {
+                    bitmap = BitmapFactory.decodeFile(tempArtFile.absolutePath)
+                } catch (_: Exception) {}
+            }
+        }
+        return bitmap
     }
 
     private fun unregisterNotificationsListener() {
@@ -789,6 +925,7 @@ class IslandOverlayHandler(
         } catch (_: Exception) {}
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+        mainHandler.removeCallbacks(mediaProgressRunnable)
         unregisterNotificationsListener()
         unregisterMediaListener()
         removeOverlay()
