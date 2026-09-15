@@ -797,7 +797,6 @@ class IslandOverlayView(context: Context) : View(context) {
         val iconSize = (targetPillHeight - 14f * density).coerceAtLeast(16f * density)
         val verticalPadding = (targetPillHeight - iconSize) / 2f
 
-        val (sender, message) = computeSenderAndMessage(alert)
         val textSize = (targetPillHeight * 0.38f).coerceIn(13f * density, 20f * density)
         notificationSenderPaint.typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
         notificationSenderPaint.textSize = textSize
@@ -807,21 +806,12 @@ class IslandOverlayView(context: Context) : View(context) {
         val isCenterCamera = abs(cameraCenterX - screenWidth / 2f) < 50f * density
 
         if (isCenterCamera) {
-            val senderWidth = notificationSenderPaint.measureText(sender)
-            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(message) else 0f
-
-            val distLeftNeeded = cameraRadiusPx + 10f * density + senderWidth + 8f * density + iconSize + verticalPadding
-            val distRightNeeded = cameraRadiusPx + 10f * density + messageWidth + 16f * density
             val minHalfWidth = cameraRadiusPx + iconSize + 24f * density
-
             val maxScreenHalfWidth = minOf(
                 cameraCenterX - 8f * density,
                 screenWidth - cameraCenterX - 8f * density,
             ).coerceAtLeast(minHalfWidth)
-
-            val maxAllowedHalfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth)
-            val halfWidthNeeded = maxOf(distLeftNeeded, distRightNeeded)
-            val halfWidth = halfWidthNeeded.coerceIn(minHalfWidth, maxAllowedHalfWidth)
+            val halfWidth = (maxWidthDp * density / 2f).coerceAtMost(maxScreenHalfWidth).coerceAtLeast(minHalfWidth)
 
             val targetLeft = cameraCenterX - halfWidth
             val targetRight = cameraCenterX + halfWidth
@@ -829,15 +819,8 @@ class IslandOverlayView(context: Context) : View(context) {
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         } else {
             val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
-            val iconLeft = cameraCenterX + cameraRadiusPx + 12f * density
-            val senderLeft = iconLeft + iconSize + 8f * density
-            val senderWidth = notificationSenderPaint.measureText(sender)
-            val messageWidth = if (message.isNotBlank()) notificationBodyPaint.measureText(" • $message") else 0f
-
             val maxAllowedWidthPx = (maxWidthDp * density).coerceAtMost(screenWidth - 16f * density)
-            val maxRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density)
-            val distNeeded = senderLeft + senderWidth + messageWidth + 18f * density
-            val targetRight = distNeeded.coerceIn(targetLeft + 80f * density, maxRight)
+            val targetRight = (targetLeft + maxAllowedWidthPx).coerceAtMost(screenWidth - 8f * density).coerceAtLeast(targetLeft + 80f * density)
 
             return RectF(targetLeft, targetTop, targetRight, targetBottom)
         }
