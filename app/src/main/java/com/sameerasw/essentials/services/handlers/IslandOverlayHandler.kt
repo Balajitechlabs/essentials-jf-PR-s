@@ -265,6 +265,13 @@ class IslandOverlayHandler(
 
     private fun handleMediaBackgroundTap() {
         val controller = activeMediaController ?: return
+
+        if (overlayView?.isMediaFullPlayerActive == true) {
+            overlayView?.toggleMediaFullPlayer()
+            touchHandler.onMediaFullPlayerToggled?.invoke(false)
+        }
+        overlayView?.setMediaCompact(true)
+
         try {
             val sessionActivity = controller.sessionActivity
             if (sessionActivity != null) {
