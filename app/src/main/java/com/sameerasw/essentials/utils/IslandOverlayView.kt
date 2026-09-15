@@ -1258,12 +1258,8 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private fun drawMediaPlayback(canvas: Canvas) {
         val height = cameraRadiusPx * 2f + 14f * density
-        val initial = RectF(
-            cameraCenterX - cameraRadiusPx,
-            cameraCenterY - cameraRadiusPx,
-            cameraCenterX + cameraRadiusPx,
-            cameraCenterY + cameraRadiusPx,
-        )
+        val initialLeft = cameraCenterX - cameraRadiusPx
+        val initialRight = cameraCenterX + cameraRadiusPx
         val collapseFraction = when (dragCollapseTarget) {
             DragCollapseTarget.CAMERA -> 0f
             DragCollapseTarget.COMPACT -> 1f
@@ -1272,15 +1268,9 @@ class IslandOverlayView(context: Context) : View(context) {
             (mediaCompactFraction + (1f - mediaCompactFraction) * dragCollapseFraction * collapseFraction)
                 .coerceIn(0f, 1f),
         )
-        val targetLeft = target.left
-        val targetRight = target.right
-        val targetTop = target.top
-        val targetBottom = target.bottom
-        val left = initial.left + (targetLeft - initial.left) * mediaFraction
-        val right = initial.right + (targetRight - initial.right) * mediaFraction
-        val top = initial.top + (targetTop - initial.top) * mediaFraction
-        val bottom = initial.bottom + (targetBottom - initial.bottom) * mediaFraction
-        mediaPillRect.set(left, top, right, bottom)
+        val left = initialLeft + (target.left - initialLeft) * mediaFraction
+        val right = initialRight + (target.right - initialRight) * mediaFraction
+        mediaPillRect.set(left, target.top, right, target.bottom)
 
         notificationPillPaint.color = Color.BLACK
         notificationPillPaint.alpha = 255
