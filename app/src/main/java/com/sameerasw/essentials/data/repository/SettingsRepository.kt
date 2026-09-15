@@ -429,6 +429,7 @@ class SettingsRepository(
         const val KEY_ISLAND_CATCH_UP_TIMEOUT_MS = "island_catch_up_timeout_ms"
         const val KEY_ISLAND_SHOW_MEDIA = "island_show_media"
         const val KEY_ISLAND_MEDIA_EXCLUDED_APPS = "island_media_excluded_apps"
+        const val KEY_ISLAND_SHOW_CALENDAR = "island_show_calendar"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -441,6 +442,7 @@ class SettingsRepository(
         const val KEY_STATUS_GLANCE_SHOW_CALENDAR = "status_glance_show_calendar"
         const val KEY_STATUS_GLANCE_CALENDAR_TIMEFRAME = "status_glance_calendar_timeframe"
         const val KEY_STATUS_GLANCE_CALENDAR_SELECTED_CALENDARS = "status_glance_calendar_selected_calendars"
+        const val KEY_STATUS_GLANCE_CALENDAR_SHOW_ALL_DAY = "status_glance_calendar_show_all_day"
         const val KEY_STATUS_GLANCE_SHOW_MEDIA = "status_glance_show_media"
         const val KEY_STATUS_GLANCE_SHOW_TIME = "status_glance_show_time"
         const val KEY_STATUS_GLANCE_BACKGROUND_PILL = "status_glance_background_pill"
@@ -3417,6 +3419,9 @@ class SettingsRepository(
     fun updateIslandMediaExcludedAppSelection(packageName: String, enabled: Boolean) =
         updateAppSelection(KEY_ISLAND_MEDIA_EXCLUDED_APPS, packageName, enabled)
 
+    fun isIslandShowCalendarEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_CALENDAR, false)
+    fun setIslandShowCalendarEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_CALENDAR, enabled)
+
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1
         try {
@@ -3461,6 +3466,9 @@ class SettingsRepository(
 
     fun getStatusGlanceCalendarTimeframe(): String = getString(KEY_STATUS_GLANCE_CALENDAR_TIMEFRAME, "today") ?: "today"
     fun setStatusGlanceCalendarTimeframe(timeframe: String) = putString(KEY_STATUS_GLANCE_CALENDAR_TIMEFRAME, timeframe)
+
+    fun isStatusGlanceCalendarShowAllDayEnabled(): Boolean = getBoolean(KEY_STATUS_GLANCE_CALENDAR_SHOW_ALL_DAY, false)
+    fun setStatusGlanceCalendarShowAllDayEnabled(enabled: Boolean) = putBoolean(KEY_STATUS_GLANCE_CALENDAR_SHOW_ALL_DAY, enabled)
 
     fun getStatusGlanceCalendarSelectedCalendars(): Set<String> {
         val json = prefs.getString(KEY_STATUS_GLANCE_CALENDAR_SELECTED_CALENDARS, null)

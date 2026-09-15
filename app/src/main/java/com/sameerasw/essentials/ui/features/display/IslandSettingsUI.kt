@@ -49,6 +49,7 @@ import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
+import com.sameerasw.essentials.ui.features.display.sheets.StatusGlanceCalendarOptionsBottomSheet
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.PermissionUIHelper
@@ -133,6 +134,7 @@ fun IslandSettingsUI(
     val view = LocalView.current
     var requestingPermissionsFor by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
     var showMediaAppSelectionSheet by remember { mutableStateOf(false) }
+    var showCalendarOptionsSheet by remember { mutableStateOf(false) }
 
     if (requestingPermissionsFor != null) {
         val (titleRes, permKeys) = requestingPermissionsFor!!
@@ -477,6 +479,22 @@ fun IslandSettingsUI(
                 onSettingsClick = { showMediaAppSelectionSheet = true },
                 modifier = Modifier.highlight(highlightSetting == "island_show_media"),
             )
+
+            IconToggleItem(
+                iconRes = R.drawable.rounded_calendar_today_24,
+                title = stringResource(R.string.status_glance_show_calendar_title),
+                isChecked = viewModel.isIslandShowCalendar.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    if (checked && !viewModel.isCalendarPermissionGranted.value) {
+                        requestingPermissionsFor = Pair(R.string.island_title, listOf("READ_CALENDAR"))
+                    } else {
+                        viewModel.setIslandShowCalendar(checked)
+                    }
+                },
+                onSettingsClick = { showCalendarOptionsSheet = true },
+                modifier = Modifier.highlight(highlightSetting == "island_show_calendar"),
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -490,6 +508,13 @@ fun IslandSettingsUI(
             onSaveApps = { ctx, apps -> viewModel.saveIslandMediaApps(ctx, apps) },
             onAppToggle = { ctx, pkg, enabled -> viewModel.updateIslandMediaAppEnabled(ctx, pkg, enabled) },
             context = context,
+        )
+    }
+
+    if (showCalendarOptionsSheet) {
+        StatusGlanceCalendarOptionsBottomSheet(
+            viewModel = viewModel,
+            onDismissRequest = { showCalendarOptionsSheet = false },
         )
     }
 }
