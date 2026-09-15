@@ -387,13 +387,14 @@ class IslandOverlayHandler(
             if (title.isBlank() && artist.isBlank()) return@post
             val key = "${playing.packageName}_${title}_${artist}"
             if (currentMediaKey == key && ov.isMediaPlaybackActive) return@post
+            val isSameTrackAsBefore = currentMediaKey == key
             currentMediaKey = key
             handlerScope.launch(Dispatchers.IO) {
                 val artwork = extractMediaArtwork(metadata)
                 withContext(Dispatchers.Main) {
                     if (activeMediaController?.sessionToken == playing.sessionToken && !ov.isNotificationAlertActive && !isHiddenByScreenOrLock) {
                         ensureOverlayAttached()
-                        ov.showMediaPlayback(title, artist, artwork)
+                        ov.showMediaPlayback(title, artist, artwork, startCompact = isSameTrackAsBefore)
                         expandTouchAnchorForNotification()
                         scheduleDismissTimer()
                     }
