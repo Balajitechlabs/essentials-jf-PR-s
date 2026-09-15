@@ -31,7 +31,6 @@ import android.text.TextPaint
 import android.text.TextUtils
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.LinearInterpolator
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.sameerasw.essentials.R
@@ -39,13 +38,22 @@ import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
+import com.sameerasw.essentials.utils.island.IslandBubbleIconShape
+import com.sameerasw.essentials.utils.island.IslandBubbleRow
+import com.sameerasw.essentials.utils.island.IslandBubbleSide
+import com.sameerasw.essentials.utils.island.IslandBubbleSpec
 import com.sameerasw.essentials.utils.island.IslandTransitionSpec
+import com.sameerasw.essentials.utils.island.MarqueeController
 import kotlin.math.abs
 
 class IslandOverlayView(context: Context) : View(context) {
     enum class DragCollapseTarget {
         CAMERA,
         COMPACT,
+    }
+
+    private companion object {
+        private const val MEDIA_BUBBLE_KEY = "media"
     }
 
     private val density = resources.displayMetrics.density
@@ -187,9 +195,10 @@ class IslandOverlayView(context: Context) : View(context) {
     private val queuedNotificationAlerts = mutableListOf<ActiveNotificationAlert>()
     private val bubbleFractions = floatArrayOf(0f, 0f)
     private val bubbleAnimators = arrayOf(AnimatedFloatProperty(), AnimatedFloatProperty())
-    private val bubbleRects = arrayOf(RectF(), RectF())
     private val catchUpUnreadIconRect = RectF()
-    private val mediaBubbleRect = RectF()
+
+    private val leadingBubbleRects = mutableMapOf<Any, RectF>()
+    private val trailingBubbleRects = mutableMapOf<Any, RectF>()
 
     private var isMerging: Boolean = false
     private var mergeFraction: Float = 1.0f
@@ -531,14 +540,10 @@ class IslandOverlayView(context: Context) : View(context) {
     fun getQueuedAlertIndexAt(x: Float, y: Float): Int {
         if (expandedFraction > 0.1f) return -1
         for (i in queuedNotificationAlerts.indices) {
+            val rect = leadingBubbleRects[i] ?: continue
             if (i in 0..1 && bubbleFractions[i] > 0.3f) {
                 val pad = 6f * density
-                val touchRect = RectF(
-                    bubbleRects[i].left - pad,
-                    bubbleRects[i].top - pad,
-                    bubbleRects[i].right + pad,
-                    bubbleRects[i].bottom + pad,
-                )
+                val touchRect = RectF(rect.left - pad, rect.top - pad, rect.right + pad, rect.bottom + pad)
                 if (touchRect.contains(x, y)) {
                     return i
                 }
@@ -556,9 +561,10 @@ class IslandOverlayView(context: Context) : View(context) {
 
         mergeSourcePillLeft = notificationPillRect.left
         mergeSourcePillRight = notificationPillRect.right
-        mergeSourceBubbleLeft = if (bubbleRects[index].left > 0f) bubbleRects[index].left else (notificationPillRect.left - 40f * density)
-        mergeSourceBubbleCenterX = if (bubbleRects[index].centerX() > 0f) bubbleRects[index].centerX() else (mergeSourceBubbleLeft + 20f * density)
-        mergeSourceBubbleCenterY = if (bubbleRects[index].centerY() > 0f) bubbleRects[index].centerY() else notificationPillRect.centerY()
+        val sourceBubbleRect = leadingBubbleRects[index]
+        mergeSourceBubbleLeft = sourceBubbleRect?.left?.takeIf { it > 0f } ?: (notificationPillRect.left - 40f * density)
+        mergeSourceBubbleCenterX = sourceBubbleRect?.centerX()?.takeIf { it > 0f } ?: (mergeSourceBubbleLeft + 20f * density)
+        mergeSourceBubbleCenterY = sourceBubbleRect?.centerY()?.takeIf { it > 0f } ?: notificationPillRect.centerY()
 
         previousAlert = outgoingAlert
         activeNotificationAlert = incomingAlert
@@ -985,7 +991,7 @@ class IslandOverlayView(context: Context) : View(context) {
         if (expandedFraction < 0.5f) {
             for (i in queuedNotificationAlerts.indices) {
                 if (i in 0..1 && bubbleFractions[i] > 0.5f) {
-                    if (bubbleRects[i].contains(x, y)) {
+                    if (leadingBubbleRects[i]?.contains(x, y) == true) {
                         return queuedNotificationAlerts[i]
                     }
                 }
@@ -1029,6 +1035,7 @@ class IslandOverlayView(context: Context) : View(context) {
                 val rect = RectF(notificationPillRect.left - pad, notificationPillRect.top - pad, notificationPillRect.right + pad, notificationPillRect.bottom + pad)
                 return rect.contains(x, y) && x >= notificationPillRect.centerX()
             }
+            val mediaBubbleRect = trailingBubbleRects[MEDIA_BUBBLE_KEY] ?: return false
             return RectF(mediaBubbleRect.left - pad, mediaBubbleRect.top - pad, mediaBubbleRect.right + pad, mediaBubbleRect.bottom + pad).contains(x, y)
         }
         val bounds = currentMediaBounds()
@@ -1047,7 +1054,7 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private fun computeMediaBubbleBounds(): RectF {
-        if (mediaBubbleRect.width() > 0f) return RectF(mediaBubbleRect)
+        trailingBubbleRects[MEDIA_BUBBLE_KEY]?.let { return RectF(it) }
         val size = cameraRadiusPx * 2f + 14f * density
         val top = cameraCenterY - size / 2f
         val left = cameraCenterX + cameraRadiusPx + 8f * density
@@ -1316,19 +1323,30 @@ class IslandOverlayView(context: Context) : View(context) {
             val bubbleSize = basePillHeight
             val bubbleGap = 8f * density
 
-            var leadingBubblesWidth = 0f
             val queueVisibleFraction = (1f - expandedFraction).coerceIn(0f, 1f)
-            for (i in queuedNotificationAlerts.indices) {
-                if (i in 0..1) {
-                    val bFrac = bubbleFractions[i] * queueVisibleFraction
-                    leadingBubblesWidth += (bubbleSize + bubbleGap) * bFrac
-                }
+            val leadingBubbleSpecs = queuedNotificationAlerts.indices.filter { it in 0..1 }.map { i ->
+                val queuedAlert = queuedNotificationAlerts[i]
+                IslandBubbleSpec(
+                    key = i,
+                    visibleFraction = bubbleFractions[i] * queueVisibleFraction,
+                    icon = queuedAlert.icon ?: queuedAlert.appIcon,
+                )
             }
-            val trailingBubblesWidth = if (isMediaPlaybackActive && !isCatchUpMode) {
-                (bubbleSize + bubbleGap) * (mediaBubbleFraction * queueVisibleFraction)
+            val trailingBubbleSpecs = if (isMediaPlaybackActive && !isCatchUpMode) {
+                listOf(
+                    IslandBubbleSpec(
+                        key = MEDIA_BUBBLE_KEY,
+                        visibleFraction = mediaBubbleFraction * queueVisibleFraction,
+                        icon = mediaArtwork ?: musicIconBitmap,
+                        iconShape = if (mediaArtwork != null) IslandBubbleIconShape.CIRCLE else IslandBubbleIconShape.ROUNDED_SQUARE,
+                        iconTint = if (mediaArtwork == null) Color.WHITE else null,
+                    ),
+                )
             } else {
-                0f
+                emptyList()
             }
+            val leadingBubblesWidth = IslandBubbleRow.reservedWidth(leadingBubbleSpecs, bubbleSize, bubbleGap)
+            val trailingBubblesWidth = IslandBubbleRow.reservedWidth(trailingBubbleSpecs, bubbleSize, bubbleGap)
 
             val fullTargetLeft = targetBounds.left
             val adjustedTargetLeft = (fullTargetLeft + leadingBubblesWidth).coerceAtMost(cameraCenterX - cameraRadiusPx - 20f * density)
@@ -1820,101 +1838,41 @@ class IslandOverlayView(context: Context) : View(context) {
                 }
             }
 
-            var runningLeft = currentLeft
-            for (i in queuedNotificationAlerts.indices) {
-                if (i in 0..1) {
-                    val queuedAlert = queuedNotificationAlerts[i]
-                    val bFrac = bubbleFractions[i] * queueVisibleFraction
-                    if (bFrac > 0.01f) {
-                        val slideOffset = if (isMerging) {
-                            (bubbleSize + bubbleGap) * (1f - mergeFraction)
-                        } else {
-                            0f
-                        }
+            val mergeSlideGap = if (isMerging) (bubbleSize + bubbleGap) * (1f - mergeFraction) else 0f
+            notificationPillPaint.color = Color.BLACK
+            IslandBubbleRow.draw(
+                canvas = canvas,
+                side = IslandBubbleSide.LEADING,
+                bubbles = leadingBubbleSpecs,
+                anchorEdge = currentLeft,
+                top = currentTop,
+                bottom = currentBottom,
+                bubbleSize = bubbleSize,
+                bubbleGap = bubbleGap,
+                density = density,
+                pillPaint = notificationPillPaint,
+                iconPaint = iconPaint,
+                tintPaint = catchUpUnreadPaint,
+                outRects = leadingBubbleRects,
+                extraGap = mergeSlideGap,
+            )
 
-                        val bRight = runningLeft - bubbleGap - slideOffset
-                        val bLeft = bRight - bubbleSize
-                        runningLeft = bLeft
-
-                        bubbleRects[i].set(bLeft, currentTop, bRight, currentBottom)
-                        val bRadius = bubbleSize / 2f
-
-                        val bSaveCount = canvas.save()
-                        canvas.scale(bFrac, bFrac, bubbleRects[i].centerX(), bubbleRects[i].centerY())
-
-                        notificationPillPaint.color = Color.BLACK
-                        notificationPillPaint.alpha = (bFrac * 255).toInt().coerceIn(0, 255)
-                        canvas.drawRoundRect(bubbleRects[i], bRadius, bRadius, notificationPillPaint)
-
-                        val qIcon = queuedAlert.icon ?: queuedAlert.appIcon
-                        if (qIcon != null) {
-                            val bIconSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
-                            val bIconPad = (bubbleSize - bIconSize) / 2f
-                            val bIconRect = RectF(
-                                bLeft + bIconPad,
-                                currentTop + bIconPad,
-                                bLeft + bIconPad + bIconSize,
-                                currentTop + bIconPad + bIconSize,
-                            )
-
-                            val bClipPath = Path().apply {
-                                addRoundRect(bIconRect, bIconSize * 0.28f, bIconSize * 0.28f, Path.Direction.CW)
-                            }
-                            canvas.save()
-                            canvas.clipPath(bClipPath)
-                            iconPaint.alpha = (bFrac * 255).toInt().coerceIn(0, 255)
-                            canvas.drawBitmap(qIcon, null, bIconRect, iconPaint)
-                            canvas.restore()
-                        }
-
-                        canvas.restoreToCount(bSaveCount)
-                    }
-                }
-            }
-
-            if (isMediaPlaybackActive && !isCatchUpMode) {
-                val mFrac = mediaBubbleFraction * queueVisibleFraction
-                if (mFrac > 0.01f) {
-                    val mLeft = currentRight + bubbleGap
-                    val mRight = mLeft + bubbleSize
-                    mediaBubbleRect.set(mLeft, currentTop, mRight, currentBottom)
-                    val mRadius = bubbleSize / 2f
-
-                    val mSaveCount = canvas.save()
-                    canvas.scale(mFrac, mFrac, mediaBubbleRect.centerX(), mediaBubbleRect.centerY())
-
-                    notificationPillPaint.color = Color.BLACK
-                    notificationPillPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
-                    canvas.drawRoundRect(mediaBubbleRect, mRadius, mRadius, notificationPillPaint)
-
-                    val artSize = (bubbleSize - 12f * density).coerceAtLeast(14f * density)
-                    val artPad = (bubbleSize - artSize) / 2f
-                    val artRect = RectF(mLeft + artPad, currentTop + artPad, mLeft + artPad + artSize, currentTop + artPad + artSize)
-                    val art = mediaArtwork
-                    if (art != null) {
-                        val artClipPath = Path().apply {
-                            addCircle(artRect.centerX(), artRect.centerY(), artSize / 2f, Path.Direction.CW)
-                        }
-                        canvas.save()
-                        canvas.clipPath(artClipPath)
-                        iconPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
-                        canvas.drawBitmap(art, null, artRect, iconPaint)
-                        canvas.restore()
-                    } else {
-                        musicIconBitmap?.let {
-                            catchUpUnreadPaint.alpha = (mFrac * 255).toInt().coerceIn(0, 255)
-                            catchUpUnreadPaint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                            canvas.drawBitmap(it, null, artRect, catchUpUnreadPaint)
-                        }
-                    }
-
-                    canvas.restoreToCount(mSaveCount)
-                } else {
-                    mediaBubbleRect.setEmpty()
-                }
-            } else {
-                mediaBubbleRect.setEmpty()
-            }
+            notificationPillPaint.color = Color.BLACK
+            IslandBubbleRow.draw(
+                canvas = canvas,
+                side = IslandBubbleSide.TRAILING,
+                bubbles = trailingBubbleSpecs,
+                anchorEdge = currentRight,
+                top = currentTop,
+                bottom = currentBottom,
+                bubbleSize = bubbleSize,
+                bubbleGap = bubbleGap,
+                density = density,
+                pillPaint = notificationPillPaint,
+                iconPaint = iconPaint,
+                tintPaint = catchUpUnreadPaint,
+                outRects = trailingBubbleRects,
+            )
 
             canvas.restoreToCount(canvasSaveCount)
         }
@@ -2001,59 +1959,4 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 }
 
-private class MarqueeController {
-    var offset: Float = 0f
-    var isNeeded: Boolean = false
-    var lastText: String = ""
-    var lastWidth: Float = 0f
-    private var animator: ValueAnimator? = null
-
-    fun update(text: String, maxTextWidth: Float, textPaint: Paint, density: Float, onInvalidate: () -> Unit) {
-        val textWidth = textPaint.measureText(text)
-        val needed = (textWidth - maxTextWidth) > 1.5f * density && maxTextWidth > 0f
-
-        if (needed) {
-            if (!isNeeded || text != lastText || abs(maxTextWidth - lastWidth) > 1f) {
-                isNeeded = true
-                lastText = text
-                lastWidth = maxTextWidth
-                animator?.cancel()
-                offset = 0f
-
-                val marqueeGap = 28f * density
-                val totalDistance = textWidth + marqueeGap
-                val speedDpPerSec = 30f
-                val durationMs = ((totalDistance / density) / speedDpPerSec * 1000L).toLong().coerceAtLeast(2000L)
-
-                animator = ValueAnimator.ofFloat(0f, totalDistance).apply {
-                    duration = durationMs
-                    interpolator = LinearInterpolator()
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.RESTART
-                    startDelay = 1200L
-                    addUpdateListener {
-                        offset = it.animatedValue as Float
-                        onInvalidate()
-                    }
-                    start()
-                }
-            }
-        } else {
-            if (isNeeded || text != lastText) {
-                stop()
-                lastText = text
-                lastWidth = maxTextWidth
-            }
-        }
-    }
-
-    fun stop() {
-        isNeeded = false
-        lastText = ""
-        lastWidth = 0f
-        animator?.cancel()
-        animator = null
-        offset = 0f
-    }
-}
 
