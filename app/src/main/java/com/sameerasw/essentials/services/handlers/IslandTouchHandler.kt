@@ -24,6 +24,7 @@ import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.NotificationListener
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
+import com.sameerasw.essentials.utils.island.IslandSwipeDirections
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -213,17 +214,10 @@ class IslandTouchHandler(
                     }
                 } else if (overlayView?.isNotificationAlertActive == true) {
                     val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
-                    val isSwipeUp = dy < -touchSlopPx * 1.5f && abs(dy) > abs(dx)
-                    val isSwipeTowardCamera = when {
-                        downX < cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        downX > cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        else -> false
-                    }
-                    val isSwipeAwayFromCamera = when {
-                        downX < cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        downX > cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        else -> abs(dx) > touchSlopPx * 2.0f && abs(dx) > abs(dy)
-                    }
+                    val swipe = IslandSwipeDirections.classify(downX, dx, dy, cameraX, touchSlopPx)
+                    val isSwipeUp = swipe.isSwipeUp
+                    val isSwipeTowardCamera = swipe.isTowardCamera
+                    val isSwipeAwayFromCamera = swipe.isAwayFromCamera
 
                     if (isSwipeAwayFromCamera && overlayView?.isCatchUpMode != true) {
                         HapticUtil.performRumbleHaptic(service)
@@ -293,11 +287,7 @@ class IslandTouchHandler(
                     }
                 } else if (overlayView?.isMediaPlaybackActive == true) {
                     val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
-                    val isSwipeTowardCamera = when {
-                        downX < cameraX -> dx > touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        downX > cameraX -> dx < -touchSlopPx * 1.5f && abs(dx) > abs(dy)
-                        else -> false
-                    }
+                    val isSwipeTowardCamera = IslandSwipeDirections.classify(downX, dx, dy, cameraX, touchSlopPx).isTowardCamera
 
                     if (isSwipeTowardCamera) {
                         HapticUtil.performRumbleHaptic(service)
