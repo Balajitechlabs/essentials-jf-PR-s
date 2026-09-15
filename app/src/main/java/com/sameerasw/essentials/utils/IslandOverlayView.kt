@@ -214,6 +214,8 @@ class IslandOverlayView(context: Context) : View(context) {
     private var calendarFraction: Float = 0f
     private var calendarCompactFraction: Float = 1f
     private val calendarPillRect = RectF()
+    private val calendarIconRevealAnimator = AnimatedFloatProperty()
+    private var calendarIconRevealFraction: Float = 1f
 
     var animatedNotificationFraction: Float = 0f
         private set
@@ -581,14 +583,42 @@ class IslandOverlayView(context: Context) : View(context) {
     fun showCalendarEvent(title: String, fullTimeText: String, compactTimeText: String, location: String) {
         if (!isIslandEnabled || isNotificationAlertActive || (isMediaPlaybackActive && !isMediaCompact)) return
         val wasActive = isCalendarActive
+        val mergingFromMedia = !wasActive && isMediaPlaybackActive
         isCalendarActive = true
         calendarEventTitle = title
         calendarFullTimeText = fullTimeText
         calendarCompactTimeText = compactTimeText
         calendarLocationText = location
-        if (!wasActive) {
+        if (mergingFromMedia) {
+            mediaCompactAnimator.cancel()
+            isCalendarCompact = true
+            calendarFraction = 1f
+            calendarCompactFraction = mediaCompactFraction
+            calendarIconRevealAnimator.cancel()
+            calendarIconRevealFraction = 0f
+            calendarCompactAnimator.animateTo(
+                from = calendarCompactFraction,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    calendarCompactFraction = it
+                    invalidate()
+                },
+            )
+            calendarIconRevealAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    calendarIconRevealFraction = it
+                    invalidate()
+                },
+            )
+            onAlertsChanged?.invoke()
+        } else if (!wasActive) {
             isCalendarCompact = true
             calendarCompactFraction = 1f
+            calendarIconRevealFraction = 1f
             calendarAnimator.animateTo(
                 from = calendarFraction,
                 to = 1f,
@@ -628,6 +658,8 @@ class IslandOverlayView(context: Context) : View(context) {
     fun dismissCalendarEvent() {
         if (!isCalendarActive) return
         calendarCompactAnimator.cancel()
+        calendarIconRevealAnimator.cancel()
+        calendarIconRevealFraction = 1f
         calendarAnimator.animateTo(
             from = calendarFraction,
             to = 0f,
@@ -706,8 +738,21 @@ class IslandOverlayView(context: Context) : View(context) {
         val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
         val pad = (height - iconSize) / 2f
         val iconRect = RectF(calendarPillRect.left + pad, calendarPillRect.top + pad, calendarPillRect.left + pad + iconSize, calendarPillRect.top + pad + iconSize)
+        if (calendarIconRevealFraction < 0.999f) {
+            val art = mediaArtwork
+            val outAlpha = (alpha * (1f - calendarIconRevealFraction)).toInt().coerceIn(0, 255)
+            if (art != null && outAlpha > 0) {
+                catchUpIconClipPath.reset()
+                catchUpIconClipPath.addCircle(iconRect.centerX(), iconRect.centerY(), iconSize / 2f, Path.Direction.CW)
+                canvas.save()
+                canvas.clipPath(catchUpIconClipPath)
+                iconPaint.alpha = outAlpha
+                canvas.drawBitmap(art, null, iconRect, iconPaint)
+                canvas.restore()
+            }
+        }
         calendarIconBitmap?.let {
-            iconPaint.alpha = alpha
+            iconPaint.alpha = (alpha * calendarIconRevealFraction).toInt().coerceIn(0, 255)
             iconPaint.colorFilter = PorterDuffColorFilter(materialYouAccentColor(), PorterDuff.Mode.SRC_IN)
             canvas.drawBitmap(it, null, iconRect, iconPaint)
         }
@@ -724,12 +769,17 @@ class IslandOverlayView(context: Context) : View(context) {
                     catchUpIconClipPath.addCircle(mediaIconRect.centerX(), mediaIconRect.centerY(), iconSize / 2f, Path.Direction.CW)
                     canvas.save()
                     canvas.clipPath(catchUpIconClipPath)
-                    iconPaint.alpha = compactAlpha
+                    iconPaint.alpha = (compactAlpha * calendarIconRevealFraction).toInt().coerceIn(0, 255)
                     canvas.drawBitmap(art, null, mediaIconRect, iconPaint)
                     canvas.restore()
-                } else {
+                }
+                if (art == null || calendarIconRevealFraction < 0.999f) {
                     equalizerPaint.color = materialYouAccentColor()
-                    equalizerPaint.alpha = compactAlpha
+                    equalizerPaint.alpha = if (art != null) {
+                        (compactAlpha * (1f - calendarIconRevealFraction)).toInt().coerceIn(0, 255)
+                    } else {
+                        compactAlpha
+                    }
                     drawEqualizerIcon(canvas, mediaIconRect, equalizerAnimator.barLevels, equalizerPaint)
                 }
             } else {
@@ -806,6 +856,8 @@ class IslandOverlayView(context: Context) : View(context) {
 
         calendarAnimator.cancel()
         calendarCompactAnimator.cancel()
+        calendarIconRevealAnimator.cancel()
+        calendarIconRevealFraction = 1f
         isCalendarActive = false
         isCalendarCompact = true
         calendarFraction = 0f
@@ -1292,6 +1344,7 @@ class IslandOverlayView(context: Context) : View(context) {
         equalizerAnimator.stop()
         calendarAnimator.cancel()
         calendarCompactAnimator.cancel()
+        calendarIconRevealAnimator.cancel()
         mediaMorphAnimator.cancel()
         stopAllMarquees()
     }
