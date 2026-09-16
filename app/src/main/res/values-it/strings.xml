@@ -28,7 +28,7 @@
     <string name="app_lock_description">Proteggi le tue app con l\'autenticazione biometrica. Le app bloccate richiedono l\'autenticazione all\'avvio e rimangono sbloccate fino allo spegnimento dello schermo.</string>
     <string name="app_lock_warning">Tieni presente che questa non è una soluzione definitiva poiché è solo un\'app di terze parti. Se hai bisogno di una sicurezza elevata, considera l\'utilizzo di Spazio Privato o altre funzionalità simili.</string>
     <string name="app_lock_biometric_note">Un\'altra nota: la richiesta di autenticazione biometrica ti consente solo di utilizzare metodi di classe sicura STRONG. I metodi di sicurezza di sblocco facciale nella classe WEAK in dispositivi come Pixel 7 saranno in grado di utilizzare solo gli altri metodi di autenticazione STRONG disponibili come l\'impronta digitale o il PIN.</string>
-    <string name="setting_use_usage_access_title">Use usage access</string>
+    <string name="setting_use_usage_access_title">Usa l\'accesso all\'utilizzo</string>
     <string name="setting_use_usage_access_desc">Invece di Accessibilità (Freeze, App Lock, Dynamic Night Light)</string>
     <!-- Button Remap -->
     <string name="button_remap_enable_title">Abilita rimappatura pulsanti</string>
@@ -687,8 +687,8 @@
     <string name="label_app_language">Lingua</string>
     <string name="label_haptic_feedback">Feedback Aptico</string>
     <string name="label_updates">Aggiornamenti</string>
-    <string name="label_auto_check_updates">Controllo automatico Aggiornamenti</string>
-    <string name="desc_auto_check_updates">Controlla aggiornamenti all\'apertura dell\'app</string>
+    <string name="label_auto_check_updates">Controlla in automatico gli aggiornamenti</string>
+    <string name="desc_auto_check_updates">Controlla gli aggiornamenti all\'apertura dell\'app</string>
     <string name="action_all_set">Fatto</string>
     <string name="action_check_whats_new">Cosa c\'è di nuovo?</string>
     <string name="welcome_back_title">Welcome back to Essentials</string>
@@ -1482,4 +1482,10 @@
     <string name="feat_network_download_rate_limit_desc">Limita la velocità di download a livello di sistema</string>
     <string name="feat_sim_names_title">Nomi delle SIM</string>
     <string name="feat_sim_names_desc">Rinomina il nome visualizzato dell\'operatore per le schede SIM attive</string>
+    <string name="settings_translate_mode_desc">Tieni premuto qualsiasi testo per tradurre e contribuire alla community</string>
+    <string name="setting_app_icon_title">Icona app</string>
+    <string name="setting_app_icon_desc">Personalizza l\'icona nel launcher della home</string>
+    <string name="app_icon_default">Predefinito</string>
+    <string name="app_icon_black">Dinamico</string>
+    <string name="app_icon_google">Spettro</string>
 </resources>
