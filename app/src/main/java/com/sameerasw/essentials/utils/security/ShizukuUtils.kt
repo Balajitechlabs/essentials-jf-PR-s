@@ -30,6 +30,26 @@ object ShizukuUtils {
     fun getShizukuPackageName(context: Context): String =
         shizukuPermissionInfo(context)?.packageName ?: "moe.shizuku.privileged.api"
 
+    private const val SHEVERY_RECEIVER_CLASS = "moe.shizuku.manager.receiver.SheveryControlReceiver"
+    private const val SHEVERY_ACTION_START = "moe.shizuku.manager.action.START_SERVER"
+    private const val SHEVERY_ACTION_STOP = "moe.shizuku.manager.action.STOP_SERVER"
+
+    fun isSheveryFork(context: Context): Boolean = isSheveryFork(context, getShizukuPackageName(context))
+
+    private fun isSheveryFork(
+        context: Context,
+        shizukuPackage: String,
+    ): Boolean =
+        try {
+            context.packageManager.getReceiverInfo(
+                android.content.ComponentName(shizukuPackage, SHEVERY_RECEIVER_CLASS),
+                0,
+            )
+            true
+        } catch (_: Exception) {
+            false
+        }
+
     private val binderReceivedListener =
         Shizuku.OnBinderReceivedListener {
             binder = Shizuku.getBinder()
@@ -164,8 +184,27 @@ object ShizukuUtils {
         }
     }
 
-    fun toggleShizuku(context: android.content.Context, start: Boolean) {
+    fun toggleShizuku(
+        context: android.content.Context,
+        start: Boolean,
+    ) {
         val shizukuPackage = getShizukuPackageName(context)
+
+        if (isSheveryFork(context, shizukuPackage)) {
+            val action = if (start) SHEVERY_ACTION_START else SHEVERY_ACTION_STOP
+            try {
+                val intent =
+                    android.content.Intent(action).apply {
+                        component = android.content.ComponentName(shizukuPackage, SHEVERY_RECEIVER_CLASS)
+                        addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                    }
+                context.sendBroadcast(intent)
+            } catch (e: Exception) {
+                android.util.Log.e("ShizukuUtils", "Failed to ${if (start) "start" else "stop"} Shevery", e)
+            }
+            return
+        }
+
         val action = if (start) "moe.shizuku.privileged.api.START" else "moe.shizuku.privileged.api.STOP"
         val settingsRepository =
             com.sameerasw.essentials.data.repository
