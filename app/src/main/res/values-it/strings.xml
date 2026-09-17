@@ -1493,4 +1493,6 @@
     <string name="watch_notif_sync_title">Notifiche</string>
     <string name="setting_app_icon_title">Icona dell\'app</string>
     <string name="setting_app_icon_desc">Personalizza l\'icona del launcher</string>
+    <string name="settings_translate_mode_desc">Premi a lungo qualunque testo per tradurlo e contribuire alla community</string>
+    <string name="settings_genai_automation_title">Abilità GenAI</string>
 </resources>

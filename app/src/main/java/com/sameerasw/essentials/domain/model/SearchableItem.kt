@@ -23,4 +23,6 @@ data class SearchableItem(
     val titleRes: Int? = null,
     val descriptionRes: Int? = null,
     val isBeta: Boolean = false,
+    val isLegacy: Boolean = false,
+    val isUnsupported: Boolean = false,
 )
