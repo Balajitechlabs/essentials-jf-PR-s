@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - develop
-      - main
     paths:
       - 'app/**'
       - 'stub/**'
@@ -36,6 +35,8 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    # Translation-only PRs are covered by a separate, faster workflow.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'translations') }}
     permissions:
       contents: read
 
@@ -58,7 +59,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.5'
+          gradle-version: '9.5.0'
 
       - name: Ensure Gradle Wrapper exists
         run: |
