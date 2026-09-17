@@ -67,6 +67,7 @@ object ActionRegistry {
                 add(Action.ToggleFlashlight)
                 add(Action.TurnOnLowPower)
                 add(Action.TurnOffLowPower)
+                add(Action.SetChargingMode())
                 add(Action.CustomSettings())
                 add(Action.CircleToSearch)
                 // TakeScreenshot only available on screen-on context (null means no filter = include always)

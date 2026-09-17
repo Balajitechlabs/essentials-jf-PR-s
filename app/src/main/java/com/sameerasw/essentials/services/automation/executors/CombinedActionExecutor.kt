@@ -44,6 +44,9 @@ object CombinedActionExecutor {
             when (action) {
                 is Action.TurnOnLowPower -> setLowPowerMode(context, true)
                 is Action.TurnOffLowPower -> setLowPowerMode(context, false)
+                is Action.SetChargingMode ->
+                    com.sameerasw.essentials.utils.battery.ChargingModeUtil
+                        .setMode(context, action.mode)
                 is Action.HapticVibration -> {
                     val vibrator =
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
