@@ -710,6 +710,7 @@ object FeatureRegistry {
                 permissionKeys = listOf("ACCESSIBILITY", "NOTIFICATION_LISTENER"),
                 hasMoreSettings = true,
                 showToggle = true,
+                isBeta = true,
                 searchableSettings =
                     listOf(
                         SearchSetting(
