@@ -26,8 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -196,20 +194,12 @@ fun EssentialsFloatingToolbar(
                                     .weight(1f, fill = false),
                         )
                         if (isBeta) {
-                            Card(
-                                colors =
-                                    CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.background,
-                                    ),
-                                shape = MaterialTheme.shapes.extraSmall,
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.label_beta),
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
+                            com.sameerasw.essentials.ui.core.cards.FeatureTagIcon(
+                                iconRes = R.drawable.rounded_science_24,
+                                containerColor = MaterialTheme.colorScheme.background,
+                                contentColor = MaterialTheme.colorScheme.primary,
+                                contentDescription = stringResource(R.string.label_beta),
+                            )
                         }
                     }
                 }

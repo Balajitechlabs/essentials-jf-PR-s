@@ -194,6 +194,14 @@ fun ButtonRemapSettingsUI(
                 exit = shrinkVertically() + fadeOut(),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconToggleItem(
+                        iconRes = R.drawable.rounded_volume_up_24,
+                        title = stringResource(R.string.button_remap_pause_on_volume_dialog_title),
+                        isChecked = viewModel.isButtonRemapPauseOnVolumeDialog.value,
+                        onCheckedChange = { viewModel.setButtonRemapPauseOnVolumeDialog(it, context) },
+                        modifier = Modifier.highlight(highlightSetting == "pause_on_volume_dialog"),
+                    )
+
                     val isRootEnabled =
                         com.sameerasw.essentials.utils.ShellUtils
                             .isRootEnabled(context)

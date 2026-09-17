@@ -501,6 +501,7 @@ class ScreenOffAccessibilityService :
         aodForceTurnOffHandler.removeOverlay()
         aodWallpaperOverlayHandler.removeOverlay()
         pocketModeHandler.removeOverlay()
+        buttonRemapHandler.isVolumeDialogVisible = false
         omniGestureOverlayHandler.removeOverlay()
         smartPixelsHandler.destroy()
         duoOverlayHandler.destroy()
@@ -542,6 +543,26 @@ class ScreenOffAccessibilityService :
         ) {
             checkFullscreenState()
             checkStatusBarExpansion()
+            checkVolumeDialogState()
+        }
+    }
+
+    private fun checkVolumeDialogState() {
+        try {
+            val prefs = getSharedPreferences("essentials_prefs", MODE_PRIVATE)
+            if (!prefs.getBoolean("button_remap_pause_on_volume_dialog", true)) {
+                buttonRemapHandler.isVolumeDialogVisible = false
+                return
+            }
+            val currentWindows = windows
+            val isVisible = currentWindows?.any { window ->
+                window.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM &&
+                    window.root?.packageName?.toString() == "com.android.systemui" &&
+                    window.title?.contains("Volume", ignoreCase = true) == true
+            } ?: false
+            buttonRemapHandler.isVolumeDialogVisible = isVisible
+        } catch (_: Exception) {
+            buttonRemapHandler.isVolumeDialogVisible = false
         }
     }
 

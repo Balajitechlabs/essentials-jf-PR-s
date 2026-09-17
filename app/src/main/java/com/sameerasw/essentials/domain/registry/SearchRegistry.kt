@@ -19,12 +19,19 @@ object SearchRegistry {
     fun search(
         context: Context,
         query: String,
-    ): List<SearchableItem> = search(context, query, SettingsRepository(context).isEnableUnsupportedFeatures())
+    ): List<SearchableItem> =
+        search(
+            context,
+            query,
+            SettingsRepository(context).isEnableUnsupportedFeatures(),
+            SettingsRepository(context).isShowLegacyFeatures(),
+        )
 
     fun search(
         context: Context,
         query: String,
         includeUnsupportedFeatures: Boolean = false,
+        includeLegacyFeatures: Boolean = true,
     ): List<SearchableItem> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
@@ -33,10 +40,11 @@ object SearchRegistry {
 
         // --- Index Features and Sub-settings ---
         FeatureRegistry
-            .getFilteredFeatures(context, includeUnsupportedFeatures)
+            .getFilteredFeatures(context, includeUnsupportedFeatures, includeLegacyFeatures)
             .forEach { feature ->
                 val featureTitle = context.getString(feature.title)
                 val featureCategory = context.getString(feature.category)
+                val isUnsupported = !feature.isDeviceSupported(context)
 
                 // Index the feature itself
                 allItems.add(
@@ -52,6 +60,8 @@ object SearchRegistry {
                                 context.getString(R.string.keyword_settings),
                             ),
                         isBeta = feature.isBeta,
+                        isLegacy = feature.isLegacy,
+                        isUnsupported = isUnsupported,
                     ),
                 )
 
@@ -78,6 +88,8 @@ object SearchRegistry {
                                     emptyList()
                                 },
                             isBeta = feature.isBeta,
+                            isLegacy = feature.isLegacy,
+                            isUnsupported = isUnsupported,
                         ),
                     )
                 }

@@ -27,8 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -77,6 +75,8 @@ fun FeatureCard(
     description: Any? = null,
     descriptionOverride: String? = null,
     isBeta: Boolean = false,
+    isUnsupported: Boolean = false,
+    isLegacy: Boolean = false,
     isPinned: Boolean = false,
     onPinToggle: (() -> Unit)? = null,
     onHelpClick: (() -> Unit)? = null,
@@ -351,20 +351,28 @@ fun FeatureCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (isBeta) {
-                    Card(
-                        colors =
-                            CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        shape = MaterialTheme.shapes.extraSmall,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.label_beta),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_science_24,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        contentDescription = stringResource(R.string.label_beta),
+                    )
+                }
+                if (isUnsupported) {
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_dangerous_24,
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                        contentDescription = stringResource(R.string.label_unsupported),
+                    )
+                }
+                if (isLegacy) {
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_archive_24,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        contentDescription = stringResource(R.string.label_legacy),
+                    )
                 }
             }
 

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.github.GitHubUser
+import com.sameerasw.essentials.ui.core.cards.FeatureTagIcon
 import com.sameerasw.essentials.utils.HapticUtil
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -108,20 +109,12 @@ fun ReusableTopAppBar(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (isBeta) {
-                        androidx.compose.material3.Card(
-                            colors =
-                                androidx.compose.material3.CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            shape = MaterialTheme.shapes.extraSmall,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.label_beta),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
+                        FeatureTagIcon(
+                            iconRes = R.drawable.rounded_science_24,
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            contentDescription = stringResource(R.string.label_beta),
+                        )
                     }
                 }
                 val resolvedSubtitle =
@@ -150,20 +143,12 @@ fun ReusableTopAppBar(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (isBeta) {
-                    androidx.compose.material3.Card(
-                        colors =
-                            androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.background,
-                            ),
-                        shape = MaterialTheme.shapes.extraSmall,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.label_beta),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_science_24,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        contentDescription = stringResource(R.string.label_beta),
+                    )
                 }
             }
         }
