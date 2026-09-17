@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -106,6 +108,7 @@ fun TranslationBottomSheet(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -189,13 +192,15 @@ fun TranslationBottomSheet(
                                                 HapticUtil.performUIHaptic(view)
                                                 val currentText = inputTextFieldValue.text
                                                 val selection = inputTextFieldValue.selection
+                                                val start = selection.min.coerceIn(0, currentText.length)
+                                                val end = selection.max.coerceIn(0, currentText.length)
                                                 val newText =
                                                     buildString {
-                                                        append(currentText.substring(0, selection.start))
+                                                        append(currentText.substring(0, start))
                                                         append(placeholder)
-                                                        append(currentText.substring(selection.end))
+                                                        append(currentText.substring(end))
                                                     }
-                                                val newCursor = selection.start + placeholder.length
+                                                val newCursor = start + placeholder.length
                                                 inputTextFieldValue =
                                                     TextFieldValue(
                                                         text = newText,
