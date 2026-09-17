@@ -28,5 +28,5 @@ This document outlines background services, Quick Settings tiles, and system per
 
 ## Developer Guide
 
-For instructions on adding and registering new Quick Settings tiles, refer to [ADD_QS_TILE.md](file:///Users/sameerasandakelum/GIT/essentials/docs/ADD_QS_TILE.md).
+For instructions on adding and registering new Quick Settings tiles, refer to [ADD_QS_TILE.md](ADD_QS_TILE.md).
 
