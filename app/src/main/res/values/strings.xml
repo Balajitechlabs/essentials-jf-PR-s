@@ -139,6 +139,7 @@
 
     <!-- Button Remap -->
     <string name="button_remap_enable_title">Enable Button Remap</string>
+    <string name="button_remap_pause_on_volume_dialog_title">Disabled while volume dialog open</string>
     <string name="button_remap_use_shizuku_title">Use Shizuku or Root</string>
     <string name="button_remap_use_shizuku_desc">Works with screen off (Recommended)</string>
     <string name="shizuku_not_running_toast">Shizuku is not running</string>

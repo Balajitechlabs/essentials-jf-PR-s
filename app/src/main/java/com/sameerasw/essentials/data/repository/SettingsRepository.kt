@@ -184,6 +184,7 @@ class SettingsRepository(
         const val KEY_BUTTON_REMAP_HAPTIC_TYPE = "button_remap_haptic_type"
         const val KEY_FLASHLIGHT_HAPTIC_TYPE = "flashlight_haptic_type" // Legacy
         const val KEY_BUTTON_REMAP_MIGRATION_DONE = "button_remap_action_migration_done"
+        const val KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG = "button_remap_pause_on_volume_dialog"
 
         const val KEY_DYNAMIC_NIGHT_LIGHT_ENABLED = "dynamic_night_light_enabled"
         const val KEY_DYNAMIC_NIGHT_LIGHT_SELECTED_APPS = "dynamic_night_light_selected_apps"

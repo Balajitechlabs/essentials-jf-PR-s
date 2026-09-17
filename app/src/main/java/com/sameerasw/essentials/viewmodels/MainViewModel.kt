@@ -115,6 +115,7 @@ class MainViewModel : ViewModel() {
     val isAmbientShowLockScreenEnabled = mutableStateOf(false)
     val isButtonRemapEnabled = mutableStateOf(false)
     val isButtonRemapUseShizuku = mutableStateOf(false)
+    val isButtonRemapPauseOnVolumeDialog = mutableStateOf(true)
     val shizukuDetectedDevicePath = mutableStateOf<String?>(null)
     val volumeUpActionOff = mutableStateOf<Action?>(null)
     val volumeDownActionOff = mutableStateOf<Action?>(null)
@@ -1945,6 +1946,8 @@ class MainViewModel : ViewModel() {
             )
         isButtonRemapUseShizuku.value =
             settingsRepository.getBoolean(SettingsRepository.KEY_BUTTON_REMAP_USE_SHIZUKU)
+        isButtonRemapPauseOnVolumeDialog.value =
+            settingsRepository.getBoolean(SettingsRepository.KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG, true)
         shizukuDetectedDevicePath.value =
             settingsRepository.getString(SettingsRepository.KEY_SHIZUKU_DETECTED_DEVICE_PATH)
 
@@ -4454,6 +4457,15 @@ class MainViewModel : ViewModel() {
     ) {
         isButtonRemapEnabled.value = enabled
         settingsRepository.putBoolean(SettingsRepository.KEY_BUTTON_REMAP_ENABLED, enabled)
+    }
+
+    // Pause remap while the system volume dialog is visible
+    fun setButtonRemapPauseOnVolumeDialog(
+        enabled: Boolean,
+        context: Context,
+    ) {
+        isButtonRemapPauseOnVolumeDialog.value = enabled
+        settingsRepository.putBoolean(SettingsRepository.KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG, enabled)
     }
 
     /**

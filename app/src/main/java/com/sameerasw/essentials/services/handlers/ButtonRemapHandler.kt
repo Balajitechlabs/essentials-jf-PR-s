@@ -45,6 +45,8 @@ class ButtonRemapHandler(
     private var lastPendingAction: Action? = null
     private val longPressTimeout = 500L
 
+    var isVolumeDialogVisible: Boolean = false
+
     private val longPressRunnable =
         Runnable {
             isLongPressTriggered = true
@@ -58,6 +60,11 @@ class ButtonRemapHandler(
         }
 
         val prefs = service.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+        val isPauseOnVolumeDialogEnabled = prefs.getBoolean("button_remap_pause_on_volume_dialog", true)
+        if (isPauseOnVolumeDialogEnabled && isVolumeDialogVisible) {
+            return false
+        }
+
         val isButtonRemapEnabled = prefs.getBoolean("button_remap_enabled", false)
         val isButtonRemapUseShizuku = prefs.getBoolean("button_remap_use_shizuku", false)
         val isAdjustEnabled = prefs.getBoolean("flashlight_adjust_intensity_enabled", false)
