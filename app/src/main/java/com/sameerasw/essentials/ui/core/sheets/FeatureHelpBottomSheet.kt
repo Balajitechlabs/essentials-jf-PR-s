@@ -39,8 +39,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.Feature
 import com.sameerasw.essentials.translation.TranslatableText
+import com.sameerasw.essentials.ui.core.cards.FeatureTagIcon
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.media.FeatureHelpMediaViewer
 import com.sameerasw.essentials.utils.ColorUtil
@@ -56,6 +58,7 @@ fun FeatureHelpBottomSheet(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val isUnsupported = !feature.isDeviceSupported(context)
 
     EssentialsBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -73,7 +76,7 @@ fun FeatureHelpBottomSheet(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 8.dp),
+                        .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -95,10 +98,38 @@ fun FeatureHelpBottomSheet(
                     )
                 }
 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     TranslatableText(
                         stringResId = feature.title,
                         style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+
+                if (feature.isBeta) {
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_science_24,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        contentDescription = stringResource(R.string.label_beta),
+                        label = stringResource(R.string.label_beta),
+                    )
+                }
+                if (isUnsupported) {
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_dangerous_24,
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                        contentDescription = stringResource(R.string.label_unsupported),
+                        label = stringResource(R.string.label_unsupported),
+                    )
+                }
+                if (feature.isLegacy) {
+                    FeatureTagIcon(
+                        iconRes = R.drawable.rounded_archive_24,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        contentDescription = stringResource(R.string.label_legacy),
+                        label = stringResource(R.string.label_legacy),
                     )
                 }
             }

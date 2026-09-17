@@ -1468,7 +1468,7 @@
     <string name="setting_swipe_tabs_desc">Nella schermata home</string>
     <string name="settings_translated_texts_desc">%d modifiche salvate — tocca per inviarle o scartarle</string>
     <string name="cat_navigation">Navigazione</string>
-    <string name="feat_smart_pixels_title">Pixel samrt</string>
+    <string name="feat_smart_pixels_title">Pixel smart</string>
     <string name="settings_translate_mode">Modalità di Traduzione</string>
     <string name="feat_power_battery_title">Alimentazione e Batteria</string>
     <string name="feat_power_battery_desc">Ottimizza il consumo energetico</string>
@@ -1482,10 +1482,20 @@
     <string name="feat_network_download_rate_limit_desc">Limita la velocità di download a livello di sistema</string>
     <string name="feat_sim_names_title">Nomi delle SIM</string>
     <string name="feat_sim_names_desc">Rinomina il nome visualizzato dell\'operatore per le schede SIM attive</string>
-    <string name="settings_translate_mode_desc">Tieni premuto qualsiasi testo per tradurre e contribuire alla community</string>
-    <string name="setting_app_icon_title">Icona app</string>
-    <string name="setting_app_icon_desc">Personalizza l\'icona nel launcher della home</string>
     <string name="app_icon_default">Predefinito</string>
     <string name="app_icon_black">Dinamico</string>
     <string name="app_icon_google">Spettro</string>
+    <string name="duo_desc">Non si piega</string>
+    <string name="feat_power_saving_title">Risparmio energetico</string>
+    <string name="feat_standby_apps_title">App in standby</string>
+    <string name="feat_mobile_data_always_on_title">Dati mobili sempre attivi</string>
+    <string name="setting_location_reached_full_screen_alarm_title">Allarme a schermo intero</string>
+    <string name="feat_watch_controls_title">Personalizza</string>
+    <string name="feat_watch_controls_desc">Personalizza i controlli</string>
+    <string name="watch_call_sync_title">Chiamate</string>
+    <string name="watch_notif_sync_title">Notifiche</string>
+    <string name="setting_app_icon_title">Icona dell\'app</string>
+    <string name="setting_app_icon_desc">Personalizza l\'icona del launcher</string>
+    <string name="settings_translate_mode_desc">Premi a lungo qualunque testo per tradurlo e contribuire alla community</string>
+    <string name="settings_genai_automation_title">Abilità GenAI</string>
 </resources>
