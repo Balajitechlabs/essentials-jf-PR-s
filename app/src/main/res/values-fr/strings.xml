@@ -65,7 +65,7 @@
     <string name="like_song_toast_enabled">Afficher un message toast</string>
     <string name="like_song_aod_overlay_title">Afficher en superposition sur le mode Always-on</string>
     <string name="feat_essentials_on_display_title">Essentials On Display</string>
-    <string name="feat_essentials_on_display_desc">Aperçu des médias et des Aperçu des médias et des informations sur AOD </string>
+    <string name="feat_essentials_on_display_desc">Aperçu des médias et des informations sur AOD</string>
     <string name="essentials_on_display_docked_mode_title">Docked mode</string>
     <string name="essentials_on_display_docked_mode_desc">Keep the overlay visible indefinitely while music is playing on AOD</string>
     <string name="essentials_on_display_respect_notifications_title">Respect new notifications</string>
@@ -1599,4 +1599,9 @@ Option nativement disponible sur les appareils Samsung (appli QuickStar)</string
     <string name="duo_material_you_title">Utiliser les couleurs Material You</string>
     <string name="duo_hide_when_screen_off_title">Cacher quand l\'écran est éteint</string>
     <string name="duo_hide_when_screen_off_only_idle_title">Seulement cacher quand l\'AOD est éteint</string>
+    <string name="duo_desc">Ça ne se plie pas</string>
+    <string name="duo_auto_detect_desc">Trouver automatiquement l\'emplacement du trou de la caméra</string>
+    <string name="duo_show_battery_percentage_title">Pourcentage de batterie</string>
+    <string name="duo_show_battery_title">Batterie</string>
+    <string name="duo_show_time_title">Heure</string>
 </resources>

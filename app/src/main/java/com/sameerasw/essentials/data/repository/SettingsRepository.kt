@@ -184,6 +184,7 @@ class SettingsRepository(
         const val KEY_BUTTON_REMAP_HAPTIC_TYPE = "button_remap_haptic_type"
         const val KEY_FLASHLIGHT_HAPTIC_TYPE = "flashlight_haptic_type" // Legacy
         const val KEY_BUTTON_REMAP_MIGRATION_DONE = "button_remap_action_migration_done"
+        const val KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG = "button_remap_pause_on_volume_dialog"
 
         const val KEY_DYNAMIC_NIGHT_LIGHT_ENABLED = "dynamic_night_light_enabled"
         const val KEY_DYNAMIC_NIGHT_LIGHT_SELECTED_APPS = "dynamic_night_light_selected_apps"
@@ -245,6 +246,7 @@ class SettingsRepository(
         const val KEY_USE_ROOT = "use_root"
         const val KEY_PITCH_BLACK_THEME_ENABLED = "pitch_black_theme_enabled"
         const val KEY_ENABLE_UNSUPPORTED_FEATURES = "enable_unsupported_features"
+        const val KEY_SHOW_LEGACY_FEATURES = "show_legacy_features"
 
         const val KEY_KEYBOARD_HEIGHT = "keyboard_height"
         const val KEY_TRACKED_REPOS = "tracked_repos"
@@ -2170,6 +2172,10 @@ class SettingsRepository(
      * @param enabled [Boolean] Target enabled.
      */
     fun setEnableUnsupportedFeatures(enabled: Boolean) = putBoolean(KEY_ENABLE_UNSUPPORTED_FEATURES, enabled)
+
+    fun isShowLegacyFeatures(): Boolean = getBoolean(KEY_SHOW_LEGACY_FEATURES, true)
+
+    fun setShowLegacyFeatures(enabled: Boolean) = putBoolean(KEY_SHOW_LEGACY_FEATURES, enabled)
 
     // Live Wallpaper Helpers
     private val liveWallpaperPrefs: SharedPreferences by lazy {

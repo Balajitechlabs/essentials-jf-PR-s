@@ -17,6 +17,7 @@ import android.util.Log
 import android.widget.Toast
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
+import com.sameerasw.essentials.utils.ShizukuUtils
 
 class ShizukuActionReceiver : BroadcastReceiver() {
     override fun onReceive(
@@ -42,7 +43,7 @@ class ShizukuActionReceiver : BroadcastReceiver() {
                 try {
                     val shizukuIntent =
                         Intent("moe.shizuku.privileged.api.START").apply {
-                            `package` = "moe.shizuku.privileged.api"
+                            `package` = ShizukuUtils.getShizukuPackageName(context)
                             putExtra("auth", token)
                             addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                         }

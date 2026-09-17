@@ -1638,4 +1638,7 @@ Cuando llegue un mensaje o alerta de una aplicación seleccionada, la Pantalla s
     <string name="duo_action_swipe_down_title">Deslizar hacia abajo</string>
     <string name="duo_action_horizontal_slide_title">Deslizamiento horizontal</string>
     <string name="duo_slide_mirror_direction_title">Direcciones contrarias</string>
+    <string name="perm_install_packages_title">Instalar aplicaciones desconocidas</string>
+    <string name="perm_install_packages_desc">Requerido para descargar e instalar automáticamente actualizaciones de la aplicación.</string>
+    <string name="perm_storage_title">Acceso a todos los archivos</string>
 </resources>

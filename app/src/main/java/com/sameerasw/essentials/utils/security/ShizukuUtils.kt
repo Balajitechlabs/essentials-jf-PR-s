@@ -9,14 +9,26 @@
 
 package com.sameerasw.essentials.utils
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.RemoteException
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuProvider
 
 object ShizukuUtils {
     private var binder: IBinder? = null
+
+    private fun shizukuPermissionInfo(context: Context) =
+        runCatching {
+            context.packageManager.getPermissionInfo(ShizukuProvider.PERMISSION, 0)
+        }.getOrNull()
+
+    fun isShizukuInstalled(context: Context): Boolean = shizukuPermissionInfo(context) != null
+
+    fun getShizukuPackageName(context: Context): String =
+        shizukuPermissionInfo(context)?.packageName ?: "moe.shizuku.privileged.api"
 
     private val binderReceivedListener =
         Shizuku.OnBinderReceivedListener {
@@ -153,6 +165,7 @@ object ShizukuUtils {
     }
 
     fun toggleShizuku(context: android.content.Context, start: Boolean) {
+        val shizukuPackage = getShizukuPackageName(context)
         val action = if (start) "moe.shizuku.privileged.api.START" else "moe.shizuku.privileged.api.STOP"
         val settingsRepository =
             com.sameerasw.essentials.data.repository
@@ -165,7 +178,7 @@ object ShizukuUtils {
         try {
             val intent =
                 android.content.Intent(action).apply {
-                    `package` = "moe.shizuku.privileged.api"
+                    `package` = shizukuPackage
                     putExtra("auth", token)
                     addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                 }
