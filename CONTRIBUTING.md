@@ -21,7 +21,7 @@ Thank you for your interest in contributing to Essentials! This guide details th
 
 ### 1. State Management & ViewModel Integration
 - **Complete End-to-End Pipeline**: Ensure any new UI control or `FeatureRegistry.kt` entry is backed by a complete state flow:
-  - Provide typed getter and setter methods in [`SettingsRepository`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/data/repository/SettingsRepository.kt).
+  - Provide typed getter and setter methods in [`SettingsRepository`](app/src/main/java/com/sameerasw/essentials/data/repository/SettingsRepository.kt).
   - Expose reactive state (`mutableStateOf`) and mutator functions in the corresponding ViewModel (e.g. `MainViewModel`, `NetworksViewModel`).
   - Connect the UI composable and `FeatureRegistry.onToggle` directly to these ViewModel methods.
 - **Centralized Preference Keys**: Define all preference keys and helper accessors inside `SettingsRepository` to keep keys uniform and discoverable.
@@ -89,7 +89,7 @@ Leverage the rich design system components in `app/src/main/java/com/sameerasw/e
 ---
 
 ### 8. Quick Settings Tile Integration
-- Follow the step-by-step developer guide in [ADD_QS_TILE.md](file:///Users/sameerasandakelum/GIT/essentials/docs/ADD_QS_TILE.md) when adding new tiles.
+- Follow the step-by-step developer guide in [ADD_QS_TILE.md](docs/ADD_QS_TILE.md) when adding new tiles.
 - Declare the service in `AndroidManifest.xml`, register in `QsTileRegistry.kt`, support headless execution in `QsTileActionRouter.kt`, list in `QuickSettingsTilesSettingsUI.kt`, and test on the **Favorite QS Tiles Glance Widget**.
 
 ---

@@ -44,7 +44,7 @@ In `res/xml/accessibility_service_config.xml`:
 
 ## 3. Implementation Code
 
-Inside the accessibility service (e.g., [`ScreenOffAccessibilityService`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/tiles/ScreenOffAccessibilityService.kt)):
+Inside the accessibility service (e.g., [`ScreenOffAccessibilityService`](../app/src/main/java/com/sameerasw/essentials/services/tiles/ScreenOffAccessibilityService.kt)):
 
 ```kotlin
 import android.accessibilityservice.AccessibilityService

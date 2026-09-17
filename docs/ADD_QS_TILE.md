@@ -2,7 +2,7 @@
 
 This guide details the end-to-end process of implementing, registering, and maintaining Quick Settings (QS) tiles within the **Essentials** architecture.
 
-For system architecture context, refer to [ARCHITECTURE.md](file:///Users/sameerasandakelum/GIT/essentials/docs/ARCHITECTURE.md), [STRUCTURE.md](file:///Users/sameerasandakelum/GIT/essentials/docs/STRUCTURE.md), and [SERVICES_AND_PERMISSIONS.md](file:///Users/sameerasandakelum/GIT/essentials/docs/SERVICES_AND_PERMISSIONS.md).
+For system architecture context, refer to [ARCHITECTURE.md](ARCHITECTURE.md), [STRUCTURE.md](STRUCTURE.md), and [SERVICES_AND_PERMISSIONS.md](SERVICES_AND_PERMISSIONS.md).
 
 ---
 
@@ -41,7 +41,7 @@ Quick Settings tile integration operates across three core layers:
 
 ### 1. Create Tile Service Class
 
-All QS tile services are located in `app/src/main/java/com/sameerasw/essentials/services/tiles/` and must extend [`BaseTileService`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/tiles/BaseTileService.kt).
+All QS tile services are located in `app/src/main/java/com/sameerasw/essentials/services/tiles/` and must extend [`BaseTileService`](../app/src/main/java/com/sameerasw/essentials/services/tiles/BaseTileService.kt).
 
 #### Implementation Example:
 
@@ -115,7 +115,7 @@ class FeatureTileService : BaseTileService() {
 
 ### 2. Android Manifest Registration
 
-Declare the service inside `<application>` in [`AndroidManifest.xml`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/AndroidManifest.xml) with `BIND_QUICK_SETTINGS_TILE` permission:
+Declare the service inside `<application>` in [`AndroidManifest.xml`](../app/src/main/AndroidManifest.xml) with `BIND_QUICK_SETTINGS_TILE` permission:
 
 ```xml
 <service
@@ -137,7 +137,7 @@ Declare the service inside `<application>` in [`AndroidManifest.xml`](file:///Us
 
 ### 3. String Localization
 
-Declare user-facing tile labels and documentation strings in [`strings.xml`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/res/values/strings.xml):
+Declare user-facing tile labels and documentation strings in [`strings.xml`](../app/src/main/res/values/strings.xml):
 
 ```xml
 <!-- Feature QS Tile -->
@@ -149,7 +149,7 @@ Declare user-facing tile labels and documentation strings in [`strings.xml`](fil
 
 ### 4. Tile Registry Registration (`QsTileRegistry.kt`)
 
-Register the tile in [`QsTileRegistry.ALL_TILES`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/tiles/QsTileRegistry.kt):
+Register the tile in [`QsTileRegistry.ALL_TILES`](../app/src/main/java/com/sameerasw/essentials/services/tiles/QsTileRegistry.kt):
 
 ```kotlin
 QsTileEntry(
@@ -160,7 +160,7 @@ QsTileEntry(
 ```
 
 #### Glance Widget Integration:
-- `QsTileRegistry` provides state resolution, label translation, dynamic icon rendering, and active status for the **Favorite QS Tiles Glance Widget** ([`QsTilesWidget.kt`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/widgets/QsTilesWidget.kt)).
+- `QsTileRegistry` provides state resolution, label translation, dynamic icon rendering, and active status for the **Favorite QS Tiles Glance Widget** ([`QsTilesWidget.kt`](../app/src/main/java/com/sameerasw/essentials/services/widgets/QsTilesWidget.kt)).
 - Standard `BaseTileService` subclasses are automatically queried via reflection (`isTileActive`, `getTileSubtitle`, `getTileIcon`).
 - If state queries require an external controller (e.g. `CaffeinateController`), add a custom condition in `isTileActive()` / `getTileSubtitle()`.
 
@@ -168,7 +168,7 @@ QsTileEntry(
 
 ### 5. Headless Action Routing (`QsTileActionRouter.kt`)
 
-Tapping a tile inside the **Favorite QS Tiles Glance Widget** triggers [`QsTileClickActionCallback`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/widgets/QsTileClickActionCallback.kt), which dispatches to [`QsTileActionRouter`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/services/receivers/QsTileActionRouter.kt):
+Tapping a tile inside the **Favorite QS Tiles Glance Widget** triggers [`QsTileClickActionCallback`](../app/src/main/java/com/sameerasw/essentials/services/widgets/QsTileClickActionCallback.kt), which dispatches to [`QsTileActionRouter`](../app/src/main/java/com/sameerasw/essentials/services/receivers/QsTileActionRouter.kt):
 
 - Standard `BaseTileService` subclasses are automatically initialized headlessly by `QsTileActionRouter` to invoke `onTileClick()`.
 - If the feature requires broadcast routing or dedicated service intents, define an explicit dispatch branch in `QsTileActionRouter.kt`.
@@ -179,7 +179,7 @@ Tapping a tile inside the **Favorite QS Tiles Glance Widget** triggers [`QsTileC
 
 All QS tiles must be added to the in-app Quick Settings Tiles settings screen so users can view permissions and add tiles directly to their system QS panel via `StatusBarManager.requestAddTileService()`.
 
-In [`QuickSettingsTilesSettingsUI.kt`](file:///Users/sameerasandakelum/GIT/essentials/app/src/main/java/com/sameerasw/essentials/ui/features/tiles/QuickSettingsTilesSettingsUI.kt), register the tile in `allTiles`:
+In [`QuickSettingsTilesSettingsUI.kt`](../app/src/main/java/com/sameerasw/essentials/ui/features/tiles/QuickSettingsTilesSettingsUI.kt), register the tile in `allTiles`:
 
 ```kotlin
 QSTileInfo(
