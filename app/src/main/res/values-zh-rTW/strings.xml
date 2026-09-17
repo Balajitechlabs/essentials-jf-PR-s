@@ -40,7 +40,7 @@
     <string name="button_remap_use_shizuku_desc">在螢幕關閉時可用（推薦）</string>
     <string name="shizuku_not_running_toast">Shizuku 沒在執行</string>
     <string name="shizuku_detected_prefix">偵測到 %1$s</string>
-    <string name="shizuku_status_prefix">%1$s狀態： %1$s</string>
+    <string name="shizuku_status_prefix">狀態：%1$s</string>
     <string name="shizuku_open_button">開啟 Shizuku</string>
     <string name="settings_section_flashlight">手電筒</string>
     <string name="flashlight_options_title">手電筒設定</string>
@@ -1214,8 +1214,8 @@
     <string name="location_reached_fsi_desc">需要在到達時喚醒您的設備。點擊授予。</string>
     <string name="location_reached_dist_m">%1$d 米</string>
     <string name="location_reached_dist_km">%1$.1f 公里</string>
-    <string name="location_reached_service_title">旅行鬧鐘活躍</string>
-    <string name="location_reached_service_remaining">剩餘 %1$s</string>
+    <string name="location_reached_service_title">正在前往 %1$s</string>
+    <string name="location_reached_service_remaining">剩餘 %1$s (%2$d%%)</string>
     <string name="location_reached_channel_name">行程進度</string>
     <string name="location_reached_channel_desc">顯示到目的地的實時距離</string>
     <string name="location_reached_alarm_title">目的地臨近</string>
