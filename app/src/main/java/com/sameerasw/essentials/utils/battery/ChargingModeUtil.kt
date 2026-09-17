@@ -11,8 +11,10 @@ package com.sameerasw.essentials.utils.battery
 
 import android.content.Context
 import android.provider.Settings
+import androidx.annotation.Keep
 import com.sameerasw.essentials.utils.ShellUtils
 
+@Keep
 enum class ChargingMode { OFF, ADAPTIVE, LIMITED }
 
 object ChargingModeUtil {
