@@ -374,6 +374,7 @@ class MainViewModel : ViewModel() {
     val isLocationReachedFullScreenAlarmEnabled = mutableStateOf(true)
 
     val isEnableUnsupportedFeatures = mutableStateOf(false)
+    val isShowLegacyFeatures = mutableStateOf(true)
     val isSecureSensitiveTilesEnabled = mutableStateOf(true)
     val isBlurEnabled = mutableStateOf(true)
     val isBlurSettingEnabled = mutableStateOf(true)
@@ -2110,6 +2111,7 @@ class MainViewModel : ViewModel() {
         isLocationReachedFullScreenAlarmEnabled.value =
             settingsRepository.getLocationReachedFullScreenAlarmEnabled()
         isEnableUnsupportedFeatures.value = settingsRepository.isEnableUnsupportedFeatures()
+        isShowLegacyFeatures.value = settingsRepository.isShowLegacyFeatures()
         isSecureSensitiveTilesEnabled.value = settingsRepository.isSecureSensitiveTilesEnabled()
 
         keyboardHeight.floatValue =
@@ -2393,6 +2395,17 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun setShowLegacyFeatures(
+        enabled: Boolean,
+        context: Context,
+    ) {
+        isShowLegacyFeatures.value = enabled
+        settingsRepository.setShowLegacyFeatures(enabled)
+        if (searchQuery.value.isNotBlank()) {
+            onSearchQueryChanged(searchQuery.value, context)
+        }
+    }
+
     fun setSecureSensitiveTilesEnabled(enabled: Boolean) {
         isSecureSensitiveTilesEnabled.value = enabled
         settingsRepository.setSecureSensitiveTilesEnabled(enabled)
@@ -2426,6 +2439,7 @@ class MainViewModel : ViewModel() {
                         context,
                         query,
                         isEnableUnsupportedFeatures.value,
+                        isShowLegacyFeatures.value,
                     )
                 withContext(Dispatchers.Main) {
                     searchResults.value = results

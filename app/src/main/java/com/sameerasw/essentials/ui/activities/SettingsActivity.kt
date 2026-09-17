@@ -1006,6 +1006,14 @@ fun SettingsContent(
                     }
                 },
             )
+
+            IconToggleItem(
+                iconRes = R.drawable.rounded_archive_24,
+                title = stringResource(R.string.setting_show_legacy_features_title),
+                description = stringResource(R.string.setting_show_legacy_features_desc),
+                isChecked = viewModel.isShowLegacyFeatures.value,
+                onCheckedChange = { enabled -> viewModel.setShowLegacyFeatures(enabled, context) },
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

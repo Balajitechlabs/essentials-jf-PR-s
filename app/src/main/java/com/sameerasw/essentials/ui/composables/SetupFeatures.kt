@@ -929,6 +929,7 @@ fun SetupFeatures(
         FeatureRegistry.getFilteredFeatures(
             context,
             viewModel.isEnableUnsupportedFeatures.value,
+            viewModel.isShowLegacyFeatures.value,
         )
 
     LaunchedEffect(searchRequested) {
@@ -1499,6 +1500,8 @@ fun SetupFeatures(
                                     },
                                     description = feature.description,
                                     isBeta = feature.isBeta,
+                                    isLegacy = feature.isLegacy,
+                                    isUnsupported = !feature.isDeviceSupported(context),
                                     isPinned = pinnedFeatureKeys.contains(feature.id),
                                     onPinToggle = {
                                         viewModel.togglePinFeature(feature.id)
@@ -1666,6 +1669,8 @@ private fun RecentSearchesSection(
                     hasMoreSettings = true,
                     description = result.description,
                     isBeta = result.isBeta,
+                    isLegacy = result.isLegacy,
+                    isUnsupported = result.isUnsupported,
                     isPinned = pinnedFeatureKeys.contains(result.featureKey),
                     onPinToggle = {
                         viewModel.togglePinFeature(result.featureKey)
@@ -1850,6 +1855,8 @@ private fun SearchResultsSection(
                             showToggle = false,
                             hasMoreSettings = true,
                             isBeta = result.isBeta,
+                            isLegacy = result.isLegacy,
+                            isUnsupported = result.isUnsupported,
                             descriptionOverride =
                                 if (result.parentFeature !=
                                     null
