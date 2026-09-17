@@ -9,7 +9,12 @@
 
 package com.sameerasw.essentials.ui.core.sheets
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,13 +55,17 @@ import com.sameerasw.essentials.ui.components.battery.BatteryAppsTabContent
 import com.sameerasw.essentials.ui.components.battery.BatteryInfoTabContent
 import com.sameerasw.essentials.ui.components.battery.BatterySystemTabContent
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
+import com.sameerasw.essentials.ui.core.pickers.SegmentedPicker
 import com.sameerasw.essentials.utils.BatteryStatsUtil
 import com.sameerasw.essentials.utils.BatteryUsageApp
 import com.sameerasw.essentials.utils.CpuWakeupItem
 import com.sameerasw.essentials.utils.DeviceUtils
 import com.sameerasw.essentials.utils.battery.BatteryDetails
 import com.sameerasw.essentials.utils.battery.BatteryInfoUtil
+import com.sameerasw.essentials.utils.battery.ChargingMode
+import com.sameerasw.essentials.utils.battery.ChargingModeUtil
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(
@@ -151,6 +161,19 @@ fun BatteryDetailsBottomSheet(
     }
 
     val isCharging = batteryDetails.status == android.os.BatteryManager.BATTERY_STATUS_CHARGING
+    val hasChargingModePermission = remember { ChargingModeUtil.hasPermission(context) }
+    val showChargingModePicker = hasChargingModePermission
+    var chargingMode by remember { mutableStateOf<ChargingMode?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(showChargingModePicker) {
+        if (showChargingModePicker) {
+            withContext(Dispatchers.IO) {
+                val mode = ChargingModeUtil.getMode(context)
+                withContext(Dispatchers.Main) { chargingMode = mode }
+            }
+        }
+    }
     val isPowerSave = remember { DeviceUtils.isPowerSaveMode(context) }
     val iconRes =
         BatteryInfoUtil.getBatteryIconRes(
@@ -261,8 +284,47 @@ fun BatteryDetailsBottomSheet(
                 )
             }
 
+            AnimatedVisibility(
+                visible = showChargingModePicker && chargingMode != null,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                val currentMode = chargingMode
+                if (currentMode != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.label_charging_mode_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                        RoundedCardContainer {
+                            SegmentedPicker(
+                                items = ChargingMode.entries,
+                                selectedItem = currentMode,
+                                onItemSelected = { mode ->
+                                    chargingMode = mode
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        ChargingModeUtil.setMode(context, mode)
+                                    }
+                                },
+                                labelProvider = { mode ->
+                                    when (mode) {
+                                        ChargingMode.OFF -> context.getString(R.string.label_charging_mode_off)
+                                        ChargingMode.ADAPTIVE -> context.getString(R.string.adaptive_charging)
+                                        ChargingMode.LIMITED -> context.getString(R.string.label_charging_mode_limited)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                title = R.string.label_charging_mode_title,
+                            )
+                        }
+                    }
+                }
+            }
+
             RoundedCardContainer {
-                com.sameerasw.essentials.ui.core.pickers.SegmentedPicker(
+                SegmentedPicker(
                     items = tabResIds,
                     selectedItem = tabResIds[selectedTab],
                     onItemSelected = { selectedTab = tabResIds.indexOf(it) },

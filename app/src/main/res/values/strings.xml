@@ -431,6 +431,9 @@
     <string name="limit_to_80">Limit to 80%</string>
     <string name="adaptive_charging">Adaptive</string>
     <string name="deactivated">Not optimized</string>
+    <string name="label_charging_mode_title">Charging mode</string>
+    <string name="label_charging_mode_off">Off</string>
+    <string name="label_charging_mode_limited">Limited</string>
     <string name="charge_opt_long_press_title">Toggle Options</string>
     <string name="charge_opt_long_press_desc">Choose which charging modes to switch between when tapping the Quick Settings tile.</string>
     <string name="permission_missing">Permission missing</string>
