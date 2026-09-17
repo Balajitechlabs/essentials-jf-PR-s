@@ -310,22 +310,33 @@ class AodWallpaperOverlayHandler(
         }
     }
 
-    private fun applyBlurEffect(imageView: ImageView, blurRadius: Float) {
+    // Chains the color filter and blur into one RenderEffect graph on S+ so neither silently drops the other.
+    private fun applyImageEffects(
+        imageView: ImageView,
+        blurRadius: Float,
+        colorFilter: android.graphics.ColorFilter,
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (blurRadius > 0f) {
-                val effect = android.graphics.RenderEffect.createBlurEffect(
-                    blurRadius * 4f,
-                    blurRadius * 4f,
-                    Shader.TileMode.CLAMP,
-                )
-                imageView.setRenderEffect(effect)
-            } else {
-                imageView.setRenderEffect(null)
-            }
+            imageView.colorFilter = null
+            val colorFilterEffect = android.graphics.RenderEffect.createColorFilterEffect(colorFilter)
+            val effect =
+                if (blurRadius > 0f) {
+                    android.graphics.RenderEffect.createBlurEffect(
+                        blurRadius * 4f,
+                        blurRadius * 4f,
+                        colorFilterEffect,
+                        Shader.TileMode.CLAMP,
+                    )
+                } else {
+                    colorFilterEffect
+                }
+            imageView.setRenderEffect(effect)
+        } else {
+            imageView.colorFilter = colorFilter
         }
     }
 
-    private fun buildMaskedContainer(vignetteIntensity: Float): FrameLayout {
+    private fun buildMaskedContainer(): FrameLayout {
         return object : FrameLayout(service) {
             private val vignettePaint = android.graphics.Paint().apply {
                 xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
@@ -391,9 +402,7 @@ class AodWallpaperOverlayHandler(
         )
 
         if (overlayContainer == null) {
-            val root = buildMaskedContainer(
-                prefs.getFloat(SettingsRepository.KEY_AOD_WALLPAPER_VIGNETTE, 0f)
-            )
+            val root = buildMaskedContainer()
             val imageView = ImageView(service).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -401,16 +410,15 @@ class AodWallpaperOverlayHandler(
                 )
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 alpha = opacity
-                colorFilter = luminanceFilter
             }
-            applyBlurEffect(imageView, blurRadius)
+            applyImageEffects(imageView, blurRadius, luminanceFilter)
             root.addView(imageView)
             wallpaperImageView = imageView
             overlayContainer = root
         } else {
-            wallpaperImageView?.alpha = opacity
-            wallpaperImageView?.colorFilter = luminanceFilter
-            applyBlurEffect(wallpaperImageView ?: return, blurRadius)
+            val imageView = wallpaperImageView ?: return
+            imageView.alpha = opacity
+            applyImageEffects(imageView, blurRadius, luminanceFilter)
             overlayContainer?.invalidate()
         }
 
