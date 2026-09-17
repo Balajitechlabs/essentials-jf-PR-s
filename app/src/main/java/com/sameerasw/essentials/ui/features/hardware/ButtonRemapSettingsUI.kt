@@ -312,8 +312,11 @@ fun ButtonRemapSettingsUI(
                                 Button(
                                     onClick = {
                                         try {
+                                            val shizukuPackage =
+                                                com.sameerasw.essentials.utils.ShizukuUtils
+                                                    .getShizukuPackageName(context)
                                             val intent =
-                                                context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+                                                context.packageManager.getLaunchIntentForPackage(shizukuPackage)
                                             if (intent != null) context.startActivity(intent)
                                         } catch (_: Exception) {
                                         }
