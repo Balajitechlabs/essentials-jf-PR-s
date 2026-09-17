@@ -1116,6 +1116,8 @@
     <string name="diy_action_flashlight_toggle">Toggle Flashlight</string>
     <string name="diy_action_low_power_on">Turn On Low Power Mode</string>
     <string name="diy_action_low_power_off">Turn Off Low Power Mode</string>
+    <string name="diy_action_set_charging_mode">Set Charging Mode</string>
+    <string name="diy_charging_mode_desc">Choose whether charging is not optimized, adaptive, or limited to 80%.</string>
     <string name="diy_action_wifi_on">Turn On WiFi</string>
     <string name="diy_action_wifi_off">Turn Off WiFi</string>
     <string name="diy_action_cellular_on">Turn On Cellular Data</string>

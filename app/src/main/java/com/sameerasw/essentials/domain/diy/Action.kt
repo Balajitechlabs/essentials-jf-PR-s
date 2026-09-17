@@ -16,6 +16,7 @@ import com.google.gson.annotations.SerializedName
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.ScreenOffMethod
+import com.sameerasw.essentials.utils.battery.ChargingMode
 
 @Keep
 sealed interface Action {
@@ -115,6 +116,22 @@ sealed interface Action {
     data object TurnOffLowPower : Action {
         override val title: Int = R.string.diy_action_low_power_off
         override val icon: Int = R.drawable.rounded_battery_android_frame_shield_24
+    }
+
+    @Keep
+    data class SetChargingMode(
+        @SerializedName("mode") val mode: ChargingMode = ChargingMode.ADAPTIVE,
+    ) : Action {
+        override val title: Int get() = R.string.diy_action_set_charging_mode
+        override val icon: Int
+            get() =
+                when (mode) {
+                    ChargingMode.OFF -> R.drawable.outline_battery_android_frame_bolt_24
+                    ChargingMode.ADAPTIVE -> R.drawable.rounded_battery_android_frame_plus_24
+                    ChargingMode.LIMITED -> R.drawable.rounded_battery_android_frame_shield_24
+                }
+        override val permissions: List<String> = listOf("SHIZUKU", "ROOT")
+        override val isConfigurable: Boolean = true
     }
 
     @Keep

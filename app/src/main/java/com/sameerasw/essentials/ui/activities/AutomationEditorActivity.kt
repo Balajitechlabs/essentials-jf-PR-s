@@ -99,6 +99,7 @@ import com.sameerasw.essentials.ui.core.sheets.CustomSettingsSheet
 import com.sameerasw.essentials.ui.core.sheets.DimWallpaperSettingsSheet
 import com.sameerasw.essentials.ui.core.sheets.ScreenOffSettingsSheet
 import com.sameerasw.essentials.ui.core.sheets.SingleAppSelectionSheet
+import com.sameerasw.essentials.ui.core.sheets.ChargingModeSettingsSheet
 import com.sameerasw.essentials.ui.core.sheets.SoundModeSettingsSheet
 import com.sameerasw.essentials.ui.core.sheets.WifiNetworkSelectionSheet
 import com.sameerasw.essentials.ui.features.apps.sheets.KeyboardSelectionSheet
@@ -328,6 +329,7 @@ class AutomationEditorActivity : ComponentActivity() {
                 var showScreenOffSettings by remember { mutableStateOf(false) }
                 var showDeviceEffectsSettings by remember { mutableStateOf(false) }
                 var showSoundModeSettings by remember { mutableStateOf(false) }
+                var showChargingModeSettings by remember { mutableStateOf(false) }
                 var showSometimesEssentialsSettings by remember { mutableStateOf(false) }
                 var showFreezeTagSettings by remember { mutableStateOf(false) }
                 var showOpenAppSettings by remember { mutableStateOf(false) }
@@ -1323,6 +1325,7 @@ class AutomationEditorActivity : ComponentActivity() {
                                                                     is Action.ScreenOff -> showScreenOffSettings = true
                                                                     is Action.DeviceEffects -> showDeviceEffectsSettings = true
                                                                     is Action.SoundMode -> showSoundModeSettings = true
+                                                                    is Action.SetChargingMode -> showChargingModeSettings = true
                                                                     is Action.SometimesEssentials -> showSometimesEssentialsSettings = true
                                                                     is Action.FreezeTag -> showFreezeTagSettings = true
                                                                     is Action.OpenApp -> showOpenAppSettings = true
@@ -1547,6 +1550,35 @@ class AutomationEditorActivity : ComponentActivity() {
                                     onDismiss = { showSoundModeSettings = false },
                                     onSave = { newAction ->
                                         showSoundModeSettings = false
+                                        when (automationType) {
+                                            Automation.Type.TRIGGER -> selectedAction = newAction
+                                            Automation.Type.ACTION_SHORTCUT,
+                                            Automation.Type.ACCESSIBILITY_SHORTCUT,
+                                            Automation.Type.ACCESSIBILITY_SHORTCUT_1,
+                                            Automation.Type.ACCESSIBILITY_SHORTCUT_2,
+                                            Automation.Type.ACCESSIBILITY_SHORTCUT_3,
+                                            Automation.Type.PIXEL_SEARCHBAR ->
+                                                selectedAction =
+                                                    newAction
+
+                                            Automation.Type.STATE, Automation.Type.APP -> {
+                                                if (selectedActionTab == 0) {
+                                                    selectedInAction = newAction
+                                                } else {
+                                                    selectedOutAction = newAction
+                                                }
+                                            }
+                                        }
+                                        configAction = null
+                                    },
+                                )
+                            }
+                            if (showChargingModeSettings && configAction is Action.SetChargingMode) {
+                                ChargingModeSettingsSheet(
+                                    initialAction = configAction as Action.SetChargingMode,
+                                    onDismiss = { showChargingModeSettings = false },
+                                    onSave = { newAction ->
+                                        showChargingModeSettings = false
                                         when (automationType) {
                                             Automation.Type.TRIGGER -> selectedAction = newAction
                                             Automation.Type.ACTION_SHORTCUT,
