@@ -41,6 +41,7 @@ abstract class Feature(
     val showToggle: Boolean = true,
     val hasMoreSettings: Boolean = true,
     val isBeta: Boolean = false,
+    val isLegacy: Boolean = false,
     val parentFeatureId: String? = null,
     val isVisibleInMain: Boolean = true,
     @StringRes val authTitle: Int = 0,

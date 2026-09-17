@@ -17,6 +17,7 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
+import com.sameerasw.essentials.R
 
 object FreezeManager {
     private const val TAG = "FreezeManager"
@@ -310,7 +311,11 @@ object FreezeManager {
 
         if (!ShellUtils.hasPermission(context)) return false
         return try {
-            ShellUtils.runCommand(context, "pm suspend --user 0 $packageName")
+            ShellUtils.runCommand(
+                context,
+                "pm suspend --user 0 $packageName",
+                featureName = context.getString(R.string.feat_freeze_title),
+            )
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -328,7 +333,11 @@ object FreezeManager {
 
         if (!ShellUtils.hasPermission(context)) return false
         return try {
-            ShellUtils.runCommand(context, "pm unsuspend --user 0 $packageName")
+            ShellUtils.runCommand(
+                context,
+                "pm unsuspend --user 0 $packageName",
+                featureName = context.getString(R.string.feat_freeze_title),
+            )
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -581,7 +590,11 @@ object FreezeManager {
             }
 
         return try {
-            ShellUtils.runCommand(context, cmd)
+            ShellUtils.runCommand(
+                context,
+                cmd,
+                featureName = context.getString(R.string.feat_freeze_title),
+            )
             true
         } catch (e: Exception) {
             e.printStackTrace()

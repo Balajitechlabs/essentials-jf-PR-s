@@ -115,6 +115,7 @@ class MainViewModel : ViewModel() {
     val isAmbientShowLockScreenEnabled = mutableStateOf(false)
     val isButtonRemapEnabled = mutableStateOf(false)
     val isButtonRemapUseShizuku = mutableStateOf(false)
+    val isButtonRemapPauseOnVolumeDialog = mutableStateOf(true)
     val shizukuDetectedDevicePath = mutableStateOf<String?>(null)
     val volumeUpActionOff = mutableStateOf<Action?>(null)
     val volumeDownActionOff = mutableStateOf<Action?>(null)
@@ -373,6 +374,7 @@ class MainViewModel : ViewModel() {
     val isLocationReachedFullScreenAlarmEnabled = mutableStateOf(true)
 
     val isEnableUnsupportedFeatures = mutableStateOf(false)
+    val isShowLegacyFeatures = mutableStateOf(true)
     val isSecureSensitiveTilesEnabled = mutableStateOf(true)
     val isBlurEnabled = mutableStateOf(true)
     val isBlurSettingEnabled = mutableStateOf(true)
@@ -1945,6 +1947,8 @@ class MainViewModel : ViewModel() {
             )
         isButtonRemapUseShizuku.value =
             settingsRepository.getBoolean(SettingsRepository.KEY_BUTTON_REMAP_USE_SHIZUKU)
+        isButtonRemapPauseOnVolumeDialog.value =
+            settingsRepository.getBoolean(SettingsRepository.KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG, true)
         shizukuDetectedDevicePath.value =
             settingsRepository.getString(SettingsRepository.KEY_SHIZUKU_DETECTED_DEVICE_PATH)
 
@@ -2107,6 +2111,7 @@ class MainViewModel : ViewModel() {
         isLocationReachedFullScreenAlarmEnabled.value =
             settingsRepository.getLocationReachedFullScreenAlarmEnabled()
         isEnableUnsupportedFeatures.value = settingsRepository.isEnableUnsupportedFeatures()
+        isShowLegacyFeatures.value = settingsRepository.isShowLegacyFeatures()
         isSecureSensitiveTilesEnabled.value = settingsRepository.isSecureSensitiveTilesEnabled()
 
         keyboardHeight.floatValue =
@@ -2390,6 +2395,17 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun setShowLegacyFeatures(
+        enabled: Boolean,
+        context: Context,
+    ) {
+        isShowLegacyFeatures.value = enabled
+        settingsRepository.setShowLegacyFeatures(enabled)
+        if (searchQuery.value.isNotBlank()) {
+            onSearchQueryChanged(searchQuery.value, context)
+        }
+    }
+
     fun setSecureSensitiveTilesEnabled(enabled: Boolean) {
         isSecureSensitiveTilesEnabled.value = enabled
         settingsRepository.setSecureSensitiveTilesEnabled(enabled)
@@ -2423,6 +2439,7 @@ class MainViewModel : ViewModel() {
                         context,
                         query,
                         isEnableUnsupportedFeatures.value,
+                        isShowLegacyFeatures.value,
                     )
                 withContext(Dispatchers.Main) {
                     searchResults.value = results
@@ -4454,6 +4471,15 @@ class MainViewModel : ViewModel() {
     ) {
         isButtonRemapEnabled.value = enabled
         settingsRepository.putBoolean(SettingsRepository.KEY_BUTTON_REMAP_ENABLED, enabled)
+    }
+
+    // Pause remap while the system volume dialog is visible
+    fun setButtonRemapPauseOnVolumeDialog(
+        enabled: Boolean,
+        context: Context,
+    ) {
+        isButtonRemapPauseOnVolumeDialog.value = enabled
+        settingsRepository.putBoolean(SettingsRepository.KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG, enabled)
     }
 
     /**
@@ -8234,7 +8260,7 @@ class MainViewModel : ViewModel() {
 
         if (tilesString.isBlank() && ShellUtils.hasPermission(context)) {
             try {
-                tilesString = ShellUtils.runCommandWithOutput(context, "settings get secure sysui_qs_tiles") ?: ""
+                tilesString = ShellUtils.runCommandWithOutput(context, "settings get secure sysui_qs_tiles", notifyOnError = false) ?: ""
                 if (tilesString == "null") tilesString = ""
             } catch (e: Exception) {
                 e.printStackTrace()

@@ -603,6 +603,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                     .getFilteredFeatures(
                                         context,
                                         viewModel.isEnableUnsupportedFeatures.value,
+                                        viewModel.isShowLegacyFeatures.value,
                                     ).filter { it.parentFeatureId == featureId }
                             if (children.isNotEmpty() && featureId != "Networks") {
                         val sectionChildLists =
@@ -886,6 +887,8 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                 onDisabledToggleClick = { permissionAwareToggle(true) },
                                                 hasMoreSettings = child.hasMoreSettings,
                                                 isBeta = child.isBeta,
+                                                isLegacy = child.isLegacy,
+                                                isUnsupported = !child.isDeviceSupported(context),
                                                 onToggle = permissionAwareToggle,
                                                 onClick = {
                                                     if (child.hasMoreSettings) {
