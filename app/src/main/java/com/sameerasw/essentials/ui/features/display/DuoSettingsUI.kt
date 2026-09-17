@@ -686,7 +686,7 @@ fun DuoSettingsUI(
                 }
 
                 val actionCategories = remember {
-                    ActionRegistry.getCategories(screenOnOnly = false)
+                    ActionRegistry.getCategories()
                 }
 
                 var expandedActionCategory by remember {
