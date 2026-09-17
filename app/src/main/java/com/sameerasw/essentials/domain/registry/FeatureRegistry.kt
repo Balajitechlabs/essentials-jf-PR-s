@@ -27,6 +27,7 @@ object FeatureRegistry {
     fun getFilteredFeatures(
         context: Context,
         includeUnsupported: Boolean,
+        includeLegacy: Boolean = true,
     ): List<Feature> {
         val featureMap = ALL_FEATURES.associateBy { it.id }
         val supportCache = mutableMapOf<String, Boolean>()
@@ -37,6 +38,7 @@ object FeatureRegistry {
             val supported = includeUnsupported || feature.isDeviceSupported(context)
             val visible =
                 supported &&
+                    (includeLegacy || !feature.isLegacy) &&
                     (
                         feature.parentFeatureId?.let { parentId ->
                             featureMap[parentId]?.let { parent -> isVisible(parent) } ?: true
@@ -657,7 +659,7 @@ object FeatureRegistry {
                 permissionKeys = listOf("ACCESSIBILITY"),
                 hasMoreSettings = true,
                 showToggle = true,
-                isBeta = true,
+                isLegacy = true,
                 parentFeatureId = "Display",
             ) {
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isStatusGlanceEnabled.value
@@ -1858,6 +1860,7 @@ object FeatureRegistry {
                 parentFeatureId = "Watch",
                 hasMoreSettings = true,
                 showToggle = true,
+                isLegacy = true,
             ) {
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isNotificationSyncEnabled.value
 
@@ -1883,6 +1886,7 @@ object FeatureRegistry {
                 parentFeatureId = "Watch",
                 hasMoreSettings = false,
                 showToggle = true,
+                isLegacy = true,
             ) {
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isCallSyncEnabled.value
 

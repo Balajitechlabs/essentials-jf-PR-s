@@ -38,6 +38,7 @@ class MonoAudioTileService : BaseTileService() {
         com.sameerasw.essentials.utils.ShellUtils.runCommand(
             this,
             "settings put system master_mono $newState",
+            featureName = getTileLabel(),
         )
     }
 

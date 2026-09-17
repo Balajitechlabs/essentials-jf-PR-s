@@ -458,7 +458,13 @@ fun PixelSearchResultsScreen(
 
             if (isSettingsEnabled) {
                 val systemSettings = loadSystemSettings(trimmed)
-                val results = SearchRegistry.search(context, trimmed, repository.isEnableUnsupportedFeatures())
+                val results =
+                    SearchRegistry.search(
+                        context,
+                        trimmed,
+                        repository.isEnableUnsupportedFeatures(),
+                        repository.isShowLegacyFeatures(),
+                    )
                 val qsTiles = QSTileRegistry.searchTiles(
                     context = context,
                     query = trimmed,
@@ -892,6 +898,8 @@ fun PixelSearchResultsScreen(
                                         hasMoreSettings = true,
                                         description = setting.description,
                                         isBeta = setting.isBeta,
+                                        isLegacy = setting.isLegacy,
+                                        isUnsupported = setting.isUnsupported,
                                         descriptionOverride =
                                             if (setting.parentFeature != null) {
                                                 "${setting.parentFeature} > ${setting.description}"

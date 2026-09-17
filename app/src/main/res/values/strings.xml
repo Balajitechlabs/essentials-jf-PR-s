@@ -17,6 +17,8 @@
 
     <string name="label_customization">Customization</string>
     <string name="label_beta">BETA</string>
+    <string name="label_unsupported">Unsupported</string>
+    <string name="label_legacy">Legacy</string>
     <string name="shut_up_attempt_shizuku_restart">Attempt Shizuku restart</string>
     <string name="shut_up_shizuku_restart_warning_title">Shizuku Restart Warning</string>
     <string name="shut_up_shizuku_restart_warning_message">Since wireless debugging was toggled, Shizuku services might not have started automatically causing freezing to not function. Consider turning on attempt shizuku restart as well</string>
@@ -139,6 +141,7 @@
 
     <!-- Button Remap -->
     <string name="button_remap_enable_title">Enable Button Remap</string>
+    <string name="button_remap_pause_on_volume_dialog_title">Disabled while volume dialog open</string>
     <string name="button_remap_use_shizuku_title">Use Shizuku or Root</string>
     <string name="button_remap_use_shizuku_desc">Works with screen off (Recommended)</string>
     <string name="shizuku_not_running_toast">Shizuku is not running</string>
@@ -575,6 +578,8 @@
     <string name="requires_following_permissions">%1$s requires following permissions</string>
     <string name="setting_enable_unsupported_features_title">Enable unsupported features</string>
     <string name="setting_enable_unsupported_features_desc">Show OEM-specific or redundant features that are hidden by default.</string>
+    <string name="setting_show_legacy_features_title">Show legacy features</string>
+    <string name="setting_show_legacy_features_desc">These features may not receive future updates due to technical limitations or not being essential.</string>
     <string name="unsupported_features_warning_title">Enable unsupported features?</string>
     <string name="unsupported_features_warning_desc">These features may not work on every device and could require extra permissions or root access.</string>
     <string name="unsupported_features_confirm">Enable anyway</string>
@@ -2588,4 +2593,14 @@
     <string name="action_backup_app_list">Backup app list</string>
     <string name="msg_backup_app_list_success">App list backed up successfully</string>
     <string name="msg_backup_app_list_failed">Failed to back up app list</string>
+    <string name="shizuku_not_running_title">Shizuku is not running</string>
+    <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
+    <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
+    <string name="shizuku_permission_missing_title">Shizuku permission missing</string>
+    <string name="shizuku_permission_missing_desc">Please grant Shizuku permission for Essentials.</string>
+    <string name="shizuku_permission_missing_feature_desc">Please grant Shizuku permission for Essentials to use %1$s.</string>
+    <string name="shizuku_status_alerts_channel_name">Shizuku Status Alerts</string>
+    <string name="action_expand_notifications">Expand notifications</string>
+    <string name="action_expand_settings">Expand settings</string>
+    <string name="action_collapse_status_bar">Collapse status bar</string>
 </resources>

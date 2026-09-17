@@ -82,8 +82,9 @@ object RefreshRateUtils {
 
         val clamped = normalizeRate(value)
         val formatted = formatRate(clamped)
-        ShellUtils.runCommand(context, "settings put system $KEY_PEAK_REFRESH_RATE $formatted")
-        ShellUtils.runCommand(context, "settings put system $KEY_MIN_REFRESH_RATE $formatted")
+        val featureName = context.getString(R.string.feat_screen_refresh_rate_title)
+        ShellUtils.runCommand(context, "settings put system $KEY_PEAK_REFRESH_RATE $formatted", featureName = featureName)
+        ShellUtils.runCommand(context, "settings put system $KEY_MIN_REFRESH_RATE $formatted", featureName = featureName)
         return true
     }
 
@@ -96,13 +97,16 @@ object RefreshRateUtils {
 
         val safeMin = normalizeRate(minValue)
         val safePeak = normalizeRate(maxOf(minValue, peakValue))
+        val featureName = context.getString(R.string.feat_screen_refresh_rate_title)
         ShellUtils.runCommand(
             context,
             "settings put system $KEY_MIN_REFRESH_RATE ${formatRate(safeMin)}",
+            featureName = featureName,
         )
         ShellUtils.runCommand(
             context,
             "settings put system $KEY_PEAK_REFRESH_RATE ${formatRate(safePeak)}",
+            featureName = featureName,
         )
         return true
     }
@@ -113,13 +117,14 @@ object RefreshRateUtils {
     ): Boolean {
         if (!ShellUtils.hasPermission(context)) return false
 
+        val featureName = context.getString(R.string.feat_screen_refresh_rate_title)
         // Clear both namespaces first, then restore the original system-managed peak behavior.
-        ShellUtils.runCommand(context, "settings delete system $KEY_MIN_REFRESH_RATE")
-        ShellUtils.runCommand(context, "settings delete system $KEY_PEAK_REFRESH_RATE")
-        ShellUtils.runCommand(context, "settings delete global $KEY_PEAK_REFRESH_RATE")
-        ShellUtils.runCommand(context, "settings delete global $KEY_MIN_REFRESH_RATE")
+        ShellUtils.runCommand(context, "settings delete system $KEY_MIN_REFRESH_RATE", featureName = featureName)
+        ShellUtils.runCommand(context, "settings delete system $KEY_PEAK_REFRESH_RATE", featureName = featureName)
+        ShellUtils.runCommand(context, "settings delete global $KEY_PEAK_REFRESH_RATE", featureName = featureName)
+        ShellUtils.runCommand(context, "settings delete global $KEY_MIN_REFRESH_RATE", featureName = featureName)
         if (restoreInfinityPeak) {
-            ShellUtils.runCommand(context, "settings put system $KEY_PEAK_REFRESH_RATE Infinity")
+            ShellUtils.runCommand(context, "settings put system $KEY_PEAK_REFRESH_RATE Infinity", featureName = featureName)
         }
         return true
     }

@@ -11,6 +11,7 @@
 package com.sameerasw.essentials.utils
 
 import android.content.Context
+import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,8 @@ object StatusBarManager {
         }
     }
 
+    private var lastAppliedCommand: String? = null
+
     /**
      * Aggregate all active disable requests along with persistent settings and apply the final status bar state.
      */
@@ -84,13 +87,31 @@ object StatusBarManager {
             allFlags.add(FLAG_NOTIFICATION_ICONS)
         }
 
+        if (allFlags.isEmpty() && (lastAppliedCommand == null || lastAppliedCommand == "cmd statusbar send-disable-flag none")) {
+            return
+        }
+
+        // Don't execute shell commands if shell/Shizuku permission isn't available
+        if (!ShellUtils.hasPermission(context)) {
+            return
+        }
+
         val command =
             if (allFlags.isEmpty()) {
                 "cmd statusbar send-disable-flag none"
             } else {
                 "cmd statusbar send-disable-flag ${allFlags.joinToString(" ")}"
             }
-        ShellUtils.runCommand(context, command)
+
+        if (command == lastAppliedCommand) return
+        lastAppliedCommand = command
+
+        ShellUtils.runCommand(
+            context,
+            command,
+            featureName = context.getString(R.string.feat_statusbar_icons_title),
+            notifyOnError = false,
+        )
     }
 
     /**
@@ -99,6 +120,8 @@ object StatusBarManager {
      * to SystemUI to prevent system icons from unhiding.
      */
     fun reassertFlags(context: Context) {
+        if (!ShellUtils.hasPermission(context)) return
+
         CoroutineScope(Dispatchers.IO).launch {
             val prefs = context.getSharedPreferences(SettingsRepository.PREFS_NAME, Context.MODE_PRIVATE)
             val isHideSystemIcons = prefs.getBoolean(SettingsRepository.KEY_HIDE_SYSTEM_ICONS, false)
@@ -119,7 +142,12 @@ object StatusBarManager {
                         "cmd statusbar send-disable-flag ${tempFlags.joinToString(" ")}"
                     }
 
-                ShellUtils.runCommand(context, tempCmd)
+                ShellUtils.runCommand(
+                    context,
+                    tempCmd,
+                    featureName = context.getString(R.string.feat_statusbar_icons_title),
+                    notifyOnError = false,
+                )
                 delay(50)
             }
             update(context)
@@ -132,20 +160,32 @@ object StatusBarManager {
      * Open the notifications panel.
      */
     fun expandNotifications(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar expand-notifications")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar expand-notifications",
+            featureName = context.getString(R.string.action_expand_notifications),
+        )
     }
 
     /**
      * Open the notifications panel and expand quick settings if present.
      */
     fun expandSettings(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar expand-settings")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar expand-settings",
+            featureName = context.getString(R.string.action_expand_settings),
+        )
     }
 
     /**
      * Collapse the notifications and settings panel.
      */
     fun collapse(context: Context) {
-        ShellUtils.runCommand(context, "cmd statusbar collapse")
+        ShellUtils.runCommand(
+            context,
+            "cmd statusbar collapse",
+            featureName = context.getString(R.string.action_collapse_status_bar),
+        )
     }
 }
