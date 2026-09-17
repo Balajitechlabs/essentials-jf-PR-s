@@ -1606,4 +1606,6 @@
     <string name="duo_show_flashlight_title">Фонарик</string>
     <string name="duo_material_you_title">Использовать цвета Material You</string>
     <string name="duo_action_tap_title">Нажатие</string>
+    <string name="settings_genai_automation_title">Включить GenAI</string>
+    <string name="settings_genai_automation_desc">Использовать Gemini Nano на устройстве для создания сценариев автоматизации на основе задач</string>
 </resources>
