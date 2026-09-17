@@ -2,9 +2,8 @@ name: Validate Translations
 
 on:
   pull_request:
-    paths:
-      - 'app/src/main/res/values*/**'
-      - 'scripts/validate_strings.py'
+    branches:
+      - develop
   workflow_dispatch:
 
 jobs:
