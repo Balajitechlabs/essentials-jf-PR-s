@@ -10,7 +10,10 @@
 
 package com.sameerasw.essentials.ui.core.cards
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.ripple
 import com.sameerasw.essentials.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,6 +78,12 @@ fun IconToggleItem(
     var showMenu by remember { mutableStateOf(false) }
     var translationSheetKey by remember { mutableStateOf<String?>(null) }
 
+    // ListItem's internal clickable consumes the down/up touch events even when `enabled` is
+    // false (it only skips invoking onClick), so a click modifier chained onto the same node
+    // never sees an unconsumed event to react to. A sibling Box drawn on top intercepts the
+    // tap before it reaches the disabled ListItem underneath.
+    val disabledClickInteractionSource = remember { MutableInteractionSource() }
+
     val onClickAction = {
         if (enabled) {
             HapticUtil.performVirtualKeyHaptic(view)
@@ -114,171 +124,218 @@ fun IconToggleItem(
         }
     }
 
-    if (showToggle) {
-        if (onClick != null) {
-            ListItem(
-                onClick = {
-                    if (enabled) {
-                        HapticUtil.performVirtualKeyHaptic(view)
-                        onClick()
-                    } else if (onDisabledClick != null) {
-                        HapticUtil.performVirtualKeyHaptic(view)
-                        onDisabledClick()
-                    }
-                },
-                onLongClick = onLongClickAction,
-                enabled = enabled,
-                modifier = modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                leadingContent =
-                    if (finalIconRes != 0) {
-                        {
-                            Icon(
-                                painter = painterResource(id = finalIconRes),
-                                contentDescription = title,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
+    Box(modifier = modifier.fillMaxWidth()) {
+        if (showToggle) {
+            if (onClick != null) {
+                ListItem(
+                    onClick = {
+                        if (enabled) {
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            onClick()
+                        } else if (onDisabledClick != null) {
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            onDisabledClick()
                         }
-                    } else {
-                        null
                     },
-                supportingContent =
-                    if (finalDescription != null) {
-                        {
-                            Text(
-                                text = finalDescription,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                trailingContent = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        VerticalDivider(
-                            modifier =
-                                Modifier
-                                    .height(32.dp)
-                                    .width(1.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                        Switch(
-                            checked = finalIsChecked,
-                            onCheckedChange = { c ->
-                                if (enabled) {
-                                    HapticUtil.performVirtualKeyHaptic(view)
-                                    onCheckedChange(c)
-                                }
-                            },
-                            enabled = enabled,
-                        )
-                    }
-                },
-                colors =
-                    ListItemDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surfaceBright,
-                    ),
-                content = {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    renderMenu()
-                },
-            )
-        } else {
-            var switchCenterOffset by remember { mutableStateOf(Offset.Zero) }
-
-            ListItem(
-                checked = finalIsChecked,
-                onCheckedChange = { c ->
-                    if (enabled) {
-                        HapticUtil.performVirtualKeyHaptic(view)
-                        onCheckedChange(c)
-                        onCheckedChangeWithPosition?.invoke(c, switchCenterOffset)
-                    } else if (onDisabledClick != null) {
-                        HapticUtil.performVirtualKeyHaptic(view)
-                        onDisabledClick()
-                    }
-                },
-                onLongClick = onLongClickAction,
-                enabled = enabled,
-                modifier = modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                leadingContent =
-                    if (finalIconRes != 0) {
-                        {
-                            Icon(
-                                painter = painterResource(id = finalIconRes),
-                                contentDescription = title,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                supportingContent =
-                    if (finalDescription != null) {
-                        {
-                            Text(
-                                text = finalDescription,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                trailingContent = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        if (onSettingsClick != null && enabled && finalIsChecked) {
-                            IconButton(
-                                onClick = {
-                                    HapticUtil.performVirtualKeyHaptic(view)
-                                    onSettingsClick()
-                                },
-                                modifier = Modifier.size(36.dp),
-                            ) {
+                    onLongClick = onLongClickAction,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    leadingContent =
+                        if (finalIconRes != 0) {
+                            {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.rounded_settings_24),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    painter = painterResource(id = finalIconRes),
+                                    contentDescription = title,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
+                        } else {
+                            null
+                        },
+                    supportingContent =
+                        if (finalDescription != null) {
+                            {
+                                Text(
+                                    text = finalDescription,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    trailingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
                             VerticalDivider(
                                 modifier =
                                     Modifier
-                                        .height(28.dp)
+                                        .height(32.dp)
                                         .width(1.dp),
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
+                            Switch(
+                                checked = finalIsChecked,
+                                onCheckedChange = { c ->
+                                    if (enabled) {
+                                        HapticUtil.performVirtualKeyHaptic(view)
+                                        onCheckedChange(c)
+                                    }
+                                },
+                                enabled = enabled,
+                            )
                         }
-                        Switch(
-                            checked = finalIsChecked,
-                            onCheckedChange = null,
-                            enabled = enabled,
-                            modifier = Modifier.onGloballyPositioned { coords ->
-                                val pos = coords.positionInRoot()
-                                val size = coords.size
-                                switchCenterOffset = Offset(
-                                    x = pos.x + (size.width / 2f),
-                                    y = pos.y + (size.height / 2f)
-                                )
-                            },
+                    },
+                    colors =
+                        ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceBright,
+                        ),
+                    content = {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                    }
-                },
+                        renderMenu()
+                    },
+                )
+            } else {
+                var switchCenterOffset by remember { mutableStateOf(Offset.Zero) }
+
+                ListItem(
+                    checked = finalIsChecked,
+                    onCheckedChange = { c ->
+                        if (enabled) {
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            onCheckedChange(c)
+                            onCheckedChangeWithPosition?.invoke(c, switchCenterOffset)
+                        } else if (onDisabledClick != null) {
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            onDisabledClick()
+                        }
+                    },
+                    onLongClick = onLongClickAction,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    leadingContent =
+                        if (finalIconRes != 0) {
+                            {
+                                Icon(
+                                    painter = painterResource(id = finalIconRes),
+                                    contentDescription = title,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    supportingContent =
+                        if (finalDescription != null) {
+                            {
+                                Text(
+                                    text = finalDescription,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    trailingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (onSettingsClick != null && enabled && finalIsChecked) {
+                                IconButton(
+                                    onClick = {
+                                        HapticUtil.performVirtualKeyHaptic(view)
+                                        onSettingsClick()
+                                    },
+                                    modifier = Modifier.size(36.dp),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.rounded_settings_24),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                VerticalDivider(
+                                    modifier =
+                                        Modifier
+                                            .height(28.dp)
+                                            .width(1.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                )
+                            }
+                            Switch(
+                                checked = finalIsChecked,
+                                onCheckedChange = null,
+                                enabled = enabled,
+                                modifier = Modifier.onGloballyPositioned { coords ->
+                                    val pos = coords.positionInRoot()
+                                    val size = coords.size
+                                    switchCenterOffset = Offset(
+                                        x = pos.x + (size.width / 2f),
+                                        y = pos.y + (size.height / 2f)
+                                    )
+                                },
+                            )
+                        }
+                    },
+                    colors =
+                        ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceBright,
+                        ),
+                    content = {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        renderMenu()
+                    },
+                )
+            }
+        } else {
+            ListItem(
+                onClick = onClickAction,
+                onLongClick = onLongClickAction,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                leadingContent =
+                    if (finalIconRes != 0) {
+                        {
+                            Icon(
+                                painter = painterResource(id = finalIconRes),
+                                contentDescription = title,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                supportingContent =
+                    if (finalDescription != null) {
+                        {
+                            Text(
+                                text = finalDescription,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        null
+                    },
                 colors =
                     ListItemDefaults.colors(
                         containerColor = MaterialTheme.colorScheme.surfaceBright,
@@ -293,51 +350,22 @@ fun IconToggleItem(
                 },
             )
         }
-    } else {
-        ListItem(
-            onClick = onClickAction,
-            onLongClick = onLongClickAction,
-            enabled = enabled,
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            leadingContent =
-                if (finalIconRes != 0) {
-                    {
-                        Icon(
-                            painter = painterResource(id = finalIconRes),
-                            contentDescription = title,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                } else {
-                    null
-                },
-            supportingContent =
-                if (finalDescription != null) {
-                    {
-                        Text(
-                            text = finalDescription,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    null
-                },
-            colors =
-                ListItemDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                ),
-            content = {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                renderMenu()
-            },
-        )
+
+        if (!enabled && onDisabledClick != null) {
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .clickable(
+                            interactionSource = disabledClickInteractionSource,
+                            indication = ripple(),
+                            onClick = {
+                                HapticUtil.performVirtualKeyHaptic(view)
+                                onDisabledClick()
+                            },
+                        ),
+            )
+        }
     }
 
     if (translationSheetKey != null) {

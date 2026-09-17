@@ -58,6 +58,7 @@ fun initPermissionRegistry() {
     PermissionRegistry.register("ACCESSIBILITY", R.string.duo_title)
     PermissionRegistry.register("ACCESSIBILITY", R.string.feat_status_glance_title)
     PermissionRegistry.register("READ_CALENDAR", R.string.feat_status_glance_title)
+    PermissionRegistry.register("ACCESSIBILITY", R.string.feat_conscious_gate_title)
 
     // Write secure settings permission
     PermissionRegistry.register("WRITE_SECURE_SETTINGS", R.string.feat_statusbar_icons_title)
@@ -95,6 +96,7 @@ fun initPermissionRegistry() {
     PermissionRegistry.register("USAGE_STATS", R.string.feat_freeze_title)
     PermissionRegistry.register("USAGE_STATS", R.string.feat_app_lock_title)
     PermissionRegistry.register("USAGE_STATS", R.string.feat_dynamic_night_light_title)
+    PermissionRegistry.register("USAGE_STATS", R.string.feat_conscious_gate_title)
     PermissionRegistry.register("NOTIFICATION_LISTENER", R.string.feat_freeze_title)
 
     // Root permission

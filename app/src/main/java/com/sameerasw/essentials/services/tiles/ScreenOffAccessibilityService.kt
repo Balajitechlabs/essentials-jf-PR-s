@@ -863,6 +863,18 @@ class ScreenOffAccessibilityService :
 
             "APP_AUTHENTICATION_FAILED" -> performGlobalAction(GLOBAL_ACTION_HOME)
 
+            "CONSCIOUS_GATE_CONFIRMED" ->
+                intent
+                    .getStringExtra("package_name")
+                    ?.let { appFlowHandler.onConsciousGateConfirmed(it) }
+
+            "CONSCIOUS_GATE_CLOSED" -> {
+                intent
+                    .getStringExtra("package_name")
+                    ?.let { appFlowHandler.onConsciousGateClosed(it) }
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
+
             FlashlightActionReceiver.ACTION_INCREASE,
             FlashlightActionReceiver.ACTION_DECREASE,
             FlashlightActionReceiver.ACTION_OFF,
