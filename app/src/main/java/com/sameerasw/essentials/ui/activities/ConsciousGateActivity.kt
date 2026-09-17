@@ -142,12 +142,14 @@ class ConsciousGateActivity : AppCompatActivity() {
         val intent =
             Intent("CONSCIOUS_GATE_CLOSED").apply {
                 `package` = packageName
+                putExtra("package_name", packageToGate)
             }
         sendBroadcast(intent)
 
         val serviceIntent =
             Intent(this, ScreenOffAccessibilityService::class.java).apply {
                 action = "CONSCIOUS_GATE_CLOSED"
+                putExtra("package_name", packageToGate)
             }
         startService(serviceIntent)
 

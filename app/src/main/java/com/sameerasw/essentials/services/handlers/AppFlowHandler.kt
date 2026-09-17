@@ -270,15 +270,21 @@ class AppFlowHandler(
 
         val isGated = selectedApps.find { it.packageName == packageName }?.isEnabled ?: false
         if (!isGated) return
-
         if (confirmedGatePackages.containsKey(packageName)) {
-            // Already confirmed for this continuous session; the reappear timer (if any)
-            // is scheduled separately from onConsciousGateConfirmed.
             return
         }
 
         val now = System.currentTimeMillis()
+
         if (packageName == gatingPackage && now - lastGateRequestTime < 1500) {
+            return
+        }
+
+        // `currentPackage` is only as fresh as the last window-state-changed event we received, and closing an app
+        // can fire a stale event for its own package after the real foreground has already moved elsewhere.
+        // Cross-check against the window the accessibility service reports as actually active right now before committing.
+        val actuallyActivePackage = service?.rootInActiveWindow?.packageName?.toString()
+        if (actuallyActivePackage != null && actuallyActivePackage != packageName) {
             return
         }
 
@@ -304,6 +310,12 @@ class AppFlowHandler(
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
             }
         context.startActivity(intent)
+    }
+
+    fun onConsciousGateClosed(packageName: String) {
+        if (packageName == gatingPackage) {
+            gatingPackage = null
+        }
     }
 
     fun onConsciousGateConfirmed(packageName: String) {

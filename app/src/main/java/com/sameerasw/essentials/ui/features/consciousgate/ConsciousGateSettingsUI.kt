@@ -43,14 +43,15 @@ import com.sameerasw.essentials.ui.core.cards.FeatureCard
 import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
+import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
 import com.sameerasw.essentials.ui.features.consciousgate.components.ConsciousGateCountdownStylePicker
 import com.sameerasw.essentials.ui.features.consciousgate.components.ConsciousGateIconPicker
 import com.sameerasw.essentials.ui.features.consciousgate.components.SettingsRowSurface
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.AppUtil
 import com.sameerasw.essentials.utils.HapticUtil
+import com.sameerasw.essentials.utils.PermissionUIHelper
 import com.sameerasw.essentials.viewmodels.MainViewModel
-import com.sameerasw.essentials.viewmodels.PermissionViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -60,9 +61,6 @@ const val CONSCIOUS_GATE_FEATURE_ID = "Conscious gate"
 @Composable
 fun ConsciousGateSettingsUI(
     viewModel: MainViewModel,
-    permissionViewModel: PermissionViewModel =
-        androidx.lifecycle.viewmodel.compose
-            .viewModel(),
     modifier: Modifier = Modifier,
     highlightKey: String? = null,
 ) {
@@ -72,10 +70,11 @@ fun ConsciousGateSettingsUI(
     var appsReloadTrigger by remember { mutableStateOf(0) }
     var selectedAppLabels by remember { mutableStateOf<List<String>>(emptyList()) }
     var isPreviewOpen by remember { mutableStateOf(false) }
+    var showPermissionSheet by remember { mutableStateOf(false) }
 
     val isConsciousGateEnabled by viewModel.isConsciousGateEnabled
     val isUseUsageAccess by viewModel.isUseUsageAccess
-    val isAccessibilityEnabled by permissionViewModel.isAccessibilityEnabled
+    val isAccessibilityEnabled by viewModel.isAccessibilityEnabled
     val isUsageStatsPermissionGranted by viewModel.isUsageStatsPermissionGranted
     val canEnableConsciousGate =
         if (isUseUsageAccess) isUsageStatsPermissionGranted else isAccessibilityEnabled
@@ -162,9 +161,15 @@ fun ConsciousGateSettingsUI(
                 iconRes = R.drawable.rounded_pause_24,
                 title = stringResource(R.string.conscious_gate_enable_title),
                 isChecked = isConsciousGateEnabled,
-                onCheckedChange = { enabled -> viewModel.setConsciousGateEnabled(enabled, context) },
+                onCheckedChange = { enabled ->
+                    if (canEnableConsciousGate) {
+                        viewModel.setConsciousGateEnabled(enabled, context)
+                    } else {
+                        showPermissionSheet = true
+                    }
+                },
                 enabled = canEnableConsciousGate,
-                onDisabledClick = {},
+                onDisabledClick = { showPermissionSheet = true },
                 modifier = Modifier.highlight(highlightKey == "conscious_gate_enabled"),
             )
 
@@ -366,6 +371,23 @@ fun ConsciousGateSettingsUI(
                 onAppToggle = { ctx, pkg, enabled ->
                     viewModel.updateConsciousGateAppEnabled(ctx, pkg, enabled)
                 },
+            )
+        }
+
+        if (showPermissionSheet) {
+            val permissionKeys =
+                if (isUseUsageAccess) {
+                    listOf("USAGE_STATS", "ACCESSIBILITY")
+                } else {
+                    listOf("ACCESSIBILITY")
+                }
+            PermissionsBottomSheet(
+                onDismissRequest = {
+                    showPermissionSheet = false
+                    viewModel.check(context)
+                },
+                featureTitle = R.string.feat_conscious_gate_title,
+                permissions = PermissionUIHelper.getPermissionItems(permissionKeys, context, viewModel),
             )
         }
     }
