@@ -292,7 +292,7 @@ private fun HoldToContinueButton(
                             HapticUtil.stopHoldHaptic(context)
 
                             if (completed || holdProgress.value >= 0.99f) {
-                                HapticUtil.performHeavyHaptic(view)
+                                HapticUtil.performCustomHaptic(view, 1.0f)
                                 onContinue()
                             } else {
                                 val elapsed = System.currentTimeMillis() - startTime

@@ -180,11 +180,13 @@ object HapticUtil {
             val stepDuration = 20L
             val segments = (durationMs / stepDuration).toInt().coerceAtLeast(10)
             val timings = LongArray(segments) { stepDuration }
+            val minAmp = 1f
+            val maxAmp = 80f
             val amplitudes =
                 IntArray(segments) { i ->
                     val progress = (i + 1).toFloat() / segments
-                    val curve = Math.pow(progress.toDouble(), 1.5).toFloat()
-                    (10 + (245 * curve)).toInt().coerceIn(1, 155)
+                    val curve = Math.pow(progress.toDouble(), 1.6).toFloat()
+                    (minAmp + ((maxAmp - minAmp) * curve)).toInt().coerceIn(1, 100)
                 }
             runCatching {
                 val effect = android.os.VibrationEffect.createWaveform(timings, amplitudes, -1)
