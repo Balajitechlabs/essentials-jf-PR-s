@@ -279,15 +279,19 @@ class AppFlowHandler(
         val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
 
         if (confirmedGatePackages.contains(packageName)) {
-            if (reappearMinutes > 0) {
-                val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
-                if (lastLeaveTime > 0) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastLeaveTime > reappearMinutes * 60 * 1000L) {
-                        confirmedGatePackages.remove(packageName)
-                        lastLeaveTimes.remove(packageName)
-                        pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
-                    }
+            val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
+            if (lastLeaveTime > 0) {
+                val now = System.currentTimeMillis()
+                val leftDuration = now - lastLeaveTime
+                // If left the app for 5 seconds or more, require conscious gate again
+                if (leftDuration >= 5_000L) {
+                    confirmedGatePackages.remove(packageName)
+                    lastLeaveTimes.remove(packageName)
+                    pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                } else if (reappearMinutes > 0 && leftDuration > reappearMinutes * 60 * 1000L) {
+                    confirmedGatePackages.remove(packageName)
+                    lastLeaveTimes.remove(packageName)
+                    pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
                 }
             }
         }
