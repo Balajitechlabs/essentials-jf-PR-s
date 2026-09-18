@@ -2039,7 +2039,7 @@ object FeatureRegistry {
                 override fun isEnabled(viewModel: MainViewModel): Boolean {
                     val context = EssentialsApp.context
                     val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
-                    return prefs.getBoolean("watch_sync_location_reached_enabled", true)
+                    return prefs.getBoolean("watch_sync_location_reached_enabled", false)
                 }
 
                 override fun onToggle(

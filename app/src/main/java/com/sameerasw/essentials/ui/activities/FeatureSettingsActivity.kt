@@ -267,7 +267,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                         mutableStateOf(
                             prefs.getBoolean(
                                 "watch_sync_location_reached_enabled",
-                                true,
+                                false,
                             ),
                         )
                     }
@@ -352,6 +352,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                     (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else !isAccessibilityEnabled) ||
                                         !isWriteSecureSettingsEnabled
                                 "Smart pixels" -> !isAccessibilityEnabled
+                                "Duo", "Status glance" -> !isAccessibilityEnabled
                                 "Snooze system notifications" -> !isNotificationListenerEnabled
                                 "Screen locked security" ->
                                     !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
@@ -772,6 +773,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                                 (if (viewModel.isUseUsageAccess.value) !viewModel.isUsageStatsPermissionGranted.value else !isAccessibilityEnabled) ||
                                                                     !isWriteSecureSettingsEnabled
                                                             "Smart pixels" -> !isAccessibilityEnabled
+                                                            "Duo", "Status glance" -> !isAccessibilityEnabled
                                                             "Snooze system notifications" -> !isNotificationListenerEnabled
                                                             "Screen locked security" ->
                                                                 !com.sameerasw.essentials.utils.ShellUtils.hasPermission(

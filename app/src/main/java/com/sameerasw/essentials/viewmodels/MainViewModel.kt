@@ -225,7 +225,7 @@ class MainViewModel : ViewModel() {
     val isCallVibrationsEnabled = mutableStateOf(false)
     val isCalendarSyncEnabled = mutableStateOf(false)
     val isNotificationSyncEnabled = mutableStateOf(false)
-    val isCallSyncEnabled = mutableStateOf(true)
+    val isCallSyncEnabled = mutableStateOf(false)
     val isCalendarSyncPeriodicEnabled = mutableStateOf(false)
     val isBatteryNotificationEnabled = mutableStateOf(false)
     val isAodEnabled = mutableStateOf(false)
@@ -2295,7 +2295,7 @@ class MainViewModel : ViewModel() {
         isNotificationSyncEnabled.value =
             settingsRepository.getBoolean("watch_notif_sync_enabled", false)
         isCallSyncEnabled.value =
-            settingsRepository.getBoolean("watch_call_sync_enabled", true)
+            settingsRepository.getBoolean("watch_call_sync_enabled", false)
         isCalendarSyncPeriodicEnabled.value = settingsRepository.isCalendarSyncPeriodicEnabled()
         isBatteryNotificationEnabled.value = settingsRepository.isBatteryNotificationEnabled()
         selectedCalendarIds.value = settingsRepository.getCalendarSyncSelectedCalendars()
