@@ -732,7 +732,7 @@ object FeatureRegistry {
             object : Feature(
                 id = "Island",
                 title = R.string.island_title,
-                iconRes = R.drawable.rounded_notifications_unread_24,
+                iconRes = R.drawable.rounded_upcoming_24,
                 category = R.string.cat_interface,
                 description = R.string.island_desc,
                 aboutDescription = R.string.island_desc,
