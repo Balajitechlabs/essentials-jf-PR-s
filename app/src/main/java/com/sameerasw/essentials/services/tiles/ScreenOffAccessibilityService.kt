@@ -362,6 +362,7 @@ class ScreenOffAccessibilityService :
                         Intent.ACTION_SCREEN_OFF -> {
                             isScreenOn = false
                             appFlowHandler.clearAuthenticated()
+                            appFlowHandler.clearConsciousGate()
                             scheduleFreeze()
                             startInputEventListenerIfEnabled()
                             ambientGlanceHandler.checkAndShowOnScreenOff()

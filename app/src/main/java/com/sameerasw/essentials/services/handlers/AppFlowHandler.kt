@@ -116,7 +116,7 @@ class AppFlowHandler(
     // Conscious Gate State
     private var gatingPackage: String? = null
     private var lastGateRequestTime: Long = 0
-    private val confirmedGatePackages = mutableMapOf<String, Long>()
+    private val confirmedGatePackages = mutableSetOf<String>()
     private val pendingReappearRunnables = mutableMapOf<String, Runnable>()
 
     // App Automation State
@@ -148,8 +148,6 @@ class AppFlowHandler(
             if (oldPackage != null && oldPackage != packageName) {
                 lastLeaveTimes[oldPackage] = System.currentTimeMillis()
                 checkShutUpRestore(oldPackage, packageName)
-                confirmedGatePackages.remove(oldPackage)
-                pendingReappearRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
             }
             if (packageName != context.packageName && packageName != lockingPackage) {
                 lockingPackage = null
@@ -174,6 +172,13 @@ class AppFlowHandler(
 
     fun clearAuthenticated() {
         authenticatedPackages.clear()
+    }
+
+    fun clearConsciousGate() {
+        confirmedGatePackages.clear()
+        pendingReappearRunnables.values.forEach { handler.removeCallbacks(it) }
+        pendingReappearRunnables.clear()
+        gatingPackage = null
     }
 
     private fun checkAppLock(packageName: String) {
@@ -270,7 +275,24 @@ class AppFlowHandler(
 
         val isGated = selectedApps.find { it.packageName == packageName }?.isEnabled ?: false
         if (!isGated) return
-        if (confirmedGatePackages.containsKey(packageName)) {
+
+        val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
+
+        if (confirmedGatePackages.contains(packageName)) {
+            if (reappearMinutes > 0) {
+                val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
+                if (lastLeaveTime > 0) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastLeaveTime > reappearMinutes * 60 * 1000L) {
+                        confirmedGatePackages.remove(packageName)
+                        lastLeaveTimes.remove(packageName)
+                        pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                    }
+                }
+            }
+        }
+
+        if (confirmedGatePackages.contains(packageName)) {
             return
         }
 
@@ -280,8 +302,6 @@ class AppFlowHandler(
             return
         }
 
-        // `currentPackage` is only as fresh as the last window-state-changed event we received, and closing an app
-        // can fire a stale event for its own package after the real foreground has already moved elsewhere.
         // Cross-check against the window the accessibility service reports as actually active right now before committing.
         val actuallyActivePackage = service?.rootInActiveWindow?.packageName?.toString()
         if (actuallyActivePackage != null && actuallyActivePackage != packageName) {
@@ -319,7 +339,7 @@ class AppFlowHandler(
     }
 
     fun onConsciousGateConfirmed(packageName: String) {
-        confirmedGatePackages[packageName] = System.currentTimeMillis()
+        confirmedGatePackages.add(packageName)
         if (packageName == gatingPackage) {
             gatingPackage = null
         }

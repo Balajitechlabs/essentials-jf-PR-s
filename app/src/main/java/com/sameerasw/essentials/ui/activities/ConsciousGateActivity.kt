@@ -121,6 +121,13 @@ class ConsciousGateActivity : AppCompatActivity() {
     }
 
     private fun notifyConfirmedAndFinish() {
+        val intent =
+            Intent("CONSCIOUS_GATE_CONFIRMED").apply {
+                `package` = packageName
+                putExtra("package_name", packageToGate)
+            }
+        sendBroadcast(intent)
+
         val accessibilityIntent =
             Intent(this, ScreenOffAccessibilityService::class.java).apply {
                 action = "CONSCIOUS_GATE_CONFIRMED"
@@ -132,6 +139,13 @@ class ConsciousGateActivity : AppCompatActivity() {
     }
 
     private fun notifyClosedAndFinish() {
+        val intent =
+            Intent("CONSCIOUS_GATE_CLOSED").apply {
+                `package` = packageName
+                putExtra("package_name", packageToGate)
+            }
+        sendBroadcast(intent)
+
         val serviceIntent =
             Intent(this, ScreenOffAccessibilityService::class.java).apply {
                 action = "CONSCIOUS_GATE_CLOSED"
@@ -140,6 +154,13 @@ class ConsciousGateActivity : AppCompatActivity() {
         startService(serviceIntent)
 
         finishAndTransition()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        notifyClosedAndFinish()
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
     }
 
     private fun finishAndTransition() {
