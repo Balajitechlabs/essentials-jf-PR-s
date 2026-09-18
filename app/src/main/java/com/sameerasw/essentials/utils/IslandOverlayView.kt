@@ -1150,7 +1150,7 @@ class IslandOverlayView(context: Context) : View(context) {
         timeFormatted: String,
     ) {
         if (!isIslandEnabled) return
-        val wasActive = isConsciousGateActive
+        val wasActive = isConsciousGateActive && consciousGateFraction > 0.05f
         if (wasActive && timeFormatted != consciousGateTimeText) {
             consciousGateTimePrev = consciousGateTimeText
             consciousGateTimeRollFraction = 0f
@@ -1169,7 +1169,8 @@ class IslandOverlayView(context: Context) : View(context) {
         consciousGateAppLabel = appLabel
         consciousGateTimeText = timeFormatted
 
-        if (!wasActive) {
+        if (!wasActive || consciousGateFraction < 0.99f) {
+            consciousGateAnimator.cancel()
             isConsciousGateCompact = true
             consciousGateCompactFraction = 1f
             consciousGateAnimator.animateTo(
@@ -1194,6 +1195,7 @@ class IslandOverlayView(context: Context) : View(context) {
         consciousGateTimeRollFraction = 1f
         consciousGateBubbleAnimator.cancel()
         consciousGateBubbleFraction = 0f
+        consciousGateAnimator.cancel()
         consciousGateAnimator.animateTo(
             from = consciousGateFraction,
             to = 0f,
@@ -1203,16 +1205,18 @@ class IslandOverlayView(context: Context) : View(context) {
                 invalidate()
             },
             onEnd = {
-                isConsciousGateActive = false
-                isConsciousGateCompact = true
-                consciousGateFraction = 0f
-                consciousGateCompactFraction = 1f
-                consciousGateAppIcon = null
-                consciousGateAppLabel = ""
-                consciousGateTimeText = "00:00"
-                consciousGateTimePrev = ""
-                onDismissAnimationEnd?.invoke()
-                onAlertsChanged?.invoke()
+                if (consciousGateFraction <= 0.01f) {
+                    isConsciousGateActive = false
+                    isConsciousGateCompact = true
+                    consciousGateFraction = 0f
+                    consciousGateCompactFraction = 1f
+                    consciousGateAppIcon = null
+                    consciousGateAppLabel = ""
+                    consciousGateTimeText = "00:00"
+                    consciousGateTimePrev = ""
+                    onDismissAnimationEnd?.invoke()
+                    onAlertsChanged?.invoke()
+                }
             },
         )
     }

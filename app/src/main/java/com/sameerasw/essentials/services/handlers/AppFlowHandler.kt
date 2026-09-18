@@ -95,6 +95,22 @@ class AppFlowHandler(
             }
         }
 
+    private val prefsChangeListener =
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == "conscious_gate_feel_every_second" || key == "conscious_gate_enabled") {
+                val isFeelEnabled = prefs.getBoolean("conscious_gate_feel_every_second", false)
+                val isGateEnabled = prefs.getBoolean("conscious_gate_enabled", false)
+                if (!isFeelEnabled || !isGateEnabled) {
+                    stopFeelWastedSecond()
+                } else {
+                    val pkg = currentPackage
+                    if (pkg != null && confirmedGatePackages.contains(pkg)) {
+                        startFeelWastedSecond(pkg)
+                    }
+                }
+            }
+        }
+
     init {
         val filter =
             IntentFilter().apply {
@@ -107,6 +123,8 @@ class AppFlowHandler(
         } else {
             context.registerReceiver(shutUpReceiver, filter)
         }
+        context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(prefsChangeListener)
     }
 
     // App Lock State
@@ -135,9 +153,22 @@ class AppFlowHandler(
     private val feelWastedSecondRunnable =
         object : Runnable {
             override fun run() {
+                val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+                val isFeelEnabled = prefs.getBoolean("conscious_gate_feel_every_second", false)
+                val isGateEnabled = prefs.getBoolean("conscious_gate_enabled", false)
+                if (!isFeelEnabled || !isGateEnabled) {
+                    stopFeelWastedSecond()
+                    return
+                }
+
                 val activePkg = activeFeelWastedSecondPackage
                 val session = currentConsciousGateSession
-                if (activePkg != null && confirmedGatePackages.contains(activePkg) && currentPackage == activePkg && session != null && session.packageName == activePkg) {
+                if (activePkg != null &&
+                    confirmedGatePackages.contains(activePkg) &&
+                    currentPackage == activePkg &&
+                    session != null &&
+                    session.packageName == activePkg
+                ) {
                     val now = System.currentTimeMillis()
                     val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
                     val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
@@ -146,10 +177,10 @@ class AppFlowHandler(
                         val delayToNextSecond = (remainingMillis % 1000L).let { if (it == 0L) 1000L else it }
                         handler.postDelayed(this, delayToNextSecond.coerceIn(50L, 1000L))
                     } else {
-                        activeFeelWastedSecondPackage = null
+                        stopFeelWastedSecond()
                     }
                 } else {
-                    activeFeelWastedSecondPackage = null
+                    stopFeelWastedSecond()
                 }
             }
         }
@@ -170,52 +201,67 @@ class AppFlowHandler(
             "com.google.android.inputmethod.latin",
         )
 
+    private fun isIgnoredPackage(packageName: String): Boolean {
+        if (packageName.startsWith("com.android.inputmethod") ||
+            packageName.startsWith("com.google.android.inputmethod") ||
+            packageName.contains("inputmethod", ignoreCase = true) ||
+            packageName == "com.touchtype.swiftkey" ||
+            packageName == "com.samsung.android.honeyboard"
+        ) return true
+        return false
+    }
+
     fun onPackageChanged(
         packageName: String,
         isFromUsageStats: Boolean = false,
     ) {
+        if (isIgnoredPackage(packageName)) {
+            return
+        }
+
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
         val useUsageAccess = prefs.getBoolean("use_usage_access", false)
 
         val oldPackage = currentPackage
-        if (isFromUsageStats == useUsageAccess) {
-            currentPackage = packageName
-            if (oldPackage != null && oldPackage != packageName) {
-                if (oldPackage != context.packageName) {
-                    lastLeaveTimes[oldPackage] = System.currentTimeMillis()
-                }
-                if (oldPackage == activeFeelWastedSecondPackage) {
-                    handler.removeCallbacks(feelWastedSecondRunnable)
-                }
-                if (confirmedGatePackages.contains(oldPackage)) {
-                    pendingGateLeaveRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
-                    val leaveRunnable = Runnable {
-                        pendingGateLeaveRunnables.remove(oldPackage)
-                        confirmedGatePackages.remove(oldPackage)
-                        lastLeaveTimes.remove(oldPackage)
-                        pendingReappearRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
-                        if (currentConsciousGateSession?.packageName == oldPackage) {
-                            currentConsciousGateSession = null
-                        }
-                        if (activeFeelWastedSecondPackage == oldPackage) {
-                            stopFeelWastedSecond()
-                        }
-                        ScreenOffAccessibilityService.instance?.let { s ->
-                            s.islandOverlayHandler.updateConsciousGateState()
-                        }
+        currentPackage = packageName
+
+        if (oldPackage != null && oldPackage != packageName) {
+            if (oldPackage != context.packageName) {
+                lastLeaveTimes[oldPackage] = System.currentTimeMillis()
+            }
+            if (activeFeelWastedSecondPackage != null && activeFeelWastedSecondPackage != packageName) {
+                stopFeelWastedSecond()
+            }
+            if (confirmedGatePackages.contains(oldPackage)) {
+                pendingGateLeaveRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
+                val leaveRunnable = Runnable {
+                    pendingGateLeaveRunnables.remove(oldPackage)
+                    confirmedGatePackages.remove(oldPackage)
+                    lastLeaveTimes.remove(oldPackage)
+                    if (currentConsciousGateSession?.packageName == oldPackage) {
+                        currentConsciousGateSession = null
                     }
-                    pendingGateLeaveRunnables[oldPackage] = leaveRunnable
-                    handler.postDelayed(leaveRunnable, 5_000L)
+                    if (activeFeelWastedSecondPackage == oldPackage) {
+                        stopFeelWastedSecond()
+                    }
+                    ScreenOffAccessibilityService.instance?.let { s ->
+                        s.islandOverlayHandler.updateConsciousGateState()
+                    }
                 }
-                checkShutUpRestore(oldPackage, packageName)
+                pendingGateLeaveRunnables[oldPackage] = leaveRunnable
+                handler.postDelayed(leaveRunnable, 5_000L)
             }
-            if (pendingGateLeaveRunnables.containsKey(packageName)) {
-                pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+            ScreenOffAccessibilityService.instance?.let { s ->
+                s.islandOverlayHandler.updateConsciousGateState()
             }
-            if (packageName == activeFeelWastedSecondPackage && confirmedGatePackages.contains(packageName)) {
-                handler.removeCallbacks(feelWastedSecondRunnable)
-                handler.postDelayed(feelWastedSecondRunnable, 1000L)
-            }
+            checkShutUpRestore(oldPackage, packageName)
+        }
+
+        if (pendingGateLeaveRunnables.containsKey(packageName)) {
+            pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+        }
+
+        if (isFromUsageStats == useUsageAccess) {
             if (packageName != context.packageName && packageName != lockingPackage) {
                 lockingPackage = null
             }
@@ -255,7 +301,8 @@ class AppFlowHandler(
 
     fun getActiveConsciousGateSession(): ConsciousGateSession? {
         val session = currentConsciousGateSession ?: return null
-        if (currentPackage != null && currentPackage != context.packageName && currentPackage != session.packageName) return null
+        val pkg = currentPackage ?: return null
+        if (pkg != session.packageName) return null
         if (!confirmedGatePackages.contains(session.packageName)) return null
         val now = System.currentTimeMillis()
         if (now - session.startTimeMillis > session.durationMillis) return null
@@ -364,11 +411,7 @@ class AppFlowHandler(
     private fun checkConsciousGate(packageName: String) {
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
         val isEnabled = prefs.getBoolean("conscious_gate_enabled", false)
-        if (!isEnabled) return
-
-        if (packageName == context.packageName) {
-            return
-        }
+        if (!isEnabled || isIgnoredPackage(packageName)) return
 
         val json = prefs.getString("conscious_gate_selected_apps", null)
         val selectedApps: List<AppSelection> =
@@ -385,45 +428,33 @@ class AppFlowHandler(
         val isGated = selectedApps.find { it.packageName == packageName }?.isEnabled ?: false
         if (!isGated) return
 
-        val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
+        val session = currentConsciousGateSession
+        val now = System.currentTimeMillis()
+        val isSessionActive = session != null && session.packageName == packageName &&
+            (now - session.startTimeMillis < session.durationMillis) &&
+            confirmedGatePackages.contains(packageName)
 
-        if (confirmedGatePackages.contains(packageName)) {
-            val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
-            if (lastLeaveTime > 0) {
-                val now = System.currentTimeMillis()
-                val leftDuration = now - lastLeaveTime
-                // If left the app for 5 seconds or more, require conscious gate again
-                if (leftDuration >= 5_000L) {
-                    confirmedGatePackages.remove(packageName)
-                    lastLeaveTimes.remove(packageName)
-                    pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
-                    if (currentConsciousGateSession?.packageName == packageName) {
-                        currentConsciousGateSession = null
-                    }
-                    if (activeFeelWastedSecondPackage == packageName) {
-                        stopFeelWastedSecond()
-                    }
-                } else if (reappearMinutes > 0 && leftDuration > reappearMinutes * 60 * 1000L) {
-                    confirmedGatePackages.remove(packageName)
-                    lastLeaveTimes.remove(packageName)
-                    pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
-                    if (currentConsciousGateSession?.packageName == packageName) {
-                        currentConsciousGateSession = null
-                    }
-                    if (activeFeelWastedSecondPackage == packageName) {
-                        stopFeelWastedSecond()
-                    }
-                } else {
-                    lastLeaveTimes.remove(packageName)
-                }
+        val lastLeave = lastLeaveTimes[packageName] ?: 0L
+        val leftDuration = if (lastLeave > 0) now - lastLeave else 0L
+
+        if (isSessionActive && leftDuration < 5_000L) {
+            lastLeaveTimes.remove(packageName)
+            startFeelWastedSecond(packageName)
+            ScreenOffAccessibilityService.instance?.let { s ->
+                s.islandOverlayHandler.updateConsciousGateState()
             }
-        }
-
-        if (confirmedGatePackages.contains(packageName)) {
             return
         }
 
-        val now = System.currentTimeMillis()
+        confirmedGatePackages.remove(packageName)
+        lastLeaveTimes.remove(packageName)
+        if (currentConsciousGateSession?.packageName == packageName) {
+            currentConsciousGateSession = null
+        }
+        stopFeelWastedSecond()
+        ScreenOffAccessibilityService.instance?.let { s ->
+            s.islandOverlayHandler.updateConsciousGateState()
+        }
 
         if (packageName == gatingPackage && now - lastGateRequestTime < 2500) {
             return
@@ -470,7 +501,6 @@ class AppFlowHandler(
         }
         lastLeaveTimes.remove(packageName)
         pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
-        pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
 
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
         val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
@@ -483,6 +513,9 @@ class AppFlowHandler(
             )
 
         startFeelWastedSecond(packageName)
+        ScreenOffAccessibilityService.instance?.let { s ->
+            s.islandOverlayHandler.updateConsciousGateState()
+        }
 
         if (reappearMinutes > 0) {
             val runnable =
@@ -493,18 +526,14 @@ class AppFlowHandler(
                         if (currentConsciousGateSession?.packageName == packageName) {
                             currentConsciousGateSession = null
                         }
-                        if (activeFeelWastedSecondPackage == packageName) {
-                            stopFeelWastedSecond()
-                        }
+                        stopFeelWastedSecond()
                         checkConsciousGate(packageName)
                     } else {
                         confirmedGatePackages.remove(packageName)
                         if (currentConsciousGateSession?.packageName == packageName) {
                             currentConsciousGateSession = null
                         }
-                        if (activeFeelWastedSecondPackage == packageName) {
-                            stopFeelWastedSecond()
-                        }
+                        stopFeelWastedSecond()
                     }
                 }
             pendingReappearRunnables[packageName] = runnable
