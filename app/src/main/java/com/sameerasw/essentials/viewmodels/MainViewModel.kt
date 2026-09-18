@@ -129,6 +129,7 @@ class MainViewModel : ViewModel() {
 
     val isDuoEnabled = mutableStateOf(false)
     val isDuoAutoDetect = mutableStateOf(true)
+    val hasMultipleDuoDisplays = mutableStateOf(false)
     val duoCameraOffsetX = mutableFloatStateOf(50f)
     val duoCameraOffsetY = mutableFloatStateOf(3f)
     val duoCameraSize = mutableFloatStateOf(1.0f)
@@ -4672,6 +4673,14 @@ class MainViewModel : ViewModel() {
     fun setDuoCameraSize(value: Float) {
         duoCameraSize.floatValue = value
         settingsRepository.setDuoCameraSize(value)
+    }
+
+    fun refreshDuoCameraPlacement() {
+        settingsRepository.markDisplayProfileSeen()
+        duoCameraOffsetX.floatValue = settingsRepository.getDuoCameraOffsetX()
+        duoCameraOffsetY.floatValue = settingsRepository.getDuoCameraOffsetY()
+        duoCameraSize.floatValue = settingsRepository.getDuoCameraSize()
+        hasMultipleDuoDisplays.value = settingsRepository.getKnownDisplayProfileCount() > 1
     }
 
     fun setDuoArcThickness(value: Float) {

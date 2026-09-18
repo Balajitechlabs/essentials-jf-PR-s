@@ -374,6 +374,7 @@ class SettingsRepository(
         const val KEY_DUO_CAMERA_OFFSET_X = "duo_camera_offset_x"
         const val KEY_DUO_CAMERA_OFFSET_Y = "duo_camera_offset_y"
         const val KEY_DUO_CAMERA_SIZE = "duo_camera_size"
+        const val KEY_DUO_KNOWN_DISPLAY_PROFILES = "duo_known_display_profiles"
         const val KEY_DUO_ARC_THICKNESS = "duo_arc_thickness"
         const val KEY_DUO_DOT_SIZE = "duo_dot_size"
         const val KEY_DUO_RING_RADIUS = "duo_ring_radius"
@@ -3192,14 +3193,44 @@ class SettingsRepository(
     fun isDuoAutoDetectEnabled(): Boolean = getBoolean(KEY_DUO_USE_AUTO_DETECT, true)
     fun setDuoAutoDetectEnabled(enabled: Boolean) = putBoolean(KEY_DUO_USE_AUTO_DETECT, enabled)
 
-    fun getDuoCameraOffsetX(): Float = getFloat(KEY_DUO_CAMERA_OFFSET_X, 50f)
-    fun setDuoCameraOffsetX(value: Float) = putFloat(KEY_DUO_CAMERA_OFFSET_X, value)
+    fun getDisplayProfileId(): String {
+        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+        val display = displayManager?.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: return "default"
+        val size = android.graphics.Point()
+        @Suppress("DEPRECATION")
+        display.getRealSize(size)
+        if (size.x <= 0 || size.y <= 0) return "default"
+        return "${minOf(size.x, size.y)}x${maxOf(size.x, size.y)}"
+    }
 
-    fun getDuoCameraOffsetY(): Float = getFloat(KEY_DUO_CAMERA_OFFSET_Y, 3f)
-    fun setDuoCameraOffsetY(value: Float) = putFloat(KEY_DUO_CAMERA_OFFSET_Y, value)
+    fun markDisplayProfileSeen() {
+        val seen = prefs.getStringSet(KEY_DUO_KNOWN_DISPLAY_PROFILES, emptySet()) ?: emptySet()
+        val id = getDisplayProfileId()
+        if (!seen.contains(id)) {
+            prefs.edit().putStringSet(KEY_DUO_KNOWN_DISPLAY_PROFILES, seen + id).apply()
+        }
+    }
 
-    fun getDuoCameraSize(): Float = getFloat(KEY_DUO_CAMERA_SIZE, 1.0f)
-    fun setDuoCameraSize(value: Float) = putFloat(KEY_DUO_CAMERA_SIZE, value)
+    fun getKnownDisplayProfileCount(): Int = prefs.getStringSet(KEY_DUO_KNOWN_DISPLAY_PROFILES, emptySet())?.size ?: 0
+
+    private fun getDuoPlacementFloat(baseKey: String, default: Float): Float {
+        val profileKey = "$baseKey@${getDisplayProfileId()}"
+        return if (contains(profileKey)) getFloat(profileKey, default) else getFloat(baseKey, default)
+    }
+
+    private fun setDuoPlacementFloat(baseKey: String, value: Float) {
+        putFloat("$baseKey@${getDisplayProfileId()}", value)
+        putFloat(baseKey, value)
+    }
+
+    fun getDuoCameraOffsetX(): Float = getDuoPlacementFloat(KEY_DUO_CAMERA_OFFSET_X, 50f)
+    fun setDuoCameraOffsetX(value: Float) = setDuoPlacementFloat(KEY_DUO_CAMERA_OFFSET_X, value)
+
+    fun getDuoCameraOffsetY(): Float = getDuoPlacementFloat(KEY_DUO_CAMERA_OFFSET_Y, 3f)
+    fun setDuoCameraOffsetY(value: Float) = setDuoPlacementFloat(KEY_DUO_CAMERA_OFFSET_Y, value)
+
+    fun getDuoCameraSize(): Float = getDuoPlacementFloat(KEY_DUO_CAMERA_SIZE, 1.0f)
+    fun setDuoCameraSize(value: Float) = setDuoPlacementFloat(KEY_DUO_CAMERA_SIZE, value)
 
     fun getDuoArcThickness(): Float = getFloat(KEY_DUO_ARC_THICKNESS, 4f)
     fun setDuoArcThickness(value: Float) = putFloat(KEY_DUO_ARC_THICKNESS, value)

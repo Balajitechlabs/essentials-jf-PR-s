@@ -355,7 +355,9 @@ class DuoOverlayHandler(
     }
 
     private var lastKnownRotation = -1
+    private var lastKnownDisplayProfile: String? = null
     private var isRotationListenerRegistered = false
+    private val displayChangeRefreshRunnable = Runnable { showOrUpdateOverlay() }
     private val rotationListener =
         object : android.hardware.display.DisplayManager.DisplayListener {
             override fun onDisplayAdded(displayId: Int) {}
@@ -366,9 +368,17 @@ class DuoOverlayHandler(
                 if (displayId != android.view.Display.DEFAULT_DISPLAY) return
                 @Suppress("DEPRECATION")
                 val rotation = windowManager?.defaultDisplay?.rotation ?: return
-                if (rotation != lastKnownRotation) {
+                val profile = settingsRepository.getDisplayProfileId()
+                val profileChanged = profile != lastKnownDisplayProfile
+                if (rotation != lastKnownRotation || profileChanged) {
                     lastKnownRotation = rotation
+                    lastKnownDisplayProfile = profile
                     showOrUpdateOverlay()
+                    if (profileChanged) {
+                        // Fold/unfold transitions settle (cutout, metrics) slightly after the first change event.
+                        mainHandler.removeCallbacks(displayChangeRefreshRunnable)
+                        mainHandler.postDelayed(displayChangeRefreshRunnable, 400L)
+                    }
                 }
             }
         }
@@ -385,7 +395,9 @@ class DuoOverlayHandler(
         val displayManager = service.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
         displayManager?.unregisterDisplayListener(rotationListener)
         isRotationListenerRegistered = false
+        mainHandler.removeCallbacks(displayChangeRefreshRunnable)
         lastKnownRotation = -1
+        lastKnownDisplayProfile = null
     }
 
     fun onConfigurationChanged(newConfig: Configuration) {
@@ -753,6 +765,8 @@ class DuoOverlayHandler(
             @Suppress("DEPRECATION")
             val rotation = wm.defaultDisplay.rotation
             lastKnownRotation = rotation
+            lastKnownDisplayProfile = settingsRepository.getDisplayProfileId()
+            settingsRepository.markDisplayProfileSeen()
 
             if (settingsRepository.isDuoAutoDetectEnabled() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 @Suppress("DEPRECATION")

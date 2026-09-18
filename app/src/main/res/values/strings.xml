@@ -2515,6 +2515,7 @@
     <string name="duo_auto_detect_title">Auto-detect camera</string>
     <string name="duo_auto_detect_desc">Automatically locate the front camera cutout</string>
     <string name="duo_camera_offset_x_title">Horizontal position</string>
+    <string name="duo_per_display_hint">Position and size are saved separately for each display (for example folded and unfolded). Adjust them on each one.</string>
     <string name="duo_camera_offset_y_title">Vertical position</string>
     <string name="duo_camera_size_title">Camera size</string>
     <string name="duo_arc_thickness_title">Ring thickness</string>
