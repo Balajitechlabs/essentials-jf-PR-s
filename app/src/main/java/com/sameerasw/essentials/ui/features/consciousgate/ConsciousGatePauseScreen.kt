@@ -76,7 +76,10 @@ fun ConsciousGatePauseScreen(
         label = "ConsciousGateFade",
     )
     val scope = rememberCoroutineScope()
+    var isActionInvoked by remember { mutableStateOf(false) }
     fun fadeOutThen(action: () -> Unit) {
+        if (isActionInvoked) return
+        isActionInvoked = true
         scope.launch {
             visible = false
             delay(FadeDurationMillis.toLong())

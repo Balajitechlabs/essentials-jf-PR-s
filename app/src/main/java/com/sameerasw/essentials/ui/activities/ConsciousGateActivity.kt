@@ -32,6 +32,8 @@ import com.sameerasw.essentials.ui.theme.EssentialsTheme
 
 class ConsciousGateActivity : AppCompatActivity() {
     private var packageToGate: String? = null
+    private var isConfirmed = false
+    private var isClosed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +82,11 @@ class ConsciousGateActivity : AppCompatActivity() {
         }
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        notifyClosedAndFinish()
+    }
+
     @Composable
     private fun ConsciousGateScreen(
         appLabel: String,
@@ -121,6 +128,9 @@ class ConsciousGateActivity : AppCompatActivity() {
     }
 
     private fun notifyConfirmedAndFinish() {
+        if (isConfirmed || isClosed) return
+        isConfirmed = true
+
         val intent =
             Intent("CONSCIOUS_GATE_CONFIRMED").apply {
                 `package` = packageName
@@ -139,6 +149,9 @@ class ConsciousGateActivity : AppCompatActivity() {
     }
 
     private fun notifyClosedAndFinish() {
+        if (isConfirmed || isClosed) return
+        isClosed = true
+
         val intent =
             Intent("CONSCIOUS_GATE_CLOSED").apply {
                 `package` = packageName

@@ -302,7 +302,7 @@ class AppFlowHandler(
 
         val now = System.currentTimeMillis()
 
-        if (packageName == gatingPackage && now - lastGateRequestTime < 1500) {
+        if (packageName == gatingPackage && now - lastGateRequestTime < 2500) {
             return
         }
 
@@ -337,9 +337,9 @@ class AppFlowHandler(
     }
 
     fun onConsciousGateClosed(packageName: String) {
-        if (packageName == gatingPackage) {
-            gatingPackage = null
-        }
+        lastGateRequestTime = System.currentTimeMillis()
+        gatingPackage = packageName
+        lastLeaveTimes[packageName] = System.currentTimeMillis()
     }
 
     fun onConsciousGateConfirmed(packageName: String) {
