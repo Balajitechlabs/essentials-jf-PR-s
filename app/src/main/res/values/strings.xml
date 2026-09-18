@@ -159,13 +159,13 @@
     <string name="conscious_gate_preview_button">Preview conscious gate screen</string>
     <string name="conscious_gate_preview_placeholder_app">a gated app</string>
     <string name="conscious_gate_custom_option_label">Custom</string>
-    <string name="conscious_gate_countdown_style_title">Countdown style</string>
     <string name="conscious_gate_appearance_title">Conscious gate screen appearance</string>
-    <string name="conscious_gate_icon_picker_label">Icon</string>
     <string name="conscious_gate_title_label">Title</string>
     <string name="conscious_gate_message_label">Message</string>
     <string name="conscious_gate_default_title">Take a mindful pause</string>
     <string name="conscious_gate_default_message">Are you sure you want to open this app right now?</string>
+    <string name="conscious_gate_please_wait">Please wait…</string>
+    <string name="conscious_gate_hold_to_continue">Hold to continue anyways</string>
     <string name="conscious_gate_continue_on_app">Continue on %1$s</string>
     <string name="conscious_gate_close_button">Close</string>
     <string name="conscious_gate_description">Adds a brief mindful pause before opening apps you\'ve chosen to be more intentional about, such as social media.</string>

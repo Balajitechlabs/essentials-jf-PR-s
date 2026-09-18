@@ -19,7 +19,6 @@ import com.sameerasw.essentials.domain.diy.ActionGsonAdapter
 import com.sameerasw.essentials.domain.model.AppIcon
 import com.sameerasw.essentials.domain.model.AppSelection
 import com.sameerasw.essentials.domain.model.AppTag
-import com.sameerasw.essentials.domain.model.ConsciousGateCountdownStyle
 import com.sameerasw.essentials.domain.model.DnsPreset
 import com.sameerasw.essentials.domain.model.NotificationLightingColorMode
 import com.sameerasw.essentials.domain.model.NotificationLightingSide
@@ -1104,10 +1103,6 @@ class SettingsRepository(
 
     fun setConsciousGateReappearMinutes(minutes: Int) = putInt(KEY_CONSCIOUS_GATE_REAPPEAR_MINUTES, minutes)
 
-    fun getConsciousGateIconName(): String = prefs.getString(KEY_CONSCIOUS_GATE_ICON_NAME, "rounded_pause_24") ?: "rounded_pause_24"
-
-    fun setConsciousGateIconName(iconName: String) = putString(KEY_CONSCIOUS_GATE_ICON_NAME, iconName)
-
     fun getConsciousGateTitle(context: Context = this.context): String =
         prefs.getString(KEY_CONSCIOUS_GATE_TITLE, null) ?: context.getString(com.sameerasw.essentials.R.string.conscious_gate_default_title)
 
@@ -1117,18 +1112,6 @@ class SettingsRepository(
         prefs.getString(KEY_CONSCIOUS_GATE_MESSAGE, null) ?: context.getString(com.sameerasw.essentials.R.string.conscious_gate_default_message)
 
     fun setConsciousGateMessage(message: String) = putString(KEY_CONSCIOUS_GATE_MESSAGE, message)
-
-    fun getConsciousGateCountdownStyle(): ConsciousGateCountdownStyle {
-        val styleName =
-            prefs.getString(KEY_CONSCIOUS_GATE_COUNTDOWN_STYLE, ConsciousGateCountdownStyle.CIRCULAR_WAVY.name)
-        return try {
-            ConsciousGateCountdownStyle.valueOf(styleName ?: ConsciousGateCountdownStyle.CIRCULAR_WAVY.name)
-        } catch (e: Exception) {
-            ConsciousGateCountdownStyle.CIRCULAR_WAVY
-        }
-    }
-
-    fun setConsciousGateCountdownStyle(style: ConsciousGateCountdownStyle) = putString(KEY_CONSCIOUS_GATE_COUNTDOWN_STYLE, style.name)
 
     /**
      * Executes the load freeze selected apps operation.

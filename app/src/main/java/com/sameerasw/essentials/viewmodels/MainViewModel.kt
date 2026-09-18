@@ -340,11 +340,8 @@ class MainViewModel : ViewModel() {
     val isConsciousGateEnabled = mutableStateOf(false)
     val consciousGateDelaySeconds = mutableIntStateOf(5)
     val consciousGateReappearMinutes = mutableIntStateOf(0)
-    val consciousGateIconName = mutableStateOf("rounded_pause_24")
     val consciousGateTitle = mutableStateOf("")
     val consciousGateMessage = mutableStateOf("")
-    val consciousGateCountdownStyle =
-        mutableStateOf(com.sameerasw.essentials.domain.model.ConsciousGateCountdownStyle.CIRCULAR_WAVY)
     val isUseUsageAccess = mutableStateOf(false)
     val isFreezeWhenLockedEnabled = mutableStateOf(false)
     val freezeLockDelayIndex = mutableIntStateOf(1) // Default: 1 minute
@@ -2209,10 +2206,8 @@ class MainViewModel : ViewModel() {
             settingsRepository.getBoolean(SettingsRepository.KEY_CONSCIOUS_GATE_ENABLED)
         consciousGateDelaySeconds.intValue = settingsRepository.getConsciousGateDelaySeconds()
         consciousGateReappearMinutes.intValue = settingsRepository.getConsciousGateReappearMinutes()
-        consciousGateIconName.value = settingsRepository.getConsciousGateIconName()
         consciousGateTitle.value = settingsRepository.getConsciousGateTitle(context)
         consciousGateMessage.value = settingsRepository.getConsciousGateMessage(context)
-        consciousGateCountdownStyle.value = settingsRepository.getConsciousGateCountdownStyle()
         isFreezeWhenLockedEnabled.value =
             settingsRepository.getBoolean(SettingsRepository.KEY_FREEZE_WHEN_LOCKED_ENABLED)
         isFreezeDontFreezeActiveAppsEnabled.value =
@@ -5141,11 +5136,6 @@ class MainViewModel : ViewModel() {
         settingsRepository.setConsciousGateReappearMinutes(minutes)
     }
 
-    fun setConsciousGateIconName(iconName: String) {
-        consciousGateIconName.value = iconName
-        settingsRepository.setConsciousGateIconName(iconName)
-    }
-
     fun setConsciousGateTitle(title: String) {
         consciousGateTitle.value = title
         settingsRepository.setConsciousGateTitle(title)
@@ -5154,11 +5144,6 @@ class MainViewModel : ViewModel() {
     fun setConsciousGateMessage(message: String) {
         consciousGateMessage.value = message
         settingsRepository.setConsciousGateMessage(message)
-    }
-
-    fun setConsciousGateCountdownStyle(style: com.sameerasw.essentials.domain.model.ConsciousGateCountdownStyle) {
-        consciousGateCountdownStyle.value = style
-        settingsRepository.setConsciousGateCountdownStyle(style)
     }
 
     /**

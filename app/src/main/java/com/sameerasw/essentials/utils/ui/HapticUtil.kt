@@ -161,6 +161,51 @@ object HapticUtil {
         }
     }
 
+    fun startRampingHoldHaptic(
+        context: Context,
+        durationMs: Long = 2000L,
+    ) {
+        if (!isAppHapticsEnabled.value) return
+        val vibrator =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val stepDuration = 20L
+            val segments = (durationMs / stepDuration).toInt().coerceAtLeast(10)
+            val timings = LongArray(segments) { stepDuration }
+            val amplitudes =
+                IntArray(segments) { i ->
+                    val progress = (i + 1).toFloat() / segments
+                    val curve = Math.pow(progress.toDouble(), 1.5).toFloat()
+                    (10 + (245 * curve)).toInt().coerceIn(1, 155)
+                }
+            runCatching {
+                val effect = android.os.VibrationEffect.createWaveform(timings, amplitudes, -1)
+                vibrator.vibrate(effect)
+            }
+        }
+    }
+
+    fun stopHoldHaptic(context: Context) {
+        val vibrator =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+        runCatching { vibrator.cancel() }
+    }
+
     /**
      * Load app haptic preference from SharedPreferences
      */

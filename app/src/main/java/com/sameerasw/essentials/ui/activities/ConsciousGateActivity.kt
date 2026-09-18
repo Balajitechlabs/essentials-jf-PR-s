@@ -24,10 +24,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import com.sameerasw.essentials.R
-import com.sameerasw.essentials.domain.model.ConsciousGateCountdownStyle
 import com.sameerasw.essentials.services.tiles.ScreenOffAccessibilityService
 import com.sameerasw.essentials.ui.features.consciousgate.ConsciousGatePauseScreen
-import com.sameerasw.essentials.ui.features.consciousgate.components.ConsciousGateIcons
 import com.sameerasw.essentials.ui.theme.EssentialsTheme
 
 class ConsciousGateActivity : AppCompatActivity() {
@@ -54,27 +52,17 @@ class ConsciousGateActivity : AppCompatActivity() {
             }
 
         val delaySeconds = intent.getIntExtra("delay_seconds", 5).coerceAtLeast(0)
-        val iconName = intent.getStringExtra("icon_name") ?: "rounded_pause_24"
         val title = intent.getStringExtra("title")
         val message = intent.getStringExtra("message")
-        val countdownStyle =
-            try {
-                ConsciousGateCountdownStyle.valueOf(
-                    intent.getStringExtra("countdown_style") ?: ConsciousGateCountdownStyle.CIRCULAR_WAVY.name,
-                )
-            } catch (e: Exception) {
-                ConsciousGateCountdownStyle.CIRCULAR_WAVY
-            }
 
         setContent {
             EssentialsTheme {
                 ConsciousGateScreen(
                     appLabel = appLabel ?: "",
-                    iconName = iconName,
+                    packageToGate = packageToGate,
                     title = title,
                     message = message,
                     delaySeconds = delaySeconds,
-                    countdownStyle = countdownStyle,
                     onClose = ::notifyClosedAndFinish,
                     onContinue = ::notifyConfirmedAndFinish,
                 )
@@ -90,16 +78,13 @@ class ConsciousGateActivity : AppCompatActivity() {
     @Composable
     private fun ConsciousGateScreen(
         appLabel: String,
-        iconName: String,
+        packageToGate: String?,
         title: String?,
         message: String?,
         delaySeconds: Int,
-        countdownStyle: ConsciousGateCountdownStyle,
         onClose: () -> Unit,
         onContinue: () -> Unit,
     ) {
-        val iconResId = remember(iconName) { ConsciousGateIcons.resolve(iconName) }
-
         val progressAnimatable = remember { Animatable(if (delaySeconds <= 0) 1f else 0f) }
 
         LaunchedEffect(delaySeconds) {
@@ -115,13 +100,11 @@ class ConsciousGateActivity : AppCompatActivity() {
         }
 
         ConsciousGatePauseScreen(
-            iconResId = iconResId,
             title = title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.conscious_gate_default_title),
             message = message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.conscious_gate_default_message),
             targetAppLabel = appLabel,
-            countdownStyle = countdownStyle,
+            targetAppPackage = packageToGate,
             progress = { progressAnimatable.value },
-            isContinueEnabled = progressAnimatable.value >= 1f,
             onClose = onClose,
             onContinue = onContinue,
         )

@@ -146,7 +146,9 @@ class AppFlowHandler(
         if (isFromUsageStats == useUsageAccess) {
             currentPackage = packageName
             if (oldPackage != null && oldPackage != packageName) {
-                lastLeaveTimes[oldPackage] = System.currentTimeMillis()
+                if (oldPackage != context.packageName) {
+                    lastLeaveTimes[oldPackage] = System.currentTimeMillis()
+                }
                 checkShutUpRestore(oldPackage, packageName)
             }
             if (packageName != context.packageName && packageName != lockingPackage) {
@@ -168,6 +170,7 @@ class AppFlowHandler(
         if (packageName == lockingPackage) {
             lockingPackage = null
         }
+        lastLeaveTimes.remove(packageName)
     }
 
     fun clearAuthenticated() {
@@ -206,24 +209,29 @@ class AppFlowHandler(
 
         if (isLocked && authenticatedPackages.contains(packageName)) {
             val delayIndex = prefs.getInt("app_lock_auto_lock_delay_index", 0)
-            if (delayIndex > 0) {
-                val delayMinutes =
-                    when (delayIndex) {
-                        1 -> 1
-                        2 -> 5
-                        3 -> 10
-                        4 -> 20
-                        5 -> 30
-                        else -> 0
-                    }
+            val delayMinutes =
+                when (delayIndex) {
+                    1 -> 1
+                    2 -> 5
+                    3 -> 10
+                    4 -> 20
+                    5 -> 30
+                    else -> 0
+                }
 
-                val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
+            val lastLeaveTime = lastLeaveTimes[packageName] ?: 0L
+            if (delayIndex == 0) {
                 if (lastLeaveTime > 0) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastLeaveTime > delayMinutes * 60 * 1000L) {
-                        authenticatedPackages.remove(packageName)
-                        lastLeaveTimes.remove(packageName)
-                    }
+                    authenticatedPackages.remove(packageName)
+                    lastLeaveTimes.remove(packageName)
+                }
+            } else if (lastLeaveTime > 0) {
+                val now = System.currentTimeMillis()
+                if (now - lastLeaveTime > delayMinutes * 60 * 1000L) {
+                    authenticatedPackages.remove(packageName)
+                    lastLeaveTimes.remove(packageName)
+                } else {
+                    lastLeaveTimes.remove(packageName)
                 }
             }
         }
@@ -292,6 +300,8 @@ class AppFlowHandler(
                     confirmedGatePackages.remove(packageName)
                     lastLeaveTimes.remove(packageName)
                     pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                } else {
+                    lastLeaveTimes.remove(packageName)
                 }
             }
         }
@@ -306,20 +316,12 @@ class AppFlowHandler(
             return
         }
 
-        // Cross-check against the window the accessibility service reports as actually active right now before committing.
-        val actuallyActivePackage = service?.rootInActiveWindow?.packageName?.toString()
-        if (actuallyActivePackage != null && actuallyActivePackage != packageName) {
-            return
-        }
-
         gatingPackage = packageName
         lastGateRequestTime = now
 
         val delaySeconds = prefs.getInt("conscious_gate_delay_seconds", 5)
-        val iconName = prefs.getString("conscious_gate_icon_name", null) ?: "rounded_pause_24"
         val title = prefs.getString("conscious_gate_title", null)
         val message = prefs.getString("conscious_gate_message", null)
-        val countdownStyle = prefs.getString("conscious_gate_countdown_style", null) ?: "CIRCULAR_WAVY"
 
         Log.d("ConsciousGate", "App $packageName is gated and not confirmed. Showing pause screen.")
         val intent =
@@ -327,10 +329,8 @@ class AppFlowHandler(
                 component = ComponentName(context, "com.sameerasw.essentials.ui.activities.ConsciousGateActivity")
                 putExtra("package_to_gate", packageName)
                 putExtra("delay_seconds", delaySeconds)
-                putExtra("icon_name", iconName)
                 title?.let { putExtra("title", it) }
                 message?.let { putExtra("message", it) }
-                putExtra("countdown_style", countdownStyle)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
             }
         context.startActivity(intent)
@@ -347,6 +347,7 @@ class AppFlowHandler(
         if (packageName == gatingPackage) {
             gatingPackage = null
         }
+        lastLeaveTimes.remove(packageName)
 
         pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
 
