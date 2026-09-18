@@ -28,6 +28,7 @@ import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.diy.Automation
 import com.sameerasw.essentials.domain.diy.DIYRepository
 import com.sameerasw.essentials.domain.model.AppSelection
+import com.sameerasw.essentials.services.tiles.ScreenOffAccessibilityService
 import com.sameerasw.essentials.services.automation.executors.CombinedActionExecutor
 import com.sameerasw.essentials.utils.FreezeManager
 import com.sameerasw.essentials.utils.HapticUtil
@@ -129,14 +130,24 @@ class AppFlowHandler(
     private var lastGateRequestTime: Long = 0
     private val confirmedGatePackages = mutableSetOf<String>()
     private val pendingReappearRunnables = mutableMapOf<String, Runnable>()
+    private val pendingGateLeaveRunnables = mutableMapOf<String, Runnable>()
     private var activeFeelWastedSecondPackage: String? = null
     private val feelWastedSecondRunnable =
         object : Runnable {
             override fun run() {
                 val activePkg = activeFeelWastedSecondPackage
-                if (activePkg != null && confirmedGatePackages.contains(activePkg) && currentPackage == activePkg) {
-                    HapticUtil.performHapticForService(context, HapticFeedbackType.SUBTLE)
-                    handler.postDelayed(this, 1000L)
+                val session = currentConsciousGateSession
+                if (activePkg != null && confirmedGatePackages.contains(activePkg) && currentPackage == activePkg && session != null && session.packageName == activePkg) {
+                    val now = System.currentTimeMillis()
+                    val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
+                    val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
+                    if (remainingMillis > 0L) {
+                        HapticUtil.performHapticForService(context, HapticFeedbackType.SUBTLE)
+                        val delayToNextSecond = (remainingMillis % 1000L).let { if (it == 0L) 1000L else it }
+                        handler.postDelayed(this, delayToNextSecond.coerceIn(50L, 1000L))
+                    } else {
+                        activeFeelWastedSecondPackage = null
+                    }
                 } else {
                     activeFeelWastedSecondPackage = null
                 }
@@ -176,7 +187,30 @@ class AppFlowHandler(
                 if (oldPackage == activeFeelWastedSecondPackage) {
                     handler.removeCallbacks(feelWastedSecondRunnable)
                 }
+                if (confirmedGatePackages.contains(oldPackage)) {
+                    pendingGateLeaveRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
+                    val leaveRunnable = Runnable {
+                        pendingGateLeaveRunnables.remove(oldPackage)
+                        confirmedGatePackages.remove(oldPackage)
+                        lastLeaveTimes.remove(oldPackage)
+                        pendingReappearRunnables.remove(oldPackage)?.let { handler.removeCallbacks(it) }
+                        if (currentConsciousGateSession?.packageName == oldPackage) {
+                            currentConsciousGateSession = null
+                        }
+                        if (activeFeelWastedSecondPackage == oldPackage) {
+                            stopFeelWastedSecond()
+                        }
+                        ScreenOffAccessibilityService.instance?.let { s ->
+                            s.islandOverlayHandler.updateConsciousGateState()
+                        }
+                    }
+                    pendingGateLeaveRunnables[oldPackage] = leaveRunnable
+                    handler.postDelayed(leaveRunnable, 5_000L)
+                }
                 checkShutUpRestore(oldPackage, packageName)
+            }
+            if (pendingGateLeaveRunnables.containsKey(packageName)) {
+                pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
             }
             if (packageName == activeFeelWastedSecondPackage && confirmedGatePackages.contains(packageName)) {
                 handler.removeCallbacks(feelWastedSecondRunnable)
@@ -210,6 +244,8 @@ class AppFlowHandler(
 
     fun clearConsciousGate() {
         confirmedGatePackages.clear()
+        pendingGateLeaveRunnables.values.forEach { handler.removeCallbacks(it) }
+        pendingGateLeaveRunnables.clear()
         pendingReappearRunnables.values.forEach { handler.removeCallbacks(it) }
         pendingReappearRunnables.clear()
         currentConsciousGateSession = null
@@ -232,7 +268,16 @@ class AppFlowHandler(
         if (!isEnabled) return
         activeFeelWastedSecondPackage = packageName
         handler.removeCallbacks(feelWastedSecondRunnable)
-        handler.postDelayed(feelWastedSecondRunnable, 1000L)
+        val session = currentConsciousGateSession
+        val delay = if (session != null && session.packageName == packageName) {
+            val now = System.currentTimeMillis()
+            val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
+            val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
+            (remainingMillis % 1000L).let { if (it == 0L) 1000L else it }
+        } else {
+            1000L
+        }
+        handler.postDelayed(feelWastedSecondRunnable, delay.coerceIn(50L, 1000L))
     }
 
     private fun stopFeelWastedSecond() {
@@ -408,6 +453,7 @@ class AppFlowHandler(
         lastGateRequestTime = System.currentTimeMillis()
         gatingPackage = packageName
         lastLeaveTimes[packageName] = System.currentTimeMillis()
+        pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
         if (currentConsciousGateSession?.packageName == packageName) {
             currentConsciousGateSession = null
         }
@@ -423,7 +469,7 @@ class AppFlowHandler(
             gatingPackage = null
         }
         lastLeaveTimes.remove(packageName)
-
+        pendingGateLeaveRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
         pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
 
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)

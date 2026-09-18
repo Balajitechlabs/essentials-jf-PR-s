@@ -44,6 +44,7 @@ class IslandTouchHandler(
     var onMediaFullPlayerToggled: ((Boolean) -> Unit)? = null
     var onMediaControlTapped: ((Int) -> Unit)? = null
     var onMediaBackgroundTapped: (() -> Unit)? = null
+    var onConsciousGateToggled: (() -> Unit)? = null
 
     private var downX: Float = 0f
     private var downY: Float = 0f
@@ -199,6 +200,8 @@ class IslandTouchHandler(
                                 overlayView?.updateDragCollapseFraction(dragFraction, IslandOverlayView.DragCollapseTarget.CAMERA)
                             } else if (overlayView?.isMediaPlaybackActive == true && overlayView?.isMediaCompact == false) {
                                 overlayView?.updateMediaCompactFraction(dragFraction)
+                            } else if (overlayView?.isConsciousGateActive == true && overlayView?.isConsciousGateCompact == false) {
+                                overlayView?.updateConsciousGateCompactFraction(dragFraction)
                             }
                         } else {
                             val effectiveDx = if (dx > 0) dx - graceAreaPx else dx + graceAreaPx
@@ -361,9 +364,35 @@ class IslandTouchHandler(
                         overlayView?.animateDragSnapBack()
                     }
                 } else if (overlayView?.isConsciousGateActive == true) {
-                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                    val cameraX = overlayView?.cameraCenterX ?: (service.resources.displayMetrics.widthPixels / 2f)
+                    val swipe = IslandSwipeDirections.classify(downX, dx, dy, cameraX, touchSlopPx)
+                    val isSwipeTowardCamera = swipe.isTowardCamera || swipe.isSwipeUp
+                    val currentCompactFraction = overlayView?.consciousGateCompactFraction ?: 0f
+
+                    if (isDragging && overlayView?.isConsciousGateCompact == false) {
+                        val shouldCompact = isSwipeTowardCamera || currentCompactFraction > 0.35f
+                        if (shouldCompact) {
+                            HapticUtil.performRumbleHaptic(service)
+                            HapticUtil.performStrongTickHaptic(service)
+                            overlayView?.animateConsciousGateToCompact(true)
+                            onConsciousGateToggled?.invoke()
+                        } else {
+                            overlayView?.animateConsciousGateToCompact(false)
+                        }
+                    } else if (isSwipeTowardCamera && overlayView?.isConsciousGateCompact == false) {
+                        HapticUtil.performRumbleHaptic(service)
+                        HapticUtil.performStrongTickHaptic(service)
+                        overlayView?.animateConsciousGateToCompact(true)
+                        onConsciousGateToggled?.invoke()
+                    } else if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.resetDragOffset()
                         overlayView?.toggleConsciousGateExpansion()
+                        onConsciousGateToggled?.invoke()
                         HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    } else if (isDragging) {
+                        overlayView?.animateDragSnapBack()
+                    } else {
+                        overlayView?.resetDragOffset()
                     }
                 } else if (overlayView?.isCalendarActive == true) {
                     if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
@@ -405,6 +434,8 @@ class IslandTouchHandler(
                 mainHandler.removeCallbacks(longPressRunnable)
                 if (overlayView?.isMediaPlaybackActive == true && overlayView?.isMediaCompact == false && overlayView?.isNotificationAlertActive != true) {
                     overlayView?.animateMediaToCompact(false)
+                } else if (overlayView?.isConsciousGateActive == true && overlayView?.isConsciousGateCompact == false && overlayView?.isNotificationAlertActive != true) {
+                    overlayView?.animateConsciousGateToCompact(false)
                 } else {
                     overlayView?.animateDragSnapBack()
                 }

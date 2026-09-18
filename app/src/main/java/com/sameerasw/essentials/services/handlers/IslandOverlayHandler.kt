@@ -121,6 +121,7 @@ class IslandOverlayHandler(
             val preservedMediaKey = currentMediaKey
             mainHandler.removeCallbacks(dismissNotificationRunnable)
             mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+            mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissNotificationAlert()
             overlayView?.dismissMediaPlayback()
@@ -208,6 +209,11 @@ class IslandOverlayHandler(
     }
     private val calendarPollRunnable = Runnable { pollCalendarEvent() }
 
+    private val revertConsciousGateExpansionRunnable = Runnable {
+        overlayView?.setConsciousGateCompact(true)
+        expandTouchAnchorForNotification()
+    }
+
     private val consciousGateUpdateRunnable = object : Runnable {
         override fun run() {
             updateConsciousGateState()
@@ -226,6 +232,7 @@ class IslandOverlayHandler(
 
         val session = ScreenOffAccessibilityService.instance?.getActiveConsciousGateSession()
         if (session == null || isIslandContentSuppressed) {
+            mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissConsciousGateSession()
             return
@@ -235,6 +242,7 @@ class IslandOverlayHandler(
         val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
         val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
         if (remainingMillis <= 0L) {
+            mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissConsciousGateSession()
             return
@@ -264,7 +272,8 @@ class IslandOverlayHandler(
         expandTouchAnchorForNotification()
 
         mainHandler.removeCallbacks(consciousGateUpdateRunnable)
-        mainHandler.postDelayed(consciousGateUpdateRunnable, 1000L)
+        val delayToNextSecond = (remainingMillis % 1000L).let { if (it == 0L) 1000L else it }
+        mainHandler.postDelayed(consciousGateUpdateRunnable, delayToNextSecond.coerceIn(50L, 1000L))
     }
 
     private val mediaProgressRunnable = Runnable { tickMediaProgress() }
@@ -443,8 +452,14 @@ class IslandOverlayHandler(
             return
         }
 
+        if (ov.isConsciousGateActive && !ov.isConsciousGateCompact) {
+            ov.setConsciousGateCompact(true)
+            expandTouchAnchorForNotification()
+            return
+        }
+
         mainHandler.removeCallbacks(dismissNotificationRunnable)
-        if (ov.isMediaPlaybackActive || ov.isCalendarActive) {
+        if (ov.isMediaPlaybackActive || ov.isCalendarActive || ov.isConsciousGateActive) {
             expandTouchAnchorForNotification()
         } else {
             restoreTouchAnchor()
@@ -572,6 +587,15 @@ class IslandOverlayHandler(
             if (overlayView?.isCalendarCompact == false) {
                 val expTimeout = settingsRepository.getIslandExpandedTimeoutMs().takeIf { it > 0L } ?: CALENDAR_DEFAULT_EXPANDED_MS
                 mainHandler.postDelayed(revertCalendarExpansionRunnable, expTimeout)
+            }
+        }
+
+        touchHandler.onConsciousGateToggled = {
+            expandTouchAnchorForNotification()
+            mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
+            if (overlayView?.isConsciousGateCompact == false) {
+                val expTimeout = settingsRepository.getIslandExpandedTimeoutMs().takeIf { it > 0L } ?: 8000L
+                mainHandler.postDelayed(revertConsciousGateExpansionRunnable, expTimeout)
             }
         }
 
@@ -1019,6 +1043,7 @@ class IslandOverlayHandler(
         } catch (_: Exception) {}
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+        mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
         mainHandler.removeCallbacks(mediaProgressRunnable)
         mainHandler.removeCallbacks(consciousGateUpdateRunnable)
         unregisterNotificationsListener()

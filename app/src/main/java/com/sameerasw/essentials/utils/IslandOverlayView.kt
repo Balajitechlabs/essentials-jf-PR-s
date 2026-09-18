@@ -322,7 +322,8 @@ class IslandOverlayView(context: Context) : View(context) {
         private set
     private var consciousGateFraction: Float = 0f
     private val consciousGateAnimator = AnimatedFloatProperty()
-    private var consciousGateCompactFraction: Float = 1f
+    var consciousGateCompactFraction: Float = 1f
+        private set
     private val consciousGateCompactAnimator = AnimatedFloatProperty()
     private var consciousGateBubbleFraction: Float = 0f
     private val consciousGateBubbleAnimator = AnimatedFloatProperty()
@@ -539,6 +540,12 @@ class IslandOverlayView(context: Context) : View(context) {
     private val notificationBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+
+    private val consciousGateTimePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        typeface = googleSansFlexTypeface ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        fontFeatureSettings = "tnum"
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -1210,13 +1217,23 @@ class IslandOverlayView(context: Context) : View(context) {
         )
     }
 
-    fun setConsciousGateCompact(compact: Boolean) {
-        if (!isConsciousGateActive || isConsciousGateCompact == compact) return
-        isConsciousGateCompact = compact
+    fun updateConsciousGateCompactFraction(fraction: Float) {
+        if (!isConsciousGateActive) return
+        consciousGateCompactAnimator.cancel()
+        consciousGateCompactFraction = fraction.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    fun animateConsciousGateToCompact(targetCompact: Boolean) {
+        if (!isConsciousGateActive) return
+        isConsciousGateCompact = targetCompact
+        resetDragOffset()
+        val fromVal = consciousGateCompactFraction
+        val targetVal = if (targetCompact) 1f else 0f
         consciousGateCompactAnimator.animateTo(
-            from = consciousGateCompactFraction,
-            to = if (compact) 1f else 0f,
-            spec = IslandTransitionSpec.ModeChange,
+            from = fromVal,
+            to = targetVal,
+            spec = if (targetCompact) IslandTransitionSpec.ModeChange else IslandTransitionSpec.DragSnapBack,
             onUpdate = {
                 consciousGateCompactFraction = it
                 invalidate()
@@ -1226,6 +1243,11 @@ class IslandOverlayView(context: Context) : View(context) {
             },
         )
         onAlertsChanged?.invoke()
+    }
+
+    fun setConsciousGateCompact(compact: Boolean) {
+        if (!isConsciousGateActive || isConsciousGateCompact == compact) return
+        animateConsciousGateToCompact(compact)
     }
 
     fun toggleConsciousGateExpansion(): Boolean {
@@ -1262,10 +1284,10 @@ class IslandOverlayView(context: Context) : View(context) {
         val compactLeftWidth = pad + iconSize + 4f * density + timerIconSize + cutoutIconGap
         val compactTargetLeft = (cameraCenterX - cameraRadiusPx - compactLeftWidth).coerceAtLeast(8f * density)
 
-        // Compact Right: "00:00" time text
-        notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
-        val timeWidth = notificationBodyPaint.measureText(consciousGateTimeText)
-        val compactRightWidth = cutoutIconGap + timeWidth + pad * 1.5f
+        // Compact Right: Fixed width for "00:00" tabular time text
+        consciousGateTimePaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+        val fixedTimeWidth = consciousGateTimePaint.measureText("0") * 4f + consciousGateTimePaint.measureText(":")
+        val compactRightWidth = cutoutIconGap + fixedTimeWidth + pad * 1.5f
         val compactTargetRight = (cameraCenterX + cameraRadiusPx + compactRightWidth).coerceAtMost(screenWidth - 8f * density)
         val compactBounds = RectF(compactTargetLeft, top, compactTargetRight, bottom)
 
@@ -1278,8 +1300,8 @@ class IslandOverlayView(context: Context) : View(context) {
 
         // Normal Right: "$timeText remaining"
         val remainingLabel = context.getString(R.string.conscious_gate_island_remaining)
-        val fullRightText = "$consciousGateTimeText $remainingLabel"
-        val fullRightWidth = notificationBodyPaint.measureText(fullRightText)
+        notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+        val fullRightWidth = fixedTimeWidth + notificationBodyPaint.measureText(" $remainingLabel")
         val normalRightWidth = cutoutIconGap + fullRightWidth + pad * 1.5f
         val normalTargetRight = (cameraCenterX + cameraRadiusPx + normalRightWidth).coerceAtMost(screenWidth - 8f * density)
         val normalBounds = RectF(normalTargetLeft, top, normalTargetRight, bottom)
@@ -1349,11 +1371,11 @@ class IslandOverlayView(context: Context) : View(context) {
             val compactTextRight = consciousGatePillRect.right - pad
             val compactTextLeft = cameraCenterX + cameraRadiusPx + cutoutGap
             if (compactTextRight > compactTextLeft) {
-                notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
-                val textY = (consciousGatePillRect.top + consciousGatePillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
-                drawRollingText(
+                consciousGateTimePaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+                val textY = (consciousGatePillRect.top + consciousGatePillRect.bottom) / 2f + consciousGateTimePaint.textSize * 0.35f
+                drawRollingDigits(
                     canvas = canvas,
-                    paint = notificationBodyPaint,
+                    paint = consciousGateTimePaint,
                     oldText = consciousGateTimePrev,
                     newText = consciousGateTimeText,
                     fraction = consciousGateTimeRollFraction,
@@ -1424,6 +1446,75 @@ class IslandOverlayView(context: Context) : View(context) {
             newOffsetY = (1f - fraction) * dist,
             newAlpha = fraction,
         )
+    }
+
+    private fun drawRollingDigits(
+        canvas: Canvas,
+        paint: Paint,
+        oldText: String,
+        newText: String,
+        fraction: Float,
+        edgeX: Float,
+        baseY: Float,
+        clipLeft: Float,
+        clipTop: Float,
+        clipRight: Float,
+        clipBottom: Float,
+        baseAlpha: Int,
+        alignEnd: Boolean = true,
+    ) {
+        if (baseAlpha <= 0) return
+        val maxLen = maxOf(oldText.length, newText.length)
+        val paddedOld = oldText.padStart(maxLen, ' ')
+        val paddedNew = newText.padStart(maxLen, ' ')
+
+        val digitWidth = paint.measureText("0")
+        val colonWidth = paint.measureText(":")
+        fun getSlotWidth(ch: Char): Float = when {
+            ch.isDigit() -> digitWidth
+            ch == ':' -> colonWidth
+            else -> paint.measureText(ch.toString())
+        }
+
+        var totalWidth = 0f
+        for (i in 0 until maxLen) {
+            totalWidth += getSlotWidth(paddedNew[i])
+        }
+
+        val startX = if (alignEnd) edgeX - totalWidth else edgeX
+        val rowHeight = clipBottom - clipTop
+        val rows = computeRollLayers(fraction, rowHeight)
+
+        var curX = startX
+        for (i in 0 until maxLen) {
+            val oldChar = paddedOld[i]
+            val newChar = paddedNew[i]
+            val slotWidth = getSlotWidth(newChar)
+
+            val oldCharStr = oldChar.toString()
+            val newCharStr = newChar.toString()
+
+            if (fraction >= 0.999f || oldChar == newChar) {
+                paint.alpha = baseAlpha
+                val textX = curX + (slotWidth - paint.measureText(newCharStr)) / 2f
+                canvas.drawText(newCharStr, textX, baseY, paint)
+            } else {
+                canvas.save()
+                canvas.clipRect(curX.coerceAtLeast(clipLeft), clipTop, (curX + slotWidth).coerceAtMost(clipRight), clipBottom)
+                if (!oldChar.isWhitespace()) {
+                    paint.alpha = (baseAlpha * rows.oldAlpha).toInt().coerceIn(0, 255)
+                    val oldX = curX + (slotWidth - paint.measureText(oldCharStr)) / 2f
+                    canvas.drawText(oldCharStr, oldX, baseY + rows.oldOffsetY, paint)
+                }
+                if (!newChar.isWhitespace()) {
+                    paint.alpha = (baseAlpha * rows.newAlpha).toInt().coerceIn(0, 255)
+                    val newX = curX + (slotWidth - paint.measureText(newCharStr)) / 2f
+                    canvas.drawText(newCharStr, newX, baseY + rows.newOffsetY, paint)
+                }
+                canvas.restore()
+            }
+            curX += slotWidth
+        }
     }
 
     private fun drawRollingText(
