@@ -156,6 +156,7 @@
     <string name="conscious_gate_reappear_custom_label">Custom minutes (0 = off)</string>
     <string name="conscious_gate_reappear_minutes_value">%1$d minutes</string>
     <string name="conscious_gate_selected_apps_more_suffix">+%1$d more</string>
+    <string name="conscious_gate_feel_every_second_title">Feel every wasted second</string>
     <string name="conscious_gate_preview_button">Preview conscious gate screen</string>
     <string name="conscious_gate_preview_placeholder_app">a gated app</string>
     <string name="conscious_gate_custom_option_label">Custom</string>

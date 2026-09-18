@@ -92,6 +92,17 @@ fun ConsciousGatePauseScreen(
 
     val scope = rememberCoroutineScope()
     var isActionInvoked by remember { mutableStateOf(false) }
+    var isHolding by remember { mutableStateOf(false) }
+
+    val view = LocalView.current
+    LaunchedEffect(isHolding) {
+        while (isActive) {
+            delay(1000L)
+            if (!isHolding && !isActionInvoked) {
+                HapticUtil.performLightHaptic(view)
+            }
+        }
+    }
 
     fun fadeOutThen(action: () -> Unit) {
         if (isActionInvoked) return
@@ -192,6 +203,7 @@ fun ConsciousGatePauseScreen(
             HoldToContinueButton(
                 waitTimeProgress = progress(),
                 onContinue = fadeOutContinue,
+                onHoldingChange = { isHolding = it },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -209,6 +221,7 @@ fun ConsciousGatePauseScreen(
 private fun HoldToContinueButton(
     waitTimeProgress: Float,
     onContinue: () -> Unit,
+    onHoldingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -259,6 +272,7 @@ private fun HoldToContinueButton(
                             val startTime = System.currentTimeMillis()
                             var completed = false
 
+                            onHoldingChange(true)
                             HapticUtil.startRampingHoldHaptic(context, HoldDurationMillis)
 
                             val animJob =
@@ -273,6 +287,7 @@ private fun HoldToContinueButton(
                                 }
 
                             tryAwaitRelease()
+                            onHoldingChange(false)
                             animJob.cancel()
                             HapticUtil.stopHoldHaptic(context)
 

@@ -78,6 +78,7 @@ fun ConsciousGateSettingsUI(
         if (isUseUsageAccess) isUsageStatsPermissionGranted else isAccessibilityEnabled
     val delaySeconds by viewModel.consciousGateDelaySeconds
     val reappearMinutes by viewModel.consciousGateReappearMinutes
+    val isConsciousGateFeelEverySecondEnabled by viewModel.isConsciousGateFeelEverySecondEnabled
     val title by viewModel.consciousGateTitle
     val message by viewModel.consciousGateMessage
 
@@ -270,6 +271,17 @@ fun ConsciousGateSettingsUI(
                     enabled = isConsciousGateEnabled,
                 )
             }
+
+            IconToggleItem(
+                iconRes = R.drawable.rounded_mobile_vibrate_24,
+                title = stringResource(R.string.conscious_gate_feel_every_second_title),
+                isChecked = isConsciousGateFeelEverySecondEnabled,
+                onCheckedChange = { enabled ->
+                    viewModel.setConsciousGateFeelEverySecondEnabled(enabled)
+                },
+                enabled = isConsciousGateEnabled,
+                modifier = Modifier.highlight(highlightKey == "conscious_gate_feel_every_second"),
+            )
         }
 
         Text(

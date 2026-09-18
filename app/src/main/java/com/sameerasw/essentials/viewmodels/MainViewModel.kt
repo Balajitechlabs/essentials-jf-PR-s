@@ -340,6 +340,7 @@ class MainViewModel : ViewModel() {
     val isConsciousGateEnabled = mutableStateOf(false)
     val consciousGateDelaySeconds = mutableIntStateOf(5)
     val consciousGateReappearMinutes = mutableIntStateOf(0)
+    val isConsciousGateFeelEverySecondEnabled = mutableStateOf(false)
     val consciousGateTitle = mutableStateOf("")
     val consciousGateMessage = mutableStateOf("")
     val isUseUsageAccess = mutableStateOf(false)
@@ -2206,6 +2207,7 @@ class MainViewModel : ViewModel() {
             settingsRepository.getBoolean(SettingsRepository.KEY_CONSCIOUS_GATE_ENABLED)
         consciousGateDelaySeconds.intValue = settingsRepository.getConsciousGateDelaySeconds()
         consciousGateReappearMinutes.intValue = settingsRepository.getConsciousGateReappearMinutes()
+        isConsciousGateFeelEverySecondEnabled.value = settingsRepository.getConsciousGateFeelEverySecond()
         consciousGateTitle.value = settingsRepository.getConsciousGateTitle(context)
         consciousGateMessage.value = settingsRepository.getConsciousGateMessage(context)
         isFreezeWhenLockedEnabled.value =
@@ -5134,6 +5136,11 @@ class MainViewModel : ViewModel() {
     fun setConsciousGateReappearMinutes(minutes: Int) {
         consciousGateReappearMinutes.intValue = minutes
         settingsRepository.setConsciousGateReappearMinutes(minutes)
+    }
+
+    fun setConsciousGateFeelEverySecondEnabled(enabled: Boolean) {
+        isConsciousGateFeelEverySecondEnabled.value = enabled
+        settingsRepository.setConsciousGateFeelEverySecond(enabled)
     }
 
     fun setConsciousGateTitle(title: String) {

@@ -231,10 +231,9 @@ class SettingsRepository(
         const val KEY_CONSCIOUS_GATE_SELECTED_APPS = "conscious_gate_selected_apps"
         const val KEY_CONSCIOUS_GATE_DELAY_SECONDS = "conscious_gate_delay_seconds"
         const val KEY_CONSCIOUS_GATE_REAPPEAR_MINUTES = "conscious_gate_reappear_minutes"
-        const val KEY_CONSCIOUS_GATE_ICON_NAME = "conscious_gate_icon_name"
+        const val KEY_CONSCIOUS_GATE_FEEL_EVERY_SECOND = "conscious_gate_feel_every_second"
         const val KEY_CONSCIOUS_GATE_TITLE = "conscious_gate_title"
         const val KEY_CONSCIOUS_GATE_MESSAGE = "conscious_gate_message"
-        const val KEY_CONSCIOUS_GATE_COUNTDOWN_STYLE = "conscious_gate_countdown_style"
         const val KEY_USE_USAGE_ACCESS = "use_usage_access"
 
         const val KEY_FREEZE_WHEN_LOCKED_ENABLED = "freeze_when_locked_enabled"
@@ -1102,6 +1101,10 @@ class SettingsRepository(
     fun getConsciousGateReappearMinutes(): Int = prefs.getInt(KEY_CONSCIOUS_GATE_REAPPEAR_MINUTES, 0)
 
     fun setConsciousGateReappearMinutes(minutes: Int) = putInt(KEY_CONSCIOUS_GATE_REAPPEAR_MINUTES, minutes)
+
+    fun getConsciousGateFeelEverySecond(): Boolean = prefs.getBoolean(KEY_CONSCIOUS_GATE_FEEL_EVERY_SECOND, false)
+
+    fun setConsciousGateFeelEverySecond(enabled: Boolean) = putBoolean(KEY_CONSCIOUS_GATE_FEEL_EVERY_SECOND, enabled)
 
     fun getConsciousGateTitle(context: Context = this.context): String =
         prefs.getString(KEY_CONSCIOUS_GATE_TITLE, null) ?: context.getString(com.sameerasw.essentials.R.string.conscious_gate_default_title)

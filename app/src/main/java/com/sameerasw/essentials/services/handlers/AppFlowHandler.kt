@@ -24,11 +24,13 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
+import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.diy.Automation
 import com.sameerasw.essentials.domain.diy.DIYRepository
 import com.sameerasw.essentials.domain.model.AppSelection
 import com.sameerasw.essentials.services.automation.executors.CombinedActionExecutor
 import com.sameerasw.essentials.utils.FreezeManager
+import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.ShizukuUtils.toggleShizuku
 import com.sameerasw.essentials.utils.StatusBarManager
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +120,19 @@ class AppFlowHandler(
     private var lastGateRequestTime: Long = 0
     private val confirmedGatePackages = mutableSetOf<String>()
     private val pendingReappearRunnables = mutableMapOf<String, Runnable>()
+    private var activeFeelWastedSecondPackage: String? = null
+    private val feelWastedSecondRunnable =
+        object : Runnable {
+            override fun run() {
+                val activePkg = activeFeelWastedSecondPackage
+                if (activePkg != null && confirmedGatePackages.contains(activePkg) && currentPackage == activePkg) {
+                    HapticUtil.performHapticForService(context, HapticFeedbackType.SUBTLE)
+                    handler.postDelayed(this, 1000L)
+                } else {
+                    activeFeelWastedSecondPackage = null
+                }
+            }
+        }
 
     // App Automation State
     private val activeAppAutomationIds = mutableSetOf<String>()
@@ -149,7 +164,14 @@ class AppFlowHandler(
                 if (oldPackage != context.packageName) {
                     lastLeaveTimes[oldPackage] = System.currentTimeMillis()
                 }
+                if (oldPackage == activeFeelWastedSecondPackage) {
+                    handler.removeCallbacks(feelWastedSecondRunnable)
+                }
                 checkShutUpRestore(oldPackage, packageName)
+            }
+            if (packageName == activeFeelWastedSecondPackage && confirmedGatePackages.contains(packageName)) {
+                handler.removeCallbacks(feelWastedSecondRunnable)
+                handler.postDelayed(feelWastedSecondRunnable, 1000L)
             }
             if (packageName != context.packageName && packageName != lockingPackage) {
                 lockingPackage = null
@@ -181,7 +203,22 @@ class AppFlowHandler(
         confirmedGatePackages.clear()
         pendingReappearRunnables.values.forEach { handler.removeCallbacks(it) }
         pendingReappearRunnables.clear()
+        stopFeelWastedSecond()
         gatingPackage = null
+    }
+
+    private fun startFeelWastedSecond(packageName: String) {
+        val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean("conscious_gate_feel_every_second", false)
+        if (!isEnabled) return
+        activeFeelWastedSecondPackage = packageName
+        handler.removeCallbacks(feelWastedSecondRunnable)
+        handler.postDelayed(feelWastedSecondRunnable, 1000L)
+    }
+
+    private fun stopFeelWastedSecond() {
+        activeFeelWastedSecondPackage = null
+        handler.removeCallbacks(feelWastedSecondRunnable)
     }
 
     private fun checkAppLock(packageName: String) {
@@ -296,10 +333,16 @@ class AppFlowHandler(
                     confirmedGatePackages.remove(packageName)
                     lastLeaveTimes.remove(packageName)
                     pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                    if (activeFeelWastedSecondPackage == packageName) {
+                        stopFeelWastedSecond()
+                    }
                 } else if (reappearMinutes > 0 && leftDuration > reappearMinutes * 60 * 1000L) {
                     confirmedGatePackages.remove(packageName)
                     lastLeaveTimes.remove(packageName)
                     pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                    if (activeFeelWastedSecondPackage == packageName) {
+                        stopFeelWastedSecond()
+                    }
                 } else {
                     lastLeaveTimes.remove(packageName)
                 }
@@ -340,6 +383,9 @@ class AppFlowHandler(
         lastGateRequestTime = System.currentTimeMillis()
         gatingPackage = packageName
         lastLeaveTimes[packageName] = System.currentTimeMillis()
+        if (activeFeelWastedSecondPackage == packageName) {
+            stopFeelWastedSecond()
+        }
     }
 
     fun onConsciousGateConfirmed(packageName: String) {
@@ -351,6 +397,8 @@ class AppFlowHandler(
 
         pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
 
+        startFeelWastedSecond(packageName)
+
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
         val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
         if (reappearMinutes > 0) {
@@ -359,9 +407,15 @@ class AppFlowHandler(
                     pendingReappearRunnables.remove(packageName)
                     if (currentPackage == packageName) {
                         confirmedGatePackages.remove(packageName)
+                        if (activeFeelWastedSecondPackage == packageName) {
+                            stopFeelWastedSecond()
+                        }
                         checkConsciousGate(packageName)
                     } else {
                         confirmedGatePackages.remove(packageName)
+                        if (activeFeelWastedSecondPackage == packageName) {
+                            stopFeelWastedSecond()
+                        }
                     }
                 }
             pendingReappearRunnables[packageName] = runnable
