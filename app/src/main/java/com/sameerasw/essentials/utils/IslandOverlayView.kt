@@ -39,6 +39,7 @@ import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
 import com.sameerasw.essentials.utils.island.EqualizerAnimator
+import com.sameerasw.essentials.utils.island.IslandBatteryColorConfig
 import com.sameerasw.essentials.utils.island.IslandContentState
 import com.sameerasw.essentials.utils.island.IslandIdleHost
 import com.sameerasw.essentials.utils.island.IslandIdleIndicator
@@ -1443,7 +1444,12 @@ class IslandOverlayView(context: Context) : View(context) {
 
     fun setIdleTime(text: String) = idleIndicator.setTime(text)
 
-    fun setIdleBattery(level: Int, charging: Boolean) = idleIndicator.setBattery(level, charging)
+    fun setIdleBattery(level: Int, charging: Boolean, powerSave: Boolean) =
+        idleIndicator.setBattery(level, charging, powerSave)
+
+    fun setIdleBatteryColors(config: IslandBatteryColorConfig) {
+        idleIndicator.colorConfig = config
+    }
 
     // (visible fraction, compact fraction) of whatever content onDraw currently renders, by priority.
     private fun currentContentState(): IslandContentState? = when {

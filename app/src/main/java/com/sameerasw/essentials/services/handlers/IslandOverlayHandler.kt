@@ -18,7 +18,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.BatteryManager
+import android.os.PowerManager
 import android.text.format.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,6 +55,7 @@ import com.sameerasw.essentials.utils.CalendarEventUtil
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
+import com.sameerasw.essentials.utils.island.IslandBatteryColorConfig
 import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -201,6 +204,7 @@ class IslandOverlayHandler(
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_BATTERY_CHANGED -> updateIdleBattery(intent)
+                PowerManager.ACTION_POWER_SAVE_MODE_CHANGED -> updateIdleBattery()
                 Intent.ACTION_TIME_TICK,
                 Intent.ACTION_TIME_CHANGED,
                 Intent.ACTION_TIMEZONE_CHANGED -> updateIdleTime()
@@ -220,7 +224,28 @@ class IslandOverlayHandler(
         if (level < 0 || scale <= 0) return
         val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-        overlayView?.setIdleBattery((level * 100f / scale).toInt(), charging)
+        val powerSave = (service.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode ?: false
+        overlayView?.setIdleBattery((level * 100f / scale).toInt(), charging, powerSave)
+    }
+
+    private fun buildBatteryColorConfig(): IslandBatteryColorConfig {
+        val defaults = IslandBatteryColorConfig()
+        fun parse(hex: String, fallback: Int) = try {
+            Color.parseColor(hex)
+        } catch (_: Exception) {
+            fallback
+        }
+        val charging = settingsRepository.getDuoBatteryChargingColor()
+        return IslandBatteryColorConfig(
+            chargingEnabled = settingsRepository.isDuoBatteryChargingColorEnabled(),
+            chargingColor = if (charging.equals("auto", ignoreCase = true)) null else parse(charging, Color.rgb(0, 230, 118)),
+            powerSaveEnabled = settingsRepository.isDuoBatteryPowerSaveColorEnabled(),
+            powerSaveColor = parse(settingsRepository.getDuoBatteryPowerSaveColor(), defaults.powerSaveColor),
+            lowEnabled = settingsRepository.isDuoBatteryLowColorEnabled(),
+            lowColor = parse(settingsRepository.getDuoBatteryLowColor(), defaults.lowColor),
+            criticalEnabled = settingsRepository.isDuoBatteryCriticalColorEnabled(),
+            criticalColor = parse(settingsRepository.getDuoBatteryCriticalColor(), defaults.criticalColor),
+        )
     }
 
     private fun updateIdlePill() {
@@ -229,6 +254,7 @@ class IslandOverlayHandler(
             settingsRepository.isIslandShowTimeBatteryEnabled() &&
             !isIslandContentSuppressed
         ov.isIdleBatteryIcon = settingsRepository.getIslandBatteryStyle() == SettingsRepository.ISLAND_BATTERY_STYLE_ICON
+        ov.setIdleBatteryColors(buildBatteryColorConfig())
         if (enabled) {
             updateIdleTime()
             updateIdleBattery()
@@ -591,6 +617,7 @@ class IslandOverlayHandler(
             idleReceiver,
             IntentFilter().apply {
                 addAction(Intent.ACTION_BATTERY_CHANGED)
+                addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
                 addAction(Intent.ACTION_TIME_TICK)
                 addAction(Intent.ACTION_TIME_CHANGED)
                 addAction(Intent.ACTION_TIMEZONE_CHANGED)
@@ -1132,7 +1159,15 @@ class IslandOverlayHandler(
                 updateConsciousGateState()
             }
             SettingsRepository.KEY_ISLAND_SHOW_TIME_BATTERY,
-            SettingsRepository.KEY_ISLAND_BATTERY_STYLE -> {
+            SettingsRepository.KEY_ISLAND_BATTERY_STYLE,
+            SettingsRepository.KEY_DUO_BATTERY_CHARGING_COLOR_ENABLED,
+            SettingsRepository.KEY_DUO_BATTERY_CHARGING_COLOR,
+            SettingsRepository.KEY_DUO_BATTERY_POWER_SAVE_COLOR_ENABLED,
+            SettingsRepository.KEY_DUO_BATTERY_POWER_SAVE_COLOR,
+            SettingsRepository.KEY_DUO_BATTERY_LOW_COLOR_ENABLED,
+            SettingsRepository.KEY_DUO_BATTERY_LOW_COLOR,
+            SettingsRepository.KEY_DUO_BATTERY_CRITICAL_COLOR_ENABLED,
+            SettingsRepository.KEY_DUO_BATTERY_CRITICAL_COLOR -> {
                 updateIdlePill()
             }
             SettingsRepository.KEY_ISLAND_SHOW_MEDIA,

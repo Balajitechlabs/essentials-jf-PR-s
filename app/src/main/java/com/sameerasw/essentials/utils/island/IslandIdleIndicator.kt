@@ -25,6 +25,17 @@ import com.sameerasw.essentials.utils.battery.BatteryInfoUtil
 
 class IslandContentState(val visible: Float, val compact: Float)
 
+class IslandBatteryColorConfig(
+    val chargingEnabled: Boolean = true,
+    val chargingColor: Int? = null,
+    val powerSaveEnabled: Boolean = true,
+    val powerSaveColor: Int = Color.rgb(255, 152, 0),
+    val lowEnabled: Boolean = true,
+    val lowColor: Int = Color.rgb(255, 235, 59),
+    val criticalEnabled: Boolean = true,
+    val criticalColor: Int = Color.rgb(244, 67, 54),
+)
+
 interface IslandIdleHost {
     val density: Float
     val cameraCenterX: Float
@@ -86,6 +97,12 @@ class IslandIdleIndicator(
             }
         }
 
+    var colorConfig: IslandBatteryColorConfig = IslandBatteryColorConfig()
+        set(value) {
+            field = value
+            if (batteryInitialized) applyColors(animate = true)
+        }
+
     var useBatteryIcon: Boolean = false
         set(value) {
             if (field != value) {
@@ -117,6 +134,7 @@ class IslandIdleIndicator(
     private var batteryTarget = 100
     private var batteryDisplay = 100f
     private var batteryCharging = false
+    private var batteryPowerSave = false
     private var batteryInitialized = false
     private val batteryAnimator = AnimatedFloatProperty()
     private val ringColor = AnimatedColor(Color.WHITE)
@@ -209,26 +227,23 @@ class IslandIdleIndicator(
         host.requestRedraw()
     }
 
-    fun setBattery(level: Int, charging: Boolean) {
+    fun setBattery(level: Int, charging: Boolean, powerSave: Boolean) {
         val clamped = level.coerceIn(0, 100)
         val chargingChanged = charging != batteryCharging
-        batteryCharging = charging
         val levelChanged = clamped != batteryTarget
+        batteryCharging = charging
+        batteryPowerSave = powerSave
         batteryTarget = clamped
-        updateIcon(clamped, charging)
+        updateIcon(clamped, charging, powerSave)
 
-        val ring = targetRingColor()
-        val tint = if (charging || clamped <= LOW_LEVEL) ring else Color.WHITE
         if (!batteryInitialized) {
             batteryInitialized = true
             batteryDisplay = clamped.toFloat()
-            ringColor.snapTo(ring)
-            iconTint.snapTo(tint)
+            applyColors(animate = false)
             host.requestRedraw()
             return
         }
-        ringColor.animateTo(ring) { host.requestRedraw() }
-        iconTint.animateTo(tint) { host.requestRedraw() }
+        applyColors(animate = true)
         if (levelChanged) {
             batteryAnimator.animateTo(
                 from = batteryDisplay,
@@ -244,14 +259,37 @@ class IslandIdleIndicator(
         }
     }
 
-    private fun targetRingColor(): Int = when {
-        batteryCharging -> CHARGING_COLOR
-        batteryTarget <= LOW_LEVEL -> LOW_COLOR
-        else -> host.accentColor
+    private fun stateColor(): Int? {
+        val cfg = colorConfig
+        val raw = when {
+            batteryCharging && cfg.chargingEnabled -> cfg.chargingColor ?: AUTO_CHARGING_COLOR
+            batteryPowerSave && cfg.powerSaveEnabled -> cfg.powerSaveColor
+            batteryTarget <= CRITICAL_LEVEL && cfg.criticalEnabled -> cfg.criticalColor
+            batteryTarget <= LOW_LEVEL && cfg.lowEnabled -> cfg.lowColor
+            else -> return null
+        }
+        val hsv = FloatArray(3)
+        Color.colorToHSV(raw, hsv)
+        hsv[1] = (hsv[1] * 0.75f).coerceIn(0.25f, 0.90f)
+        hsv[2] = (hsv[2] * 1.25f).coerceIn(0.85f, 1.0f)
+        return Color.HSVToColor(hsv)
     }
 
-    private fun updateIcon(level: Int, charging: Boolean) {
-        val res = BatteryInfoUtil.getBatteryIconRes(context, level, charging)
+    private fun applyColors(animate: Boolean) {
+        val state = stateColor()
+        val ring = state ?: host.accentColor
+        val tint = state ?: Color.WHITE
+        if (!animate) {
+            ringColor.snapTo(ring)
+            iconTint.snapTo(tint)
+            return
+        }
+        ringColor.animateTo(ring) { host.requestRedraw() }
+        iconTint.animateTo(tint) { host.requestRedraw() }
+    }
+
+    private fun updateIcon(level: Int, charging: Boolean, powerSave: Boolean) {
+        val res = BatteryInfoUtil.getBatteryIconRes(context, level, charging, isPowerSave = powerSave)
         if (res == iconRes && icon != null) return
         val drawable = ContextCompat.getDrawable(context, res) ?: return
         val bitmap = try {
@@ -403,8 +441,8 @@ class IslandIdleIndicator(
     }
 
     private companion object {
-        const val LOW_LEVEL = 15
-        val CHARGING_COLOR = 0xFF6DD58C.toInt()
-        val LOW_COLOR = 0xFFFF6B6B.toInt()
+        const val LOW_LEVEL = 20
+        const val CRITICAL_LEVEL = 10
+        val AUTO_CHARGING_COLOR = Color.rgb(0, 230, 118)
     }
 }
