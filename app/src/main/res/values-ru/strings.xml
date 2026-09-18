@@ -1625,4 +1625,18 @@
     <string name="status_glance_action_swipe_right_desc">Перейти на следующий трек, когда проигрывается медиа</string>
     <string name="status_glance_action_swipe_right_title">Свайп вправо</string>
     <string name="status_glance_bold_text_title">Жирный текст</string>
+    <string name="setting_show_legacy_features_title">Показать устаревшие функции</string>
+    <string name="label_motion_blur_amount">Значение</string>
+    <string name="crash_logs_title">Логирование крашей</string>
+    <string name="crash_logs_desc">Просмотр и отправка логов последнего краша</string>
+    <string name="conscious_gate_reappear_off">Отключить</string>
+    <string name="label_charging_mode_limited">Ограниченная</string>
+    <string name="diy_category_apps">Приложения</string>
+    <string name="label_battery_tab_info">Информация</string>
+    <string name="label_audio_drain">Расход Аудио</string>
+    <string name="label_video_drain">Расход Видео</string>
+    <string name="label_camera_drain">Расход Камеры</string>
+    <string name="label_flashlight_drain">Расход Фонарика</string>
+    <string name="label_cpu_active_drain">Активный расход ЦП</string>
+    <string name="label_cpu_idle_drain">Потребление ЦП в спокойствие</string>
 </resources>
