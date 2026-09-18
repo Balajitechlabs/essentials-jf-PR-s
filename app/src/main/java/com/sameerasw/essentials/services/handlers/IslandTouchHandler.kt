@@ -24,6 +24,7 @@ import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.NotificationListener
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
+import com.sameerasw.essentials.utils.island.FlashlightHit
 import com.sameerasw.essentials.utils.island.IslandSwipeDirections
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -44,6 +45,8 @@ class IslandTouchHandler(
     var onMediaFullPlayerToggled: ((Boolean) -> Unit)? = null
     var onMediaControlTapped: ((Int) -> Unit)? = null
     var onMediaBackgroundTapped: (() -> Unit)? = null
+    var onFlashlightLevelChanged: ((Float) -> Unit)? = null
+    var onFlashlightTurnOff: (() -> Unit)? = null
     var onConsciousGateToggled: (() -> Unit)? = null
 
     private var downX: Float = 0f
@@ -121,7 +124,102 @@ class IslandTouchHandler(
     private val graceAreaPx: Float
         get() = 12f * density
 
+    private var flashlightHit = FlashlightHit.NONE
+    private var isFlashlightDragging = false
+    private var lastFlashlightStep = -1
+    private var isFlashlightLongPressed = false
+
+    private val flashlightRamps = listOf(110L to 0.18f, 210L to 0.42f, 300L to 0.70f).map { (_, strength) ->
+        Runnable { if (!isFlashlightDragging && !isFlashlightLongPressed) HapticUtil.performCustomHaptic(service, strength) }
+    }
+
+    private val flashlightLongPressRunnable = Runnable {
+        if (isFlashlightDragging) return@Runnable
+        isFlashlightLongPressed = true
+        HapticUtil.performStrongTickHaptic(service)
+        onFlashlightTurnOff?.invoke()
+    }
+
+    private fun cancelFlashlightLongPress() {
+        mainHandler.removeCallbacks(flashlightLongPressRunnable)
+        flashlightRamps.forEach { mainHandler.removeCallbacks(it) }
+    }
+
+    private fun handleFlashlightTouch(event: MotionEvent): Boolean {
+        val ov = overlayView ?: return false
+        val x = event.rawX
+        val y = event.rawY
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = x
+                downY = y
+                downTime = SystemClock.uptimeMillis()
+                flashlightHit = ov.flashlightHitTest(x, y)
+                isFlashlightDragging = false
+                isFlashlightLongPressed = false
+                cancelFlashlightLongPress()
+                if (flashlightHit == FlashlightHit.SLIDER && ov.flashlightSupportsLevels) {
+                    isFlashlightDragging = true
+                    lastFlashlightStep = -1
+                    ov.setFlashlightDragging(true)
+                    dispatchFlashlightLevel(ov, x)
+                } else {
+                    val delays = longArrayOf(110L, 210L, 300L)
+                    flashlightRamps.forEachIndexed { i, r -> mainHandler.postDelayed(r, delays[i]) }
+                    mainHandler.postDelayed(flashlightLongPressRunnable, 370L)
+                }
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (isFlashlightDragging) {
+                    dispatchFlashlightLevel(ov, x)
+                } else if (hypot(x - downX, y - downY) > graceAreaPx) {
+                    cancelFlashlightLongPress()
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                cancelFlashlightLongPress()
+                if (isFlashlightLongPressed) {
+                    isFlashlightLongPressed = false
+                } else if (isFlashlightDragging) {
+                    isFlashlightDragging = false
+                    ov.setFlashlightDragging(false)
+                    HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                } else if (event.actionMasked == MotionEvent.ACTION_UP &&
+                    hypot(x - downX, y - downY) < touchSlopPx * 2.0f &&
+                    SystemClock.uptimeMillis() - downTime < 600L
+                ) {
+                    when (flashlightHit) {
+                        FlashlightHit.ICON -> {
+                            HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                            onFlashlightTurnOff?.invoke()
+                        }
+                        FlashlightHit.PILL, FlashlightHit.SLIDER -> {
+                            HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                            ov.toggleFlashlightExpansion()
+                        }
+                        FlashlightHit.NONE -> {}
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    private fun dispatchFlashlightLevel(ov: IslandOverlayView, x: Float) {
+        val fraction = ov.flashlightFractionAt(x)
+        ov.setFlashlightLevelFraction(fraction)
+        onFlashlightLevelChanged?.invoke(fraction)
+        val step = (fraction * 20f).toInt()
+        if (step != lastFlashlightStep) {
+            lastFlashlightStep = step
+            HapticUtil.performCustomHaptic(service, 0.2f)
+        }
+    }
+
     fun onTouchEvent(event: MotionEvent): Boolean {
+        if (overlayView?.isFlashlightActive == true) return handleFlashlightTouch(event)
         val x = event.rawX
         val y = event.rawY
 

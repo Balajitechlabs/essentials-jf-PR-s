@@ -563,6 +563,17 @@ fun IslandSettingsUI(
             )
 
             IconToggleItem(
+                iconRes = R.drawable.rounded_flashlight_on_24,
+                title = stringResource(R.string.feat_flashlight_title),
+                isChecked = viewModel.isIslandShowFlashlight.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandShowFlashlight(checked)
+                },
+                modifier = Modifier.highlight(highlightSetting == "island_show_flashlight"),
+            )
+
+            IconToggleItem(
                 iconRes = R.drawable.rounded_schedule_24,
                 title = stringResource(R.string.island_show_time_battery_title),
                 isChecked = viewModel.isIslandShowTimeBattery.value,

@@ -436,6 +436,7 @@ class SettingsRepository(
         const val KEY_ISLAND_SHOW_CALENDAR = "island_show_calendar"
         const val KEY_ISLAND_SHOW_CONSCIOUS_GATE = "island_show_conscious_gate"
         const val KEY_ISLAND_SHOW_TIME_BATTERY = "island_show_time_battery"
+        const val KEY_ISLAND_SHOW_FLASHLIGHT = "island_show_flashlight"
         const val KEY_ISLAND_BATTERY_STYLE = "island_battery_style"
         const val ISLAND_BATTERY_STYLE_RING = "ring"
         const val ISLAND_BATTERY_STYLE_ICON = "icon"
@@ -3439,6 +3440,9 @@ class SettingsRepository(
 
     fun isIslandShowConsciousGateEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, true)
     fun setIslandShowConsciousGateEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, enabled)
+
+    fun isIslandShowFlashlightEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_FLASHLIGHT, true)
+    fun setIslandShowFlashlightEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_FLASHLIGHT, enabled)
 
     fun isIslandShowTimeBatteryEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_TIME_BATTERY, false)
     fun setIslandShowTimeBatteryEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_TIME_BATTERY, enabled)

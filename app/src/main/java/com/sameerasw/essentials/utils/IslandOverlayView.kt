@@ -39,6 +39,9 @@ import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
 import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
 import com.sameerasw.essentials.utils.island.EqualizerAnimator
+import com.sameerasw.essentials.utils.island.FlashlightHit
+import com.sameerasw.essentials.utils.island.FlashlightPill
+import com.sameerasw.essentials.utils.island.FlashlightPillHost
 import com.sameerasw.essentials.utils.island.IslandBatteryColorConfig
 import com.sameerasw.essentials.utils.island.IslandContentState
 import com.sameerasw.essentials.utils.island.IslandIdleHost
@@ -73,7 +76,7 @@ class IslandOverlayView(context: Context) : View(context) {
     var touchHandler: IslandTouchHandler? = null
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!isNotificationAlertActive && !isMediaPlaybackActive && !isCalendarActive && !isConsciousGateActive) return false
+        if (!isNotificationAlertActive && !isMediaPlaybackActive && !isCalendarActive && !isConsciousGateActive && !flashlightPill.isActive) return false
         val x = event.x
         val y = event.y
 
@@ -1420,6 +1423,7 @@ class IslandOverlayView(context: Context) : View(context) {
         override fun contentState(): IslandContentState? = currentContentState()
 
         override fun contentBounds(): RectF? = when {
+            flashlightPill.isActive -> flashlightPill.pillRect
             isNotificationAlertActive -> notificationPillRect
             isConsciousGateActive && consciousGateFraction > 0.001f -> consciousGatePillRect
             isCalendarActive && calendarFraction > 0.001f -> calendarPillRect
@@ -1427,6 +1431,50 @@ class IslandOverlayView(context: Context) : View(context) {
             else -> null
         }
     }
+
+    private val flashlightHost = object : FlashlightPillHost {
+        override val density: Float get() = this@IslandOverlayView.density
+        override val cameraCenterX: Float get() = this@IslandOverlayView.cameraCenterX
+        override val cameraCenterY: Float get() = this@IslandOverlayView.cameraCenterY
+        override val cameraRadiusPx: Float get() = this@IslandOverlayView.cameraRadiusPx
+        override val screenWidth: Float get() = resources.displayMetrics.widthPixels.toFloat()
+        override val cutoutGap: Float get() = this@IslandOverlayView.cutoutGap
+        override val expandedWidthPx: Float get() = expandedWidthDp * density
+        override val expandedCornerRadiusPx: Float get() = expandedCornerRadiusDp * density
+        override val accentColor: Int get() = materialYouAccentColor()
+
+        override fun requestRedraw() = invalidate()
+
+        override fun onLayoutChanged() {
+            onAlertsChanged?.invoke()
+        }
+
+        override fun onDismissed() {
+            onDismissAnimationEnd?.invoke()
+        }
+    }
+
+    private val flashlightPill by lazy { FlashlightPill(context, flashlightHost, googleSansFlexTypeface) }
+
+    val isFlashlightActive: Boolean get() = flashlightPill.isActive
+    val isFlashlightExpanded: Boolean get() = flashlightPill.isExpanded
+    val flashlightSupportsLevels: Boolean get() = flashlightPill.supportsLevels
+
+    fun showFlashlight(percent: Int, supportsLevels: Boolean) = flashlightPill.show(percent, supportsLevels)
+
+    fun updateFlashlightLevel(percent: Int) = flashlightPill.updateLevel(percent)
+
+    fun dismissFlashlight() = flashlightPill.dismiss()
+
+    fun toggleFlashlightExpansion(): Boolean = flashlightPill.toggleExpansion()
+
+    fun setFlashlightDragging(dragging: Boolean) = flashlightPill.setDragging(dragging)
+
+    fun setFlashlightLevelFraction(fraction: Float) = flashlightPill.setLevelFromUser(fraction)
+
+    fun flashlightHitTest(x: Float, y: Float): FlashlightHit = flashlightPill.hitTest(x, y)
+
+    fun flashlightFractionAt(x: Float): Float = flashlightPill.sliderFractionAt(x)
 
     private val idleIndicator by lazy { IslandIdleIndicator(context, idleHost, googleSansFlexTypeface) }
 
@@ -1453,6 +1501,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     // (visible fraction, compact fraction) of whatever content onDraw currently renders, by priority.
     private fun currentContentState(): IslandContentState? = when {
+        flashlightPill.isActive -> IslandContentState(flashlightPill.showFraction, 0f)
         isNotificationAlertActive -> IslandContentState(animatedNotificationFraction, catchUpFraction.coerceIn(0f, 1f) * (1f - expandedFraction))
         isConsciousGateActive && consciousGateFraction > 0.001f -> IslandContentState(consciousGateFraction, consciousGateCompactFraction)
         isCalendarActive && calendarFraction > 0.001f -> IslandContentState(calendarFraction, calendarCompactFraction)
@@ -1972,6 +2021,7 @@ class IslandOverlayView(context: Context) : View(context) {
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         idleIndicator.cancelAnimations()
+        flashlightPill.cancelAnimations()
         notificationAnimator.cancel()
         mergeAnimator.cancel()
         expansionAnimator.cancel()
@@ -1998,6 +2048,7 @@ class IslandOverlayView(context: Context) : View(context) {
     fun getNotificationPillBounds(): RectF = notificationPillRect
 
     fun getTotalAlertsBounds(): RectF {
+        if (flashlightPill.isActive) return flashlightPill.targetBounds()
         val alert = activeNotificationAlert
         if (alert == null) {
             return when {
@@ -2637,7 +2688,8 @@ class IslandOverlayView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         idleIndicator.drawBackground(canvas)
-        drawIslandContent(canvas)
+        if (flashlightPill.showFraction < 0.5f) drawIslandContent(canvas)
+        flashlightPill.draw(canvas)
         idleIndicator.drawForeground(canvas)
     }
 

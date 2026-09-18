@@ -19,6 +19,8 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Color
+import android.hardware.camera2.CameraManager
+import androidx.annotation.RequiresApi
 import android.os.BatteryManager
 import android.os.PowerManager
 import android.text.format.DateFormat
@@ -55,6 +57,7 @@ import com.sameerasw.essentials.utils.CalendarEventUtil
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
+import com.sameerasw.essentials.utils.FlashlightUtil
 import com.sameerasw.essentials.utils.island.IslandBatteryColorConfig
 import java.io.File
 import java.util.Locale
@@ -197,6 +200,7 @@ class IslandOverlayHandler(
                 }
             }
             updateIdlePill()
+            updateFlashlightState()
         }
     }
 
@@ -260,6 +264,71 @@ class IslandOverlayHandler(
             updateIdleBattery()
         }
         ov.isIdlePillEnabled = enabled
+    }
+
+    private val cameraManager by lazy { service.getSystemService(Context.CAMERA_SERVICE) as CameraManager }
+    private var torchOn = false
+    private var torchFadeJob: Job? = null
+    private val torchCameraId: String? by lazy { FlashlightUtil.getCameraId(service) }
+
+    private val torchCallback = object : CameraManager.TorchCallback() {
+        override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
+            if (cameraId != torchCameraId) return
+            torchOn = enabled
+            updateFlashlightState()
+        }
+
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        override fun onTorchStrengthLevelChanged(cameraId: String, newStrengthLevel: Int) {
+            if (cameraId != torchCameraId) return
+            overlayView?.updateFlashlightLevel(torchPercent(newStrengthLevel))
+        }
+    }
+
+    private fun torchMaxLevel(): Int = torchCameraId?.let { FlashlightUtil.getMaxLevel(service, it) } ?: 1
+
+    private fun torchPercent(level: Int): Int = (level * 100f / torchMaxLevel().coerceAtLeast(1)).toInt().coerceIn(1, 100)
+
+    fun updateFlashlightState() {
+        val show = settingsRepository.isIslandEnabled() &&
+            settingsRepository.isIslandShowFlashlightEnabled() &&
+            torchOn &&
+            !isIslandContentSuppressed
+        if (!show) {
+            overlayView?.dismissFlashlight()
+            return
+        }
+        val id = torchCameraId ?: return
+        ensureOverlayAttached()
+        val max = torchMaxLevel()
+        overlayView?.showFlashlight(torchPercent(FlashlightUtil.getCurrentLevel(service, id)), max > 1)
+        expandTouchAnchorForNotification()
+    }
+
+    private fun setTorchFraction(fraction: Float) {
+        val id = torchCameraId ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        torchFadeJob?.cancel()
+        val max = torchMaxLevel()
+        try {
+            cameraManager.turnOnTorchWithStrengthLevel(id, (fraction * max).toInt().coerceIn(1, max))
+        } catch (_: Exception) {}
+    }
+
+    private fun turnOffTorch() {
+        val id = torchCameraId ?: return
+        val fadeEnabled = service.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+            .getBoolean("flashlight_fade_enabled", false)
+        if (fadeEnabled && FlashlightUtil.isIntensitySupported(service, id)) {
+            torchFadeJob?.cancel()
+            torchFadeJob = handlerScope.launch {
+                FlashlightUtil.fadeFlashlight(service, id, targetOn = false)
+            }
+            return
+        }
+        try {
+            cameraManager.setTorchMode(id, false)
+        } catch (_: Exception) {}
     }
 
     private val dismissNotificationRunnable = Runnable {
@@ -543,7 +612,7 @@ class IslandOverlayHandler(
         }
 
         mainHandler.removeCallbacks(dismissNotificationRunnable)
-        if (ov.isMediaPlaybackActive || ov.isCalendarActive || ov.isConsciousGateActive) {
+        if (ov.isMediaPlaybackActive || ov.isCalendarActive || ov.isConsciousGateActive || ov.isFlashlightActive) {
             expandTouchAnchorForNotification()
         } else {
             restoreTouchAnchor()
@@ -703,6 +772,12 @@ class IslandOverlayHandler(
                 scheduleDismissTimer()
             }
         }
+
+        touchHandler.onFlashlightLevelChanged = { setTorchFraction(it) }
+        touchHandler.onFlashlightTurnOff = { turnOffTorch() }
+        try {
+            cameraManager.registerTorchCallback(torchCallback, mainHandler)
+        } catch (_: Exception) {}
 
         touchHandler.onMediaBackgroundTapped = {
             handleMediaBackgroundTap()
@@ -953,10 +1028,10 @@ class IslandOverlayHandler(
                 this.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
                 this.touchHandler = this@IslandOverlayHandler.touchHandler
                 this.onAlertsChanged = {
-                    expandTouchAnchorForNotification()
+                    if (hasActiveContent()) expandTouchAnchorForNotification()
                 }
                 this.onDismissAnimationEnd = {
-                    restoreTouchAnchor()
+                    if (hasActiveContent()) expandTouchAnchorForNotification() else restoreTouchAnchor()
                     pollCalendarEvent()
                 }
             }
@@ -991,6 +1066,7 @@ class IslandOverlayHandler(
 
         updateOverlayPosition()
         updateIdlePill()
+        updateFlashlightState()
     }
 
     private fun updateOverlayPosition() {
@@ -1106,6 +1182,12 @@ class IslandOverlayHandler(
         }
     }
 
+    private fun hasActiveContent(): Boolean {
+        val ov = overlayView ?: return false
+        return ov.isNotificationAlertActive || ov.isMediaPlaybackActive || ov.isCalendarActive ||
+            ov.isConsciousGateActive || ov.isFlashlightActive
+    }
+
     private fun restoreTouchAnchor() {
         val wm = windowManager ?: return
         val anchor = touchAnchorView ?: return
@@ -1139,6 +1221,9 @@ class IslandOverlayHandler(
         try {
             service.unregisterReceiver(idleReceiver)
         } catch (_: Exception) {}
+        try {
+            cameraManager.unregisterTorchCallback(torchCallback)
+        } catch (_: Exception) {}
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
         mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
@@ -1158,6 +1243,7 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_SHOW_CONSCIOUS_GATE -> {
                 updateConsciousGateState()
             }
+            SettingsRepository.KEY_ISLAND_SHOW_FLASHLIGHT -> updateFlashlightState()
             SettingsRepository.KEY_ISLAND_SHOW_TIME_BATTERY,
             SettingsRepository.KEY_ISLAND_BATTERY_STYLE,
             SettingsRepository.KEY_DUO_BATTERY_CHARGING_COLOR_ENABLED,
