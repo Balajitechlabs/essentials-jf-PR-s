@@ -630,14 +630,16 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                 "Display" ->
                                                     listOf(
                                                         listOf(
-                                                            "Essentials On Display",
                                                             "Always on Display",
                                                             "AOD wallpaper",
-                                                            "Statusbar icons",
-                                                            "Status glance",
-                                                            "Duo",
-                                                            "Maps power saving mode",
+                                                            "Essentials On Display",
                                                             "Lock screen clock",
+                                                            "Maps power saving mode",
+                                                        ),
+                                                        listOf(
+                                                            "Statusbar icons",
+                                                            "Duo",
+                                                            "Status glance",
                                                         ),
                                                         listOf(
                                                             "Text and animations",
