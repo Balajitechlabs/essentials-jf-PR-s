@@ -435,6 +435,10 @@ class SettingsRepository(
         const val KEY_ISLAND_MEDIA_EXCLUDED_APPS = "island_media_excluded_apps"
         const val KEY_ISLAND_SHOW_CALENDAR = "island_show_calendar"
         const val KEY_ISLAND_SHOW_CONSCIOUS_GATE = "island_show_conscious_gate"
+        const val KEY_ISLAND_SHOW_TIME_BATTERY = "island_show_time_battery"
+        const val KEY_ISLAND_BATTERY_STYLE = "island_battery_style"
+        const val ISLAND_BATTERY_STYLE_RING = "ring"
+        const val ISLAND_BATTERY_STYLE_ICON = "icon"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3435,6 +3439,13 @@ class SettingsRepository(
 
     fun isIslandShowConsciousGateEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, true)
     fun setIslandShowConsciousGateEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, enabled)
+
+    fun isIslandShowTimeBatteryEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_TIME_BATTERY, false)
+    fun setIslandShowTimeBatteryEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_TIME_BATTERY, enabled)
+
+    fun getIslandBatteryStyle(): String =
+        getString(KEY_ISLAND_BATTERY_STYLE, ISLAND_BATTERY_STYLE_RING) ?: ISLAND_BATTERY_STYLE_RING
+    fun setIslandBatteryStyle(value: String) = putString(KEY_ISLAND_BATTERY_STYLE, value)
 
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1

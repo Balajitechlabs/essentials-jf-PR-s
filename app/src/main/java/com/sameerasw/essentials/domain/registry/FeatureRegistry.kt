@@ -758,6 +758,11 @@ object FeatureRegistry {
                             "island_tap_action_enabled",
                         ),
                         SearchSetting(
+                            R.string.island_show_time_battery_title,
+                            R.string.island_battery_style_title,
+                            "island_show_time_battery",
+                        ),
+                        SearchSetting(
                             R.string.island_tap_action_title,
                             R.string.island_tap_action_desc,
                             "island_tap_action",

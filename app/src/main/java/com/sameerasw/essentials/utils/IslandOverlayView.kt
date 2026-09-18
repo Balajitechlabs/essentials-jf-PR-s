@@ -38,6 +38,7 @@ import com.sameerasw.essentials.R
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.NotificationActionItem
 import com.sameerasw.essentials.services.handlers.IslandTouchHandler
+import com.sameerasw.essentials.utils.battery.BatteryInfoUtil
 import com.sameerasw.essentials.utils.island.AnimatedFloatProperty
 import com.sameerasw.essentials.utils.island.EqualizerAnimator
 import com.sameerasw.essentials.utils.island.drawEqualizerIcon
@@ -1017,7 +1018,12 @@ class IslandOverlayView(context: Context) : View(context) {
 
         val compactBounds = if (isCenterCamera) {
             val sideWidth = cameraRadiusPx + cutoutGap + iconSize + cutoutGap * 2f
-            RectF(cameraCenterX - sideWidth, top, cameraCenterX + sideWidth, bottom)
+            RectF(
+                (cameraCenterX - sideWidth - idleLeftInset()).coerceAtLeast(8f * density),
+                top,
+                (cameraCenterX + sideWidth + idleRightInset()).coerceAtMost(screenWidth - 8f * density),
+                bottom,
+            )
         } else {
             val left = (cameraCenterX - cameraRadiusPx - cutoutGap).coerceAtLeast(8f * density)
             val right = (cameraCenterX + cameraRadiusPx + cutoutIconGap + iconSize + cutoutGap * 2f)
@@ -1286,13 +1292,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
         // Compact Left: appIcon + 4dp gap + timerIcon
         val compactLeftWidth = pad + iconSize + 4f * density + timerIconSize + cutoutIconGap
-        val compactTargetLeft = (cameraCenterX - cameraRadiusPx - compactLeftWidth).coerceAtLeast(8f * density)
+        val compactTargetLeft = (cameraCenterX - cameraRadiusPx - compactLeftWidth - idleLeftInset()).coerceAtLeast(8f * density)
 
         // Compact Right: Fixed width for "00:00" tabular time text
         consciousGateTimePaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
         val fixedTimeWidth = consciousGateTimePaint.measureText("0") * 4f + consciousGateTimePaint.measureText(":")
         val compactRightWidth = cutoutIconGap + fixedTimeWidth + pad * 1.5f
-        val compactTargetRight = (cameraCenterX + cameraRadiusPx + compactRightWidth).coerceAtMost(screenWidth - 8f * density)
+        val compactTargetRight = (cameraCenterX + cameraRadiusPx + compactRightWidth + idleRightInset()).coerceAtMost(screenWidth - 8f * density)
         val compactBounds = RectF(compactTargetLeft, top, compactTargetRight, bottom)
 
         // Normal Left: appIcon + 4dp gap + timerIcon + 6dp gap + "Wasting time"
@@ -1438,6 +1444,281 @@ class IslandOverlayView(context: Context) : View(context) {
                 onAlertsChanged?.invoke()
             },
         )
+    }
+
+    var isIdlePillEnabled: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                refreshIdleVisibility()
+            }
+        }
+
+    var isIdleBatteryIcon: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
+    private var idleFraction = 0f
+    private var idleTargetVisible = false
+    private val idleAnimator = AnimatedFloatProperty()
+    private var idleTimeText = ""
+    private var idleTimePrev = ""
+    private var idleTimeRollFraction = 1f
+    private val idleTimeRollAnimator = AnimatedFloatProperty()
+    private var idleBatteryTarget = 100
+    private var idleBatteryDisplay = 100f
+    private var idleBatteryCharging = false
+    private var idleBatteryInitialized = false
+    private val idleBatteryAnimator = AnimatedFloatProperty()
+    private var idleBatteryIconRes = 0
+    private var idleBatteryIcon: Bitmap? = null
+    private var idleBatteryIconPrev: Bitmap? = null
+    private var idleBatteryIconFade = 1f
+    private val idleBatteryIconAnimator = AnimatedFloatProperty()
+    private val idlePillRect = RectF()
+    private val idleRingRect = RectF()
+    private val idleRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+
+    private var idleWantedFraction = 0f
+    private var idleWantedTarget = false
+    private val idleWantedAnimator = AnimatedFloatProperty()
+
+    private val canMergeIdle: Boolean
+        get() = abs(cameraCenterX - resources.displayMetrics.widthPixels / 2f) < 50f * density
+
+    // (visible fraction, compact fraction) of whatever content onDraw currently renders, by priority.
+    private fun currentContentState(): Pair<Float, Float>? = when {
+        isNotificationAlertActive -> Pair(animatedNotificationFraction, 0f)
+        isConsciousGateActive && consciousGateFraction > 0.001f -> Pair(consciousGateFraction, consciousGateCompactFraction)
+        isCalendarActive && calendarFraction > 0.001f -> Pair(calendarFraction, calendarCompactFraction)
+        isMediaPlaybackActive && mediaFraction > 0.001f -> Pair(mediaFraction, mediaCompactFraction * (1f - mediaFullPlayerFraction))
+        else -> null
+    }
+
+    private fun isIdleBlockedByContent(): Boolean {
+        val state = currentContentState() ?: return false
+        return state.first > 0.35f && (state.second < 0.65f || !canMergeIdle)
+    }
+
+    private fun idleTimeSlotWidth(): Float {
+        val height = cameraRadiusPx * 2f + 14f * density
+        consciousGateTimePaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+        return consciousGateTimePaint.measureText("0") * 4f + consciousGateTimePaint.measureText(":")
+    }
+
+    private fun idleBatterySize(): Float = (cameraRadiusPx * 2f).coerceAtLeast(16f * density)
+
+    private fun idleLeftInset(): Float =
+        if (idleWantedFraction > 0f && canMergeIdle) (idleTimeSlotWidth() + cutoutGap) * idleWantedFraction else 0f
+
+    private fun idleRightInset(): Float =
+        if (idleWantedFraction > 0f && canMergeIdle) (idleBatterySize() + cutoutGap) * idleWantedFraction else 0f
+
+    private fun refreshIdleVisibility() {
+        val wanted = isIdlePillEnabled && isIslandEnabled && idleTimeText.isNotEmpty()
+        if (wanted != idleWantedTarget) {
+            idleWantedTarget = wanted
+            idleWantedAnimator.animateTo(
+                from = idleWantedFraction,
+                to = if (wanted) 1f else 0f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    idleWantedFraction = it
+                    invalidate()
+                    if (currentContentState() != null) onAlertsChanged?.invoke()
+                },
+            )
+        }
+        val shouldShow = wanted && !isIdleBlockedByContent()
+        if (shouldShow == idleTargetVisible) return
+        idleTargetVisible = shouldShow
+        idleAnimator.animateTo(
+            from = idleFraction,
+            to = if (shouldShow) 1f else 0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                idleFraction = it
+                invalidate()
+            },
+        )
+    }
+
+    fun setIdleTime(text: String) {
+        if (text == idleTimeText) return
+        if (idleFraction > 0.05f && idleTimeText.isNotEmpty()) {
+            idleTimePrev = idleTimeText
+            idleTimeRollFraction = 0f
+            idleTimeRollAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    idleTimeRollFraction = it
+                    invalidate()
+                },
+            )
+        }
+        idleTimeText = text
+        refreshIdleVisibility()
+        invalidate()
+    }
+
+    fun setIdleBattery(level: Int, charging: Boolean) {
+        val clamped = level.coerceIn(0, 100)
+        val chargingChanged = charging != idleBatteryCharging
+        idleBatteryCharging = charging
+        updateIdleBatteryIcon(clamped, charging)
+        if (!idleBatteryInitialized) {
+            idleBatteryInitialized = true
+            idleBatteryTarget = clamped
+            idleBatteryDisplay = clamped.toFloat()
+            invalidate()
+            return
+        }
+        if (clamped != idleBatteryTarget) {
+            idleBatteryTarget = clamped
+            idleBatteryAnimator.animateTo(
+                from = idleBatteryDisplay,
+                to = clamped.toFloat(),
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    idleBatteryDisplay = it
+                    invalidate()
+                },
+            )
+        } else if (chargingChanged) {
+            invalidate()
+        }
+    }
+
+    private fun updateIdleBatteryIcon(level: Int, charging: Boolean) {
+        val res = BatteryInfoUtil.getBatteryIconRes(context, level, charging)
+        if (res == idleBatteryIconRes && idleBatteryIcon != null) return
+        val newIcon = loadIconBitmap(res, 24f) ?: return
+        if (idleBatteryIcon != null && idleFraction > 0.05f) {
+            idleBatteryIconPrev = idleBatteryIcon
+            idleBatteryIconFade = 0f
+            idleBatteryIconAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    idleBatteryIconFade = it
+                    if (it >= 1f) idleBatteryIconPrev = null
+                    invalidate()
+                },
+            )
+        } else {
+            idleBatteryIconPrev = null
+            idleBatteryIconFade = 1f
+        }
+        idleBatteryIconRes = res
+        idleBatteryIcon = newIcon
+    }
+
+    private fun idleBatteryColor(): Int = when {
+        idleBatteryCharging -> 0xFF6DD58C.toInt()
+        idleBatteryTarget <= 15 -> 0xFFFF6B6B.toInt()
+        else -> materialYouAccentColor()
+    }
+
+    private fun drawIdlePill(canvas: Canvas) {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val timeWidth = idleTimeSlotWidth()
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        val pad = (height - idleBatterySize()) / 2f
+        val targetLeft = (cameraCenterX - cameraRadiusPx - cutoutGap - timeWidth - pad).coerceAtLeast(8f * density)
+        val targetRight = (cameraCenterX + cameraRadiusPx + cutoutGap + idleBatterySize() + pad).coerceAtMost(screenWidth - 8f * density)
+        val initialLeft = cameraCenterX - cameraRadiusPx
+        val initialRight = cameraCenterX + cameraRadiusPx
+        idlePillRect.set(
+            initialLeft + (targetLeft - initialLeft) * idleFraction,
+            cameraCenterY - height / 2f,
+            initialRight + (targetRight - initialRight) * idleFraction,
+            cameraCenterY + height / 2f,
+        )
+        notificationPillPaint.color = Color.BLACK
+        notificationPillPaint.alpha = 255
+        canvas.drawRoundRect(idlePillRect, height / 2f, height / 2f, notificationPillPaint)
+    }
+
+    private fun drawIdleForeground(canvas: Canvas) {
+        val standaloneAlpha = ((idleFraction - 0.3f) / 0.7f).coerceIn(0f, 1f)
+        val state = currentContentState()
+        val mergedAlpha = if (state != null && canMergeIdle) state.first * state.second * idleWantedFraction else 0f
+        val contentAlpha = (maxOf(standaloneAlpha, mergedAlpha) * 255f).toInt().coerceIn(0, 255)
+        if (contentAlpha <= 0) return
+
+        val height = cameraRadiusPx * 2f + 14f * density
+        val timeWidth = idleTimeSlotWidth()
+        val top = cameraCenterY - height / 2f
+        val bottom = cameraCenterY + height / 2f
+        val textRight = cameraCenterX - cameraRadiusPx - cutoutGap
+        val batteryLeft = cameraCenterX + cameraRadiusPx + cutoutGap
+        val batterySize = idleBatterySize()
+
+        val textY = (top + bottom) / 2f + consciousGateTimePaint.textSize * 0.35f
+        drawRollingDigits(
+            canvas = canvas,
+            paint = consciousGateTimePaint,
+            oldText = idleTimePrev,
+            newText = idleTimeText,
+            fraction = idleTimeRollFraction,
+            edgeX = textRight,
+            baseY = textY,
+            clipLeft = textRight - timeWidth,
+            clipTop = top,
+            clipRight = textRight,
+            clipBottom = bottom,
+            baseAlpha = contentAlpha,
+        )
+
+        val batteryRect = RectF(batteryLeft, cameraCenterY - batterySize / 2f, batteryLeft + batterySize, cameraCenterY + batterySize / 2f)
+        if (isIdleBatteryIcon) {
+            drawIdleBatteryIcon(canvas, batteryRect, contentAlpha)
+        } else {
+            drawIdleBatteryRing(canvas, batteryRect, contentAlpha)
+        }
+    }
+
+    private fun drawIdleBatteryRing(canvas: Canvas, rect: RectF, alpha: Int) {
+        val stroke = rect.width() * 0.16f
+        idleRingRect.set(rect.left + stroke / 2f, rect.top + stroke / 2f, rect.right - stroke / 2f, rect.bottom - stroke / 2f)
+        val color = idleBatteryColor()
+
+        idleRingPaint.strokeWidth = stroke * 0.5f
+        idleRingPaint.color = Color.WHITE
+        idleRingPaint.alpha = (alpha * 0.25f).toInt()
+        canvas.drawArc(idleRingRect, 0f, 360f, false, idleRingPaint)
+
+        val sweep = 360f * (idleBatteryDisplay / 100f)
+        if (sweep > 0.5f) {
+            idleRingPaint.strokeWidth = stroke
+            idleRingPaint.color = color
+            idleRingPaint.alpha = alpha
+            canvas.drawArc(idleRingRect, -90f, sweep, false, idleRingPaint)
+        }
+    }
+
+    private fun drawIdleBatteryIcon(canvas: Canvas, rect: RectF, alpha: Int) {
+        val tint = if (idleBatteryCharging || idleBatteryTarget <= 15) idleBatteryColor() else Color.WHITE
+        iconPaint.colorFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN)
+        idleBatteryIconPrev?.let {
+            iconPaint.alpha = (alpha * (1f - idleBatteryIconFade)).toInt().coerceIn(0, 255)
+            canvas.drawBitmap(it, null, rect, iconPaint)
+        }
+        idleBatteryIcon?.let {
+            iconPaint.alpha = (alpha * idleBatteryIconFade).toInt().coerceIn(0, 255)
+            canvas.drawBitmap(it, null, rect, iconPaint)
+        }
+        iconPaint.colorFilter = null
     }
 
     private class RollLayers(val oldOffsetY: Float, val oldAlpha: Float, val newOffsetY: Float, val newAlpha: Float)
@@ -2066,6 +2347,11 @@ class IslandOverlayView(context: Context) : View(context) {
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        idleAnimator.cancel()
+        idleWantedAnimator.cancel()
+        idleTimeRollAnimator.cancel()
+        idleBatteryAnimator.cancel()
+        idleBatteryIconAnimator.cancel()
         notificationAnimator.cancel()
         mergeAnimator.cancel()
         expansionAnimator.cancel()
@@ -2285,7 +2571,12 @@ class IslandOverlayView(context: Context) : View(context) {
 
         val compactBounds = if (isCenterCamera) {
             val sideWidth = cameraRadiusPx + cutoutGap + iconSize + cutoutGap * 2f
-            RectF(cameraCenterX - sideWidth, top, cameraCenterX + sideWidth, bottom)
+            RectF(
+                (cameraCenterX - sideWidth - idleLeftInset()).coerceAtLeast(8f * density),
+                top,
+                (cameraCenterX + sideWidth + idleRightInset()).coerceAtMost(screenWidth - 8f * density),
+                bottom,
+            )
         } else {
             val left = (cameraCenterX - cameraRadiusPx - cutoutGap).coerceAtLeast(8f * density)
             val right = (cameraCenterX + cameraRadiusPx + cutoutIconGap + iconSize + cutoutGap * 2f)
@@ -2780,6 +3071,13 @@ class IslandOverlayView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        refreshIdleVisibility()
+        if (idleFraction > 0.001f) drawIdlePill(canvas)
+        drawIslandContent(canvas)
+        drawIdleForeground(canvas)
+    }
+
+    private fun drawIslandContent(canvas: Canvas) {
 
         val alert: ActiveNotificationAlert = activeNotificationAlert ?: run {
             if (isConsciousGateActive && consciousGateFraction > 0.001f) {

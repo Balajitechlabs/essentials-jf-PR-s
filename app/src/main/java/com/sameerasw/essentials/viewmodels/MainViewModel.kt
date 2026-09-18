@@ -191,6 +191,8 @@ class MainViewModel : ViewModel() {
     val isIslandShowMedia = mutableStateOf(true)
     val isIslandShowCalendar = mutableStateOf(false)
     val isIslandShowConsciousGate = mutableStateOf(true)
+    val isIslandShowTimeBattery = mutableStateOf(false)
+    val islandBatteryStyle = mutableStateOf(SettingsRepository.ISLAND_BATTERY_STYLE_RING)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -2137,6 +2139,8 @@ class MainViewModel : ViewModel() {
         isIslandShowMedia.value = settingsRepository.isIslandShowMediaEnabled()
         isIslandShowCalendar.value = settingsRepository.isIslandShowCalendarEnabled()
         isIslandShowConsciousGate.value = settingsRepository.isIslandShowConsciousGateEnabled()
+        isIslandShowTimeBattery.value = settingsRepository.isIslandShowTimeBatteryEnabled()
+        islandBatteryStyle.value = settingsRepository.getIslandBatteryStyle()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -5018,6 +5022,16 @@ class MainViewModel : ViewModel() {
     fun setIslandShowConsciousGate(enabled: Boolean) {
         isIslandShowConsciousGate.value = enabled
         settingsRepository.setIslandShowConsciousGateEnabled(enabled)
+    }
+
+    fun setIslandShowTimeBattery(enabled: Boolean) {
+        isIslandShowTimeBattery.value = enabled
+        settingsRepository.setIslandShowTimeBatteryEnabled(enabled)
+    }
+
+    fun setIslandBatteryStyle(value: String) {
+        islandBatteryStyle.value = value
+        settingsRepository.setIslandBatteryStyle(value)
     }
 
     fun loadIslandMediaApps(context: Context): List<AppSelection> = settingsRepository.loadIslandMediaExcludedApps()

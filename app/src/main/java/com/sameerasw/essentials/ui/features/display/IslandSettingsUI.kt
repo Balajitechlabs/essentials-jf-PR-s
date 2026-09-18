@@ -55,6 +55,7 @@ import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
 import com.sameerasw.essentials.ui.features.consciousgate.CONSCIOUS_GATE_FEATURE_ID
+import com.sameerasw.essentials.ui.features.display.sheets.IslandTimeBatteryOptionsBottomSheet
 import com.sameerasw.essentials.ui.features.display.sheets.StatusGlanceCalendarOptionsBottomSheet
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.HapticUtil
@@ -141,6 +142,7 @@ fun IslandSettingsUI(
     var requestingPermissionsFor by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
     var showMediaAppSelectionSheet by remember { mutableStateOf(false) }
     var showCalendarOptionsSheet by remember { mutableStateOf(false) }
+    var showTimeBatteryOptionsSheet by remember { mutableStateOf(false) }
 
     if (requestingPermissionsFor != null) {
         val (titleRes, permKeys) = requestingPermissionsFor!!
@@ -559,6 +561,18 @@ fun IslandSettingsUI(
                 },
                 modifier = Modifier.highlight(highlightSetting == "island_show_conscious_gate"),
             )
+
+            IconToggleItem(
+                iconRes = R.drawable.rounded_schedule_24,
+                title = stringResource(R.string.island_show_time_battery_title),
+                isChecked = viewModel.isIslandShowTimeBattery.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandShowTimeBattery(checked)
+                },
+                onSettingsClick = { showTimeBatteryOptionsSheet = true },
+                modifier = Modifier.highlight(highlightSetting == "island_show_time_battery"),
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -572,6 +586,13 @@ fun IslandSettingsUI(
             onSaveApps = { ctx, apps -> viewModel.saveIslandMediaApps(ctx, apps) },
             onAppToggle = { ctx, pkg, enabled -> viewModel.updateIslandMediaAppEnabled(ctx, pkg, enabled) },
             context = context,
+        )
+    }
+
+    if (showTimeBatteryOptionsSheet) {
+        IslandTimeBatteryOptionsBottomSheet(
+            viewModel = viewModel,
+            onDismissRequest = { showTimeBatteryOptionsSheet = false },
         )
     }
 

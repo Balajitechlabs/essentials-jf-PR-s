@@ -18,6 +18,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.os.BatteryManager
+import android.text.format.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import android.graphics.PixelFormat
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -189,7 +193,47 @@ class IslandOverlayHandler(
                     updateConsciousGateState()
                 }
             }
+            updateIdlePill()
         }
+    }
+
+    private val idleReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_BATTERY_CHANGED -> updateIdleBattery(intent)
+                Intent.ACTION_TIME_TICK,
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED -> updateIdleTime()
+            }
+        }
+    }
+
+    private fun updateIdleTime() {
+        val pattern = if (DateFormat.is24HourFormat(service)) "HH:mm" else "h:mm"
+        overlayView?.setIdleTime(SimpleDateFormat(pattern, Locale.getDefault()).format(Date()))
+    }
+
+    private fun updateIdleBattery(intent: Intent? = null) {
+        val batteryIntent = intent ?: service.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return
+        val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        if (level < 0 || scale <= 0) return
+        val status = batteryIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        overlayView?.setIdleBattery((level * 100f / scale).toInt(), charging)
+    }
+
+    private fun updateIdlePill() {
+        val ov = overlayView ?: return
+        val enabled = settingsRepository.isIslandEnabled() &&
+            settingsRepository.isIslandShowTimeBatteryEnabled() &&
+            !isIslandContentSuppressed
+        ov.isIdleBatteryIcon = settingsRepository.getIslandBatteryStyle() == SettingsRepository.ISLAND_BATTERY_STYLE_ICON
+        if (enabled) {
+            updateIdleTime()
+            updateIdleBattery()
+        }
+        ov.isIdlePillEnabled = enabled
     }
 
     private val dismissNotificationRunnable = Runnable {
@@ -543,6 +587,15 @@ class IslandOverlayHandler(
             addAction(Intent.ACTION_USER_PRESENT)
         }
         service.registerReceiver(screenReceiver, filter)
+        service.registerReceiver(
+            idleReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_BATTERY_CHANGED)
+                addAction(Intent.ACTION_TIME_TICK)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            },
+        )
 
         touchHandler.onNotificationDismissRequested = {
             val hasNext = overlayView?.advanceToNextNotification() ?: false
@@ -910,6 +963,7 @@ class IslandOverlayHandler(
         touchHandler.overlayView = overlayView
 
         updateOverlayPosition()
+        updateIdlePill()
     }
 
     private fun updateOverlayPosition() {
@@ -1055,6 +1109,9 @@ class IslandOverlayHandler(
         try {
             service.unregisterReceiver(screenReceiver)
         } catch (_: Exception) {}
+        try {
+            service.unregisterReceiver(idleReceiver)
+        } catch (_: Exception) {}
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
         mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
@@ -1073,6 +1130,10 @@ class IslandOverlayHandler(
             }
             SettingsRepository.KEY_ISLAND_SHOW_CONSCIOUS_GATE -> {
                 updateConsciousGateState()
+            }
+            SettingsRepository.KEY_ISLAND_SHOW_TIME_BATTERY,
+            SettingsRepository.KEY_ISLAND_BATTERY_STYLE -> {
+                updateIdlePill()
             }
             SettingsRepository.KEY_ISLAND_SHOW_MEDIA,
             SettingsRepository.KEY_ISLAND_MEDIA_EXCLUDED_APPS -> {
@@ -1107,6 +1168,7 @@ class IslandOverlayHandler(
                     pollCalendarEvent()
                     updateConsciousGateState()
                 }
+                updateIdlePill()
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,
             SettingsRepository.KEY_ISLAND_CAMERA_OFFSET_X,
