@@ -354,6 +354,40 @@ class DuoOverlayHandler(
         updateState()
     }
 
+    private var lastKnownRotation = -1
+    private var isRotationListenerRegistered = false
+    private val rotationListener =
+        object : android.hardware.display.DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {}
+
+            override fun onDisplayRemoved(displayId: Int) {}
+
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId != android.view.Display.DEFAULT_DISPLAY) return
+                @Suppress("DEPRECATION")
+                val rotation = windowManager?.defaultDisplay?.rotation ?: return
+                if (rotation != lastKnownRotation) {
+                    lastKnownRotation = rotation
+                    showOrUpdateOverlay()
+                }
+            }
+        }
+
+    private fun registerRotationListener() {
+        if (isRotationListenerRegistered) return
+        val displayManager = service.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+        displayManager?.registerDisplayListener(rotationListener, mainHandler)
+        isRotationListenerRegistered = true
+    }
+
+    private fun unregisterRotationListener() {
+        if (!isRotationListenerRegistered) return
+        val displayManager = service.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+        displayManager?.unregisterDisplayListener(rotationListener)
+        isRotationListenerRegistered = false
+        lastKnownRotation = -1
+    }
+
     fun onConfigurationChanged(newConfig: Configuration) {
         val isNightMode = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         overlayView?.isDarkTheme = isNightMode
@@ -718,32 +752,23 @@ class DuoOverlayHandler(
 
             @Suppress("DEPRECATION")
             val rotation = wm.defaultDisplay.rotation
+            lastKnownRotation = rotation
 
             if (settingsRepository.isDuoAutoDetectEnabled() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 @Suppress("DEPRECATION")
                 val cutout = wm.defaultDisplay.cutout
                 if (cutout != null && cutout.boundingRects.isNotEmpty()) {
+                    // Cutout rects are in the current orientation's coordinates; pick the one closest to the
+                    // edge the camera sits on for this rotation (ties broken by closeness to that edge's center).
                     val targetRect = when (rotation) {
-                        android.view.Surface.ROTATION_90 -> {
-                            cutout.boundingRects.filter { it.left < screenWidth / 4 }
-                                .minByOrNull { kotlin.math.abs(it.centerY() - screenHeight / 2f) }
-                                ?: cutout.boundingRects.firstOrNull()
-                        }
-                        android.view.Surface.ROTATION_270 -> {
-                            cutout.boundingRects.filter { it.right > screenWidth * 0.75f }
-                                .minByOrNull { kotlin.math.abs(it.centerY() - screenHeight / 2f) }
-                                ?: cutout.boundingRects.firstOrNull()
-                        }
-                        android.view.Surface.ROTATION_180 -> {
-                            cutout.boundingRects.filter { it.bottom > screenHeight * 0.75f }
-                                .minByOrNull { kotlin.math.abs(it.centerX() - screenWidth / 2f) }
-                                ?: cutout.boundingRects.firstOrNull()
-                        }
-                        else -> {
-                            cutout.boundingRects.filter { it.top < screenHeight / 4 }
-                                .minByOrNull { kotlin.math.abs(it.centerX() - screenWidth / 2f) }
-                                ?: cutout.boundingRects.firstOrNull()
-                        }
+                        android.view.Surface.ROTATION_90 ->
+                            cutout.boundingRects.minByOrNull { it.left * 4f + kotlin.math.abs(it.centerY() - screenHeight / 2f) }
+                        android.view.Surface.ROTATION_270 ->
+                            cutout.boundingRects.minByOrNull { (screenWidth - it.right) * 4f + kotlin.math.abs(it.centerY() - screenHeight / 2f) }
+                        android.view.Surface.ROTATION_180 ->
+                            cutout.boundingRects.minByOrNull { (screenHeight - it.bottom) * 4f + kotlin.math.abs(it.centerX() - screenWidth / 2f) }
+                        else ->
+                            cutout.boundingRects.minByOrNull { it.top * 4f + kotlin.math.abs(it.centerX() - screenWidth / 2f) }
                     }
 
                     if (targetRect != null) {
@@ -848,6 +873,7 @@ class DuoOverlayHandler(
                 try {
                     wm.addView(overlayView, params)
                     isOverlayAdded = true
+                    registerRotationListener()
                 } catch (e: Exception) {
                     Log.e("DuoOverlayHandler", "Failed to add Duo overlay", e)
                 }
@@ -1217,6 +1243,7 @@ class DuoOverlayHandler(
                 } catch (_: Exception) {}
                 isTouchAnchorAdded = false
             }
+            unregisterRotationListener()
             unregisterBatteryReceiver()
             unregisterTimeReceiver()
             unregisterSignalListeners()
