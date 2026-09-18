@@ -224,9 +224,11 @@ class IslandOverlayHandler(
 
     private var cachedConsciousGateAppPkg: String? = null
     private var cachedConsciousGateAppIcon: Bitmap? = null
+    private var lastConsciousGateHapticSecond: Long = -1L
 
     fun updateConsciousGateState() {
         if (!settingsRepository.isIslandEnabled() || !settingsRepository.isIslandShowConsciousGateEnabled()) {
+            lastConsciousGateHapticSecond = -1L
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissConsciousGateSession()
             return
@@ -234,6 +236,7 @@ class IslandOverlayHandler(
 
         val session = ScreenOffAccessibilityService.instance?.getActiveConsciousGateSession()
         if (session == null || isIslandContentSuppressed) {
+            lastConsciousGateHapticSecond = -1L
             mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissConsciousGateSession()
@@ -244,6 +247,7 @@ class IslandOverlayHandler(
         val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
         val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
         if (remainingMillis <= 0L) {
+            lastConsciousGateHapticSecond = -1L
             mainHandler.removeCallbacks(revertConsciousGateExpansionRunnable)
             mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissConsciousGateSession()
@@ -273,9 +277,12 @@ class IslandOverlayHandler(
         )
         expandTouchAnchorForNotification()
 
-        val prefs = service.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("conscious_gate_feel_every_second", false)) {
-            HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
+        if (lastConsciousGateHapticSecond != totalSec) {
+            lastConsciousGateHapticSecond = totalSec
+            val prefs = service.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("conscious_gate_feel_every_second", false)) {
+                HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
+            }
         }
 
         mainHandler.removeCallbacks(consciousGateUpdateRunnable)

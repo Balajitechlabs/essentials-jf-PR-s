@@ -149,6 +149,7 @@ class AppFlowHandler(
         )
 
     private fun isIgnoredPackage(packageName: String): Boolean {
+        if (packageName == "com.android.systemui" || packageName == "android") return true
         if (packageName.startsWith("com.android.inputmethod") ||
             packageName.startsWith("com.google.android.inputmethod") ||
             packageName.contains("inputmethod", ignoreCase = true) ||
