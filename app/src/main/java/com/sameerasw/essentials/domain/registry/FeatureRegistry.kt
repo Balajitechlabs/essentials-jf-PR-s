@@ -328,6 +328,34 @@ object FeatureRegistry {
                 }
             },
             object : Feature(
+                id = "AOD wallpaper",
+                title = R.string.feat_aod_wallpaper_title,
+                iconRes = R.drawable.rounded_wallpaper_24,
+                category = R.string.cat_interface,
+                description = R.string.feat_aod_wallpaper_desc,
+                aboutDescription = R.string.about_desc_aod_wallpaper,
+                permissionKeys = listOf("ACCESSIBILITY", "STORAGE"),
+                hasMoreSettings = true,
+                showToggle = true,
+                parentFeatureId = "Display",
+            ) {
+                override fun isEnabled(viewModel: MainViewModel) = viewModel.isAodWallpaperEnabled.value
+
+                override fun isToggleEnabled(
+                    viewModel: MainViewModel,
+                    context: Context,
+                ) = viewModel.isAccessibilityEnabled.value && viewModel.isStoragePermissionGranted.value
+
+                override fun onToggle(
+                    viewModel: MainViewModel,
+                    context: Context,
+                    enabled: Boolean,
+                ) {
+                    viewModel.toggleAodWallpaperEnabled(enabled)
+                    if (enabled) viewModel.loadCurrentWallpaperBitmap(context)
+                }
+            },
+            object : Feature(
                 id = "Text and animations",
                 title = R.string.feat_text_animations_title,
                 iconRes = R.drawable.rounded_mobile_text_24,

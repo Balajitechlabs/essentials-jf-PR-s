@@ -1086,6 +1086,7 @@
     <string name="about_desc_bubbles">Enable or disable floating notification bubbles.\n\nQuickly toggle the system-wide setting for conversation bubbles.</string>
     <string name="about_desc_sensitive_content">Hide sensitive content on the lock screen.\n\nToggle whether notification content is shown or hidden when your device is locked.</string>
     <string name="about_desc_tap_to_wake">Toggle tap to wake functionality.\n\nEnable or disable the ability to wake your screen with a tap.</string>
+    <string name="about_desc_aod_wallpaper">Shows your wallpaper behind the clock on the Always On Display using an overlay, with adjustable opacity, blur, vignette and black threshold. You can also pick a custom image or show the album art of the music that is playing.\n\nThis only works with still wallpapers. Live and video wallpapers are not supported.\n\nAccessibility is required to draw the overlay, and storage access is required to read your current wallpaper. Notification access is only needed if you turn on album art.</string>
     <string name="about_desc_aod">Toggle Always On Display.\n\nQuickly enable or disable the always-on display to view info at a glance.</string>
     <string name="about_desc_notification_glance">Automatically control your Always On Display based on your notifications. When a message or alert arrives from a selected app, AOD will stay on until you dismiss the notification, ensuring you never miss important info without wasting battery when no alerts are present.</string>
     <string name="about_desc_mono_audio">Combine audio channels into mono.\n\nUseful when using a single earbud or for accessibility purposes.</string>
@@ -2431,8 +2432,8 @@
 
     <!-- AOD Wallpaper -->
     <string name="feat_aod_wallpaper_section_title">Wallpaper</string>
-    <string name="feat_aod_wallpaper_title">Show wallpaper on AOD</string>
-    <string name="feat_aod_wallpaper_desc">Displays current device wallpaper overlaid with custom opacity on Always on Display.</string>
+    <string name="feat_aod_wallpaper_title">Wallpaper on AOD</string>
+    <string name="feat_aod_wallpaper_desc">Using an overlay</string>
     <string name="feat_aod_wallpaper_opacity">Opacity</string>
     <string name="feat_aod_wallpaper_timeout">Wallpaper timeout</string>
     <string name="feat_aod_wallpaper_timeout_never">Never</string>

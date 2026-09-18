@@ -71,6 +71,8 @@ import com.sameerasw.essentials.ui.features.system.BatteryNotificationSettingsUI
 import com.sameerasw.essentials.ui.features.system.ButtonRemapSettingsUI
 import com.sameerasw.essentials.ui.features.system.CaffeinateSettingsUI
 import com.sameerasw.essentials.ui.features.system.CalendarSyncSettingsUI
+import com.sameerasw.essentials.ui.features.display.AodWallpaperPreviewCard
+import com.sameerasw.essentials.ui.features.display.AodWallpaperSettingsUI
 import com.sameerasw.essentials.ui.features.display.DuoSettingsUI
 import com.sameerasw.essentials.ui.features.display.StatusGlanceSettingsUI
 import com.sameerasw.essentials.ui.features.system.DynamicNightLightSettingsUI
@@ -353,6 +355,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                         !isWriteSecureSettingsEnabled
                                 "Smart pixels" -> !isAccessibilityEnabled
                                 "Duo", "Status glance" -> !isAccessibilityEnabled
+                                "AOD wallpaper" -> !isAccessibilityEnabled || !viewModel.isStoragePermissionGranted.value
                                 "Snooze system notifications" -> !isNotificationListenerEnabled
                                 "Screen locked security" ->
                                     !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
@@ -584,6 +587,14 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                 )
                             }
 
+                            if (featureId == "AOD wallpaper") {
+                                AodWallpaperPreviewCard(
+                                    viewModel = viewModel,
+                                    height = headerHeight - 16.dp,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            }
+
                             if (featureObj != null && featureObj.animationRes != 0) {
                                 LottieFeatureAnimation(
                                     resId = featureObj.animationRes,
@@ -621,6 +632,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                         listOf(
                                                             "Essentials On Display",
                                                             "Always on Display",
+                                                            "AOD wallpaper",
                                                             "Statusbar icons",
                                                             "Status glance",
                                                             "Duo",
@@ -774,6 +786,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                                     !isWriteSecureSettingsEnabled
                                                             "Smart pixels" -> !isAccessibilityEnabled
                                                             "Duo", "Status glance" -> !isAccessibilityEnabled
+                                                            "AOD wallpaper" -> !isAccessibilityEnabled || !viewModel.isStoragePermissionGranted.value
                                                             "Snooze system notifications" -> !isNotificationListenerEnabled
                                                             "Screen locked security" ->
                                                                 !com.sameerasw.essentials.utils.ShellUtils.hasPermission(
@@ -1203,6 +1216,14 @@ class FeatureSettingsActivity : AppCompatActivity() {
 
                                     "Screen refresh rate" -> {
                                         RefreshRateSettingsUI(
+                                            viewModel = viewModel,
+                                            modifier = Modifier.padding(top = 16.dp),
+                                            highlightSetting = highlightSetting,
+                                        )
+                                    }
+
+                                    "AOD wallpaper" -> {
+                                        AodWallpaperSettingsUI(
                                             viewModel = viewModel,
                                             modifier = Modifier.padding(top = 16.dp),
                                             highlightSetting = highlightSetting,
