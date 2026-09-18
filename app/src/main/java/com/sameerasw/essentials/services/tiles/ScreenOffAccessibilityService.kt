@@ -738,6 +738,7 @@ class ScreenOffAccessibilityService :
         updateOmniOverlay() // Force refresh overlay on rotation
         duoOverlayHandler.onConfigurationChanged(newConfig)
         statusGlanceHandler.onConfigurationChanged(newConfig)
+        ambientGlanceHandler.onConfigurationChanged()
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {

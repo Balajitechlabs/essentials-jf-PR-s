@@ -176,6 +176,7 @@ dependencies {
     // Shizuku
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.androidx.car.app)
 
     // Hidden API Bypass
     implementation(libs.hiddenapibypass)
