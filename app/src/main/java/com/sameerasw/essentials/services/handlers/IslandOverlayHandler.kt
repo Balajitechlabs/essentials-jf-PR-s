@@ -40,11 +40,13 @@ import android.view.WindowMetrics
 import android.content.ComponentName
 import android.graphics.drawable.Drawable
 import com.sameerasw.essentials.data.repository.SettingsRepository
+import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.services.NotificationListener
 import com.sameerasw.essentials.services.tiles.ScreenOffAccessibilityService
 import com.sameerasw.essentials.utils.AppUtil
 import com.sameerasw.essentials.utils.CalendarEventUtil
+import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
 import java.io.File
@@ -270,6 +272,11 @@ class IslandOverlayHandler(
             timeFormatted = timeText,
         )
         expandTouchAnchorForNotification()
+
+        val prefs = service.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("conscious_gate_feel_every_second", false)) {
+            HapticUtil.performHapticForService(service, HapticFeedbackType.SUBTLE)
+        }
 
         mainHandler.removeCallbacks(consciousGateUpdateRunnable)
         val delayToNextSecond = (remainingMillis % 1000L).let { if (it == 0L) 1000L else it }
