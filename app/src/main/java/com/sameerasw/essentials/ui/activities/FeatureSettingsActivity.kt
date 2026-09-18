@@ -148,7 +148,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
             (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
         window.setBackgroundDrawableResource(if (isDarkMode) android.R.color.black else R.color.app_window_background)
-        val featureId = intent.getStringExtra("feature") ?: ""
+        val featureId = intent.getStringExtra("feature") ?: intent.getStringExtra("FEATURE_ID") ?: ""
         val featureObj = FeatureRegistry.ALL_FEATURES.find { it.id == featureId }
         val highlightSetting = intent.getStringExtra("highlight_setting")
 

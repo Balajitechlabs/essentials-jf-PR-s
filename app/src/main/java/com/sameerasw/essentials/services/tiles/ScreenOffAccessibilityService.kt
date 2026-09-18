@@ -338,8 +338,12 @@ class ScreenOffAccessibilityService :
         smartPixelsHandler.init()
         duoOverlayHandler.init()
         statusGlanceHandler.init()
+    }
 
-        // Screen Receiver
+    fun getActiveConsciousGateSession(): AppFlowHandler.ConsciousGateSession? =
+        if (::appFlowHandler.isInitialized) appFlowHandler.getActiveConsciousGateSession() else null
+
+    private fun setupReceivers() {
         screenReceiver =
             object : BroadcastReceiver() {
                 override fun onReceive(
@@ -400,6 +404,16 @@ class ScreenOffAccessibilityService :
                             aodForceTurnOffHandler.forceTurnOff()
                         }
 
+                        "CONSCIOUS_GATE_CONFIRMED" -> {
+                            intent?.getStringExtra("package_name")?.let { appFlowHandler.onConsciousGateConfirmed(it) }
+                            islandOverlayHandler.updateConsciousGateState()
+                        }
+
+                        "CONSCIOUS_GATE_CLOSED" -> {
+                            intent?.getStringExtra("package_name")?.let { appFlowHandler.onConsciousGateClosed(it) }
+                            islandOverlayHandler.updateConsciousGateState()
+                        }
+
                         FlashlightActionReceiver.ACTION_TOGGLE,
                         FlashlightActionReceiver.ACTION_OFF,
                         FlashlightActionReceiver.ACTION_SET_INTENSITY,
@@ -420,6 +434,8 @@ class ScreenOffAccessibilityService :
                 addAction("SHOW_AMBIENT_GLANCE")
                 addAction("HIDE_AMBIENT_GLANCE_TEMPORARILY")
                 addAction("FORCE_TURN_OFF_AOD")
+                addAction("CONSCIOUS_GATE_CONFIRMED")
+                addAction("CONSCIOUS_GATE_CLOSED")
                 addAction(FlashlightActionReceiver.ACTION_TOGGLE)
                 addAction(FlashlightActionReceiver.ACTION_OFF)
                 addAction(FlashlightActionReceiver.ACTION_SET_INTENSITY)
@@ -539,6 +555,7 @@ class ScreenOffAccessibilityService :
             val packageName = event.packageName?.toString()
             if (packageName != null) {
                 appFlowHandler.onPackageChanged(packageName)
+                islandOverlayHandler.updateConsciousGateState()
             }
         }
 
@@ -870,15 +887,18 @@ class ScreenOffAccessibilityService :
 
             "APP_AUTHENTICATION_FAILED" -> performGlobalAction(GLOBAL_ACTION_HOME)
 
-            "CONSCIOUS_GATE_CONFIRMED" ->
+            "CONSCIOUS_GATE_CONFIRMED" -> {
                 intent
                     .getStringExtra("package_name")
                     ?.let { appFlowHandler.onConsciousGateConfirmed(it) }
+                islandOverlayHandler.updateConsciousGateState()
+            }
 
             "CONSCIOUS_GATE_CLOSED" -> {
                 intent
                     .getStringExtra("package_name")
                     ?.let { appFlowHandler.onConsciousGateClosed(it) }
+                islandOverlayHandler.updateConsciousGateState()
                 performGlobalAction(GLOBAL_ACTION_HOME)
             }
 

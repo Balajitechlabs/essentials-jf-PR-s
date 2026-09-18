@@ -57,6 +57,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     private companion object {
         private const val MEDIA_BUBBLE_KEY = "media"
+        private const val CONSCIOUS_GATE_BUBBLE_KEY = "conscious_gate"
         private const val TOTAL_BUBBLE_BUDGET = 2
     }
 
@@ -65,7 +66,7 @@ class IslandOverlayView(context: Context) : View(context) {
     var touchHandler: IslandTouchHandler? = null
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!isNotificationAlertActive && !isMediaPlaybackActive && !isCalendarActive) return false
+        if (!isNotificationAlertActive && !isMediaPlaybackActive && !isCalendarActive && !isConsciousGateActive) return false
         val x = event.x
         val y = event.y
 
@@ -173,6 +174,15 @@ class IslandOverlayView(context: Context) : View(context) {
     private val calendarIconBitmap: Bitmap? by lazy {
         try {
             val d = ContextCompat.getDrawable(context, R.drawable.rounded_calendar_today_24)
+            d?.let { AppUtil.drawableToBitmap(it, (24f * density).toInt()) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private val timerIconBitmap: Bitmap? by lazy {
+        try {
+            val d = ContextCompat.getDrawable(context, R.drawable.rounded_timer_24)
             d?.let { AppUtil.drawableToBitmap(it, (24f * density).toInt()) }
         } catch (_: Exception) {
             null
@@ -306,6 +316,26 @@ class IslandOverlayView(context: Context) : View(context) {
     private var calendarTrailingSlotFraction: Float = 0f
     private val calendarTrailingSlotAnimator = AnimatedFloatProperty()
 
+    var isConsciousGateActive: Boolean = false
+        private set
+    var isConsciousGateCompact: Boolean = true
+        private set
+    private var consciousGateFraction: Float = 0f
+    private val consciousGateAnimator = AnimatedFloatProperty()
+    private var consciousGateCompactFraction: Float = 1f
+    private val consciousGateCompactAnimator = AnimatedFloatProperty()
+    private var consciousGateBubbleFraction: Float = 0f
+    private val consciousGateBubbleAnimator = AnimatedFloatProperty()
+    private val consciousGateDockOriginRect = RectF()
+    private val consciousGatePillRect = RectF()
+
+    private var consciousGateAppIcon: Bitmap? = null
+    private var consciousGateAppLabel: String = ""
+    private var consciousGateTimeText: String = "00:00"
+    private var consciousGateTimePrev: String = ""
+    private var consciousGateTimeRollFraction: Float = 1f
+    private val consciousGateTimeRollAnimator = AnimatedFloatProperty()
+
     private fun updateCalendarTrailingSlot(animate: Boolean = true) {
         val target = if (isMediaPlaybackActive) 1f else 0f
         if (!animate) {
@@ -349,11 +379,13 @@ class IslandOverlayView(context: Context) : View(context) {
     private val mediaMorphAnimator = AnimatedFloatProperty()
     private val mediaDockOriginRect = RectF()
 
-    // Media takes one of the TOTAL_BUBBLE_BUDGET slots when docked; the queue gets the rest.
+    // Media/Conscious Gate takes one of the TOTAL_BUBBLE_BUDGET slots when docked; the queue gets the rest.
+    private val isConsciousGateBubbleOccupyingSlot: Boolean
+        get() = isConsciousGateActive && !isCatchUpMode
     private val isMediaBubbleOccupyingSlot: Boolean
         get() = isMediaPlaybackActive && !isCatchUpMode
     private val maxQueuedBubbleSlots: Int
-        get() = TOTAL_BUBBLE_BUDGET - (if (isMediaBubbleOccupyingSlot) 1 else 0)
+        get() = TOTAL_BUBBLE_BUDGET - (if (isConsciousGateBubbleOccupyingSlot || isMediaBubbleOccupyingSlot) 1 else 0)
 
     private fun trimQueueTo(maxSize: Int) {
         while (queuedNotificationAlerts.size > maxSize) {
@@ -557,6 +589,11 @@ class IslandOverlayView(context: Context) : View(context) {
         if (isMediaFullPlayerActive) {
             setMediaFullPlayer(false)
         }
+
+        if (isConsciousGateActive && !isNotificationAlertActive) {
+            trailingBubbleRects[CONSCIOUS_GATE_BUBBLE_KEY]?.let { consciousGateDockOriginRect.set(it) }
+        }
+        if (isConsciousGateActive) setConsciousGateBubbleVisible(true)
 
         if (isMediaPlaybackActive && !isNotificationAlertActive) {
             trailingBubbleRects[MEDIA_BUBBLE_KEY]?.let { mediaDockOriginRect.set(it) }
@@ -1097,6 +1134,268 @@ class IslandOverlayView(context: Context) : View(context) {
             val rightText = if (calendarLocationText.isNotBlank()) "$calendarFullTimeText • $calendarLocationText" else calendarFullTimeText
             drawMarqueeText(canvas, calendarEventTitle, notificationSenderPaint, leftMarquee, nameLeft, nameRight, calendarPillRect.top, calendarPillRect.bottom, false, height / 2f, calendarRevealFraction)
             drawMarqueeText(canvas, rightText, notificationBodyPaint, rightMarquee, timeLeft, timeRight, calendarPillRect.top, calendarPillRect.bottom, true, height / 2f, calendarRevealFraction, alignTextToEnd = true)
+        }
+    }
+
+    fun showConsciousGateSession(
+        appIcon: Bitmap?,
+        appLabel: String,
+        timeFormatted: String,
+    ) {
+        if (!isIslandEnabled) return
+        val wasActive = isConsciousGateActive
+        if (wasActive && timeFormatted != consciousGateTimeText) {
+            consciousGateTimePrev = consciousGateTimeText
+            consciousGateTimeRollFraction = 0f
+            consciousGateTimeRollAnimator.animateTo(
+                from = 0f,
+                to = 1f,
+                spec = IslandTransitionSpec.ModeChange,
+                onUpdate = {
+                    consciousGateTimeRollFraction = it
+                    invalidate()
+                },
+            )
+        }
+        isConsciousGateActive = true
+        consciousGateAppIcon = appIcon
+        consciousGateAppLabel = appLabel
+        consciousGateTimeText = timeFormatted
+
+        if (!wasActive) {
+            isConsciousGateCompact = true
+            consciousGateCompactFraction = 1f
+            consciousGateAnimator.animateTo(
+                from = consciousGateFraction,
+                to = 1f,
+                spec = IslandTransitionSpec.ContentShow,
+                onUpdate = {
+                    consciousGateFraction = it
+                    invalidate()
+                },
+            )
+            onAlertsChanged?.invoke()
+        } else {
+            invalidate()
+        }
+    }
+
+    fun dismissConsciousGateSession() {
+        if (!isConsciousGateActive) return
+        consciousGateCompactAnimator.cancel()
+        consciousGateTimeRollAnimator.cancel()
+        consciousGateTimeRollFraction = 1f
+        consciousGateBubbleAnimator.cancel()
+        consciousGateBubbleFraction = 0f
+        consciousGateAnimator.animateTo(
+            from = consciousGateFraction,
+            to = 0f,
+            spec = IslandTransitionSpec.MediaDismiss,
+            onUpdate = {
+                consciousGateFraction = it
+                invalidate()
+            },
+            onEnd = {
+                isConsciousGateActive = false
+                isConsciousGateCompact = true
+                consciousGateFraction = 0f
+                consciousGateCompactFraction = 1f
+                consciousGateAppIcon = null
+                consciousGateAppLabel = ""
+                consciousGateTimeText = "00:00"
+                consciousGateTimePrev = ""
+                onDismissAnimationEnd?.invoke()
+                onAlertsChanged?.invoke()
+            },
+        )
+    }
+
+    fun setConsciousGateCompact(compact: Boolean) {
+        if (!isConsciousGateActive || isConsciousGateCompact == compact) return
+        isConsciousGateCompact = compact
+        consciousGateCompactAnimator.animateTo(
+            from = consciousGateCompactFraction,
+            to = if (compact) 1f else 0f,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                consciousGateCompactFraction = it
+                invalidate()
+            },
+            onEnd = {
+                onAlertsChanged?.invoke()
+            },
+        )
+        onAlertsChanged?.invoke()
+    }
+
+    fun toggleConsciousGateExpansion(): Boolean {
+        if (!isConsciousGateActive) return false
+        setConsciousGateCompact(!isConsciousGateCompact)
+        return !isConsciousGateCompact
+    }
+
+    private fun setConsciousGateBubbleVisible(visible: Boolean) {
+        if (!isConsciousGateActive) return
+        val target = if (visible) 1f else 0f
+        consciousGateBubbleAnimator.animateTo(
+            from = consciousGateBubbleFraction,
+            to = target,
+            spec = IslandTransitionSpec.ModeChange,
+            onUpdate = {
+                consciousGateBubbleFraction = it
+                invalidate()
+                onAlertsChanged?.invoke()
+            },
+        )
+    }
+
+    private fun computeConsciousGateBounds(compactFraction: Float): RectF {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val top = cameraCenterY - height / 2f
+        val bottom = cameraCenterY + height / 2f
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val timerIconSize = iconSize * 0.85f
+        val pad = (height - iconSize) / 2f
+        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+
+        // Compact Left: appIcon + 4dp gap + timerIcon
+        val compactLeftWidth = pad + iconSize + 4f * density + timerIconSize + cutoutIconGap
+        val compactTargetLeft = (cameraCenterX - cameraRadiusPx - compactLeftWidth).coerceAtLeast(8f * density)
+
+        // Compact Right: "00:00" time text
+        notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+        val timeWidth = notificationBodyPaint.measureText(consciousGateTimeText)
+        val compactRightWidth = cutoutIconGap + timeWidth + pad * 1.5f
+        val compactTargetRight = (cameraCenterX + cameraRadiusPx + compactRightWidth).coerceAtMost(screenWidth - 8f * density)
+        val compactBounds = RectF(compactTargetLeft, top, compactTargetRight, bottom)
+
+        // Normal Left: appIcon + 4dp gap + timerIcon + 6dp gap + "Wasting time"
+        val wastingTimeText = context.getString(R.string.conscious_gate_island_wasting_time)
+        notificationSenderPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+        val textWidth = notificationSenderPaint.measureText(wastingTimeText)
+        val normalLeftWidth = pad + iconSize + 4f * density + timerIconSize + 6f * density + textWidth + cutoutIconGap
+        val normalTargetLeft = (cameraCenterX - cameraRadiusPx - normalLeftWidth).coerceAtLeast(8f * density)
+
+        // Normal Right: "$timeText remaining"
+        val remainingLabel = context.getString(R.string.conscious_gate_island_remaining)
+        val fullRightText = "$consciousGateTimeText $remainingLabel"
+        val fullRightWidth = notificationBodyPaint.measureText(fullRightText)
+        val normalRightWidth = cutoutIconGap + fullRightWidth + pad * 1.5f
+        val normalTargetRight = (cameraCenterX + cameraRadiusPx + normalRightWidth).coerceAtMost(screenWidth - 8f * density)
+        val normalBounds = RectF(normalTargetLeft, top, normalTargetRight, bottom)
+
+        return RectF(
+            normalBounds.left + (compactBounds.left - normalBounds.left) * compactFraction,
+            top,
+            normalBounds.right + (compactBounds.right - normalBounds.right) * compactFraction,
+            bottom,
+        )
+    }
+
+    private fun drawConsciousGate(canvas: Canvas) {
+        val height = cameraRadiusPx * 2f + 14f * density
+        val initialLeft = cameraCenterX - cameraRadiusPx
+        val initialRight = cameraCenterX + cameraRadiusPx
+        val target = computeConsciousGateBounds(consciousGateCompactFraction)
+        val left = initialLeft + (target.left - initialLeft) * consciousGateFraction
+        val right = initialRight + (target.right - initialRight) * consciousGateFraction
+        consciousGatePillRect.set(left, target.top, right, target.bottom)
+
+        notificationPillPaint.color = Color.BLACK
+        notificationPillPaint.alpha = 255
+        canvas.drawRoundRect(consciousGatePillRect, height / 2f, height / 2f, notificationPillPaint)
+
+        val alpha = (consciousGateFraction * 255f).toInt().coerceIn(0, 255)
+        val iconSize = (height - 14f * density).coerceAtLeast(16f * density)
+        val timerIconSize = iconSize * 0.85f
+        val pad = (height - iconSize) / 2f
+
+        // App Icon
+        val appIconRect = RectF(
+            consciousGatePillRect.left + pad,
+            consciousGatePillRect.top + pad,
+            consciousGatePillRect.left + pad + iconSize,
+            consciousGatePillRect.top + pad + iconSize,
+        )
+        val appIcon = consciousGateAppIcon
+        if (appIcon != null) {
+            catchUpIconClipPath.reset()
+            catchUpIconClipPath.addCircle(appIconRect.centerX(), appIconRect.centerY(), iconSize / 2f, Path.Direction.CW)
+            canvas.save()
+            canvas.clipPath(catchUpIconClipPath)
+            iconPaint.alpha = alpha
+            canvas.drawBitmap(appIcon, null, appIconRect, iconPaint)
+            canvas.restore()
+        }
+
+        // Timer Icon (right to app icon)
+        val timerTop = consciousGatePillRect.top + (height - timerIconSize) / 2f
+        val timerIconRect = RectF(
+            appIconRect.right + 4f * density,
+            timerTop,
+            appIconRect.right + 4f * density + timerIconSize,
+            timerTop + timerIconSize,
+        )
+        timerIconBitmap?.let {
+            iconPaint.alpha = alpha
+            iconPaint.colorFilter = PorterDuffColorFilter(materialYouAccentColor(), PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(it, null, timerIconRect, iconPaint)
+            iconPaint.colorFilter = null
+        }
+
+        // Compact Mode: Time on right side
+        val compactAlpha = (alpha * consciousGateCompactFraction).toInt().coerceIn(0, 255)
+        if (compactAlpha > 0) {
+            val compactTextRight = consciousGatePillRect.right - pad
+            val compactTextLeft = cameraCenterX + cameraRadiusPx + cutoutGap
+            if (compactTextRight > compactTextLeft) {
+                notificationBodyPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+                val textY = (consciousGatePillRect.top + consciousGatePillRect.bottom) / 2f + notificationBodyPaint.textSize * 0.35f
+                drawRollingText(
+                    canvas = canvas,
+                    paint = notificationBodyPaint,
+                    oldText = consciousGateTimePrev,
+                    newText = consciousGateTimeText,
+                    fraction = consciousGateTimeRollFraction,
+                    edgeX = compactTextRight,
+                    baseY = textY,
+                    clipLeft = compactTextLeft,
+                    clipTop = consciousGatePillRect.top,
+                    clipRight = compactTextRight,
+                    clipBottom = consciousGatePillRect.bottom,
+                    baseAlpha = compactAlpha,
+                )
+            }
+        }
+
+        // Normal / Expanded Mode: "Wasting time" on left + "$timeText remaining" on right
+        val textAlpha = (alpha * (1f - consciousGateCompactFraction)).toInt().coerceIn(0, 255)
+        if (textAlpha > 0) {
+            notificationSenderPaint.alpha = textAlpha
+            notificationBodyPaint.alpha = textAlpha
+            notificationSenderPaint.textSize = (height * 0.34f).coerceIn(12f * density, 18f * density)
+            notificationBodyPaint.textSize = notificationSenderPaint.textSize
+
+            val nameLeft = timerIconRect.right + 6f * density
+            val nameRight = cameraCenterX - cameraRadiusPx - cutoutGap
+            val timeLeft = cameraCenterX + cameraRadiusPx + cutoutGap
+            val timeRight = pillTextRightEdge(consciousGatePillRect.right)
+            val revealFraction = consciousGateFraction * (1f - consciousGateCompactFraction)
+
+            val wastingTimeText = context.getString(R.string.conscious_gate_island_wasting_time)
+            val remainingLabel = context.getString(R.string.conscious_gate_island_remaining)
+            val rightText = "$consciousGateTimeText $remainingLabel"
+
+            drawMarqueeText(
+                canvas, wastingTimeText, notificationSenderPaint, leftMarquee,
+                nameLeft, nameRight, consciousGatePillRect.top, consciousGatePillRect.bottom,
+                false, height / 2f, revealFraction
+            )
+            drawMarqueeText(
+                canvas, rightText, notificationBodyPaint, rightMarquee,
+                timeLeft, timeRight, consciousGatePillRect.top, consciousGatePillRect.bottom,
+                true, height / 2f, revealFraction, alignTextToEnd = true
+            )
         }
     }
 
@@ -1702,6 +2001,19 @@ class IslandOverlayView(context: Context) : View(context) {
         val alert = activeNotificationAlert
         if (alert == null) {
             return when {
+                isConsciousGateActive -> {
+                    val target = computeConsciousGateBounds(if (isConsciousGateCompact) 1f else 0f)
+                    if (!consciousGatePillRect.isEmpty) {
+                        RectF(
+                            minOf(target.left, consciousGatePillRect.left),
+                            minOf(target.top, consciousGatePillRect.top),
+                            maxOf(target.right, consciousGatePillRect.right),
+                            maxOf(target.bottom, consciousGatePillRect.bottom),
+                        )
+                    } else {
+                        target
+                    }
+                }
                 isCalendarActive -> {
                     val target = computeCalendarBounds(if (isCalendarCompact) 1f else 0f)
                     if (!calendarPillRect.isEmpty) {
@@ -1815,13 +2127,24 @@ class IslandOverlayView(context: Context) : View(context) {
     }
 
     private fun unionWithMediaBounds(bounds: RectF): RectF {
-        if (!isMediaPlaybackActive || isCatchUpMode || mediaBubbleFraction <= 0.01f) return bounds
+        var res = bounds
+        if (isConsciousGateActive && !isCatchUpMode && consciousGateBubbleFraction > 0.01f) {
+            trailingBubbleRects[CONSCIOUS_GATE_BUBBLE_KEY]?.let { bRect ->
+                res = RectF(
+                    minOf(res.left, bRect.left),
+                    minOf(res.top, bRect.top),
+                    maxOf(res.right, bRect.right),
+                    maxOf(res.bottom, bRect.bottom),
+                )
+            }
+        }
+        if (!isMediaPlaybackActive || isCatchUpMode || mediaBubbleFraction <= 0.01f) return res
         val mediaBounds = currentMediaBounds()
         return RectF(
-            minOf(bounds.left, mediaBounds.left),
-            minOf(bounds.top, mediaBounds.top),
-            maxOf(bounds.right, mediaBounds.right),
-            maxOf(bounds.bottom, mediaBounds.bottom),
+            minOf(res.left, mediaBounds.left),
+            minOf(res.top, mediaBounds.top),
+            maxOf(res.right, mediaBounds.right),
+            maxOf(res.bottom, mediaBounds.bottom),
         )
     }
 
@@ -2364,7 +2687,9 @@ class IslandOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
 
         val alert: ActiveNotificationAlert = activeNotificationAlert ?: run {
-            if (isCalendarActive && calendarFraction > 0.001f) {
+            if (isConsciousGateActive && consciousGateFraction > 0.001f) {
+                drawConsciousGate(canvas)
+            } else if (isCalendarActive && calendarFraction > 0.001f) {
                 drawCalendarEvent(canvas)
             } else if (isMediaPlaybackActive && mediaFraction > 0.001f) {
                 drawMediaPlayback(canvas)
@@ -2403,28 +2728,43 @@ class IslandOverlayView(context: Context) : View(context) {
                 )
             }
             if (mediaBubbleFraction > 0.98f) mediaDockOriginRect.setEmpty()
-            val trailingBubbleSpecs = if (isMediaPlaybackActive && mediaBubbleFraction > 0.01f) {
-                val bubbleFrac = mediaBubbleFraction * queueVisibleFraction
-                listOf(
-                    IslandBubbleSpec(
-                        key = MEDIA_BUBBLE_KEY,
-                        visibleFraction = bubbleFrac,
-                        icon = mediaArtwork,
-                        iconShape = IslandBubbleIconShape.CIRCLE,
-                        enterFrom = if (!mediaDockOriginRect.isEmpty) mediaDockOriginRect else null,
-                        customIconDraw = if (mediaArtwork == null) {
-                            { canvas, iconRect ->
-                                equalizerPaint.color = materialYouAccentColor()
-                                equalizerPaint.alpha = (bubbleFrac * 255).toInt().coerceIn(0, 255)
-                                drawEqualizerIcon(canvas, iconRect, equalizerAnimator.barLevels, equalizerPaint)
-                            }
-                        } else {
-                            null
-                        },
-                    ),
-                )
-            } else {
-                emptyList()
+            if (consciousGateBubbleFraction > 0.98f) consciousGateDockOriginRect.setEmpty()
+
+            val trailingBubbleSpecs = buildList {
+                if (isConsciousGateActive && consciousGateBubbleFraction > 0.01f) {
+                    val bubbleFrac = consciousGateBubbleFraction * queueVisibleFraction
+                    add(
+                        IslandBubbleSpec(
+                            key = CONSCIOUS_GATE_BUBBLE_KEY,
+                            visibleFraction = bubbleFrac,
+                            icon = timerIconBitmap,
+                            iconShape = IslandBubbleIconShape.CIRCLE,
+                            iconTint = materialYouAccentColor(),
+                            enterFrom = if (!consciousGateDockOriginRect.isEmpty) consciousGateDockOriginRect else null,
+                        )
+                    )
+                }
+                if (isMediaPlaybackActive && mediaBubbleFraction > 0.01f) {
+                    val bubbleFrac = mediaBubbleFraction * queueVisibleFraction
+                    add(
+                        IslandBubbleSpec(
+                            key = MEDIA_BUBBLE_KEY,
+                            visibleFraction = bubbleFrac,
+                            icon = mediaArtwork,
+                            iconShape = IslandBubbleIconShape.CIRCLE,
+                            enterFrom = if (!mediaDockOriginRect.isEmpty) mediaDockOriginRect else null,
+                            customIconDraw = if (mediaArtwork == null) {
+                                { canvas, iconRect ->
+                                    equalizerPaint.color = materialYouAccentColor()
+                                    equalizerPaint.alpha = (bubbleFrac * 255).toInt().coerceIn(0, 255)
+                                    drawEqualizerIcon(canvas, iconRect, equalizerAnimator.barLevels, equalizerPaint)
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    )
+                }
             }
             val leadingBubblesWidth = IslandBubbleRow.reservedWidth(leadingBubbleSpecs, bubbleSize, bubbleGap)
             val trailingBubblesWidth = IslandBubbleRow.reservedWidth(trailingBubbleSpecs, bubbleSize, bubbleGap)

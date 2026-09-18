@@ -38,13 +38,17 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowMetrics
 import android.content.ComponentName
+import android.graphics.drawable.Drawable
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.services.NotificationListener
+import com.sameerasw.essentials.services.tiles.ScreenOffAccessibilityService
+import com.sameerasw.essentials.utils.AppUtil
 import com.sameerasw.essentials.utils.CalendarEventUtil
 import com.sameerasw.essentials.utils.IslandOverlayView
 import com.sameerasw.essentials.utils.OverlayHelper
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -117,9 +121,11 @@ class IslandOverlayHandler(
             val preservedMediaKey = currentMediaKey
             mainHandler.removeCallbacks(dismissNotificationRunnable)
             mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
+            mainHandler.removeCallbacks(consciousGateUpdateRunnable)
             overlayView?.dismissNotificationAlert()
             overlayView?.dismissMediaPlayback()
             overlayView?.dismissCalendarEvent()
+            overlayView?.dismissConsciousGateSession()
             unregisterNotificationsListener()
             unregisterMediaListener()
             currentMediaKey = preservedMediaKey
@@ -134,6 +140,7 @@ class IslandOverlayHandler(
             }
             applyCurrentMediaState()
             pollCalendarEvent()
+            updateConsciousGateState()
         }
     }
 
@@ -146,9 +153,11 @@ class IslandOverlayHandler(
                     isLocked = true
                     if (settingsRepository.isIslandHideWhenScreenOffEnabled()) {
                         mainHandler.removeCallbacks(dismissNotificationRunnable)
+                        mainHandler.removeCallbacks(consciousGateUpdateRunnable)
                         overlayView?.dismissNotificationAlert()
                         overlayView?.dismissMediaPlayback()
                         overlayView?.dismissCalendarEvent()
+                        overlayView?.dismissConsciousGateSession()
                         restoreTouchAnchor()
                     }
                 }
@@ -157,13 +166,16 @@ class IslandOverlayHandler(
                     isLocked = keyguardManager?.isKeyguardLocked ?: false
                     if (isIslandContentSuppressed) {
                         mainHandler.removeCallbacks(dismissNotificationRunnable)
+                        mainHandler.removeCallbacks(consciousGateUpdateRunnable)
                         overlayView?.dismissNotificationAlert()
                         overlayView?.dismissMediaPlayback()
                         overlayView?.dismissCalendarEvent()
+                        overlayView?.dismissConsciousGateSession()
                         restoreTouchAnchor()
                     } else {
                         applyCurrentMediaState()
                         pollCalendarEvent()
+                        updateConsciousGateState()
                     }
                 }
                 Intent.ACTION_USER_PRESENT -> {
@@ -171,6 +183,7 @@ class IslandOverlayHandler(
                     isLocked = false
                     applyCurrentMediaState()
                     pollCalendarEvent()
+                    updateConsciousGateState()
                 }
             }
         }
@@ -194,6 +207,65 @@ class IslandOverlayHandler(
         expandTouchAnchorForNotification()
     }
     private val calendarPollRunnable = Runnable { pollCalendarEvent() }
+
+    private val consciousGateUpdateRunnable = object : Runnable {
+        override fun run() {
+            updateConsciousGateState()
+        }
+    }
+
+    private var cachedConsciousGateAppPkg: String? = null
+    private var cachedConsciousGateAppIcon: Bitmap? = null
+
+    fun updateConsciousGateState() {
+        if (!settingsRepository.isIslandEnabled() || !settingsRepository.isIslandShowConsciousGateEnabled()) {
+            mainHandler.removeCallbacks(consciousGateUpdateRunnable)
+            overlayView?.dismissConsciousGateSession()
+            return
+        }
+
+        val session = ScreenOffAccessibilityService.instance?.getActiveConsciousGateSession()
+        if (session == null || isIslandContentSuppressed) {
+            mainHandler.removeCallbacks(consciousGateUpdateRunnable)
+            overlayView?.dismissConsciousGateSession()
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val elapsed = (now - session.startTimeMillis).coerceAtLeast(0L)
+        val remainingMillis = (session.durationMillis - elapsed).coerceAtLeast(0L)
+        if (remainingMillis <= 0L) {
+            mainHandler.removeCallbacks(consciousGateUpdateRunnable)
+            overlayView?.dismissConsciousGateSession()
+            return
+        }
+
+        val totalSec = remainingMillis / 1000L
+        val mins = totalSec / 60L
+        val secs = totalSec % 60L
+        val timeText = String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+
+        if (cachedConsciousGateAppPkg != session.packageName || cachedConsciousGateAppIcon == null) {
+            cachedConsciousGateAppPkg = session.packageName
+            cachedConsciousGateAppIcon = try {
+                val iconDrawable = service.packageManager.getApplicationIcon(session.packageName)
+                AppUtil.drawableToBitmap(iconDrawable)
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        ensureOverlayAttached()
+        overlayView?.showConsciousGateSession(
+            appIcon = cachedConsciousGateAppIcon,
+            appLabel = service.getString(com.sameerasw.essentials.R.string.conscious_gate_island_wasting_time),
+            timeFormatted = timeText,
+        )
+        expandTouchAnchorForNotification()
+
+        mainHandler.removeCallbacks(consciousGateUpdateRunnable)
+        mainHandler.postDelayed(consciousGateUpdateRunnable, 1000L)
+    }
 
     private val mediaProgressRunnable = Runnable { tickMediaProgress() }
 
@@ -948,6 +1020,7 @@ class IslandOverlayHandler(
         mainHandler.removeCallbacks(calendarPollRunnable)
         mainHandler.removeCallbacks(revertCalendarExpansionRunnable)
         mainHandler.removeCallbacks(mediaProgressRunnable)
+        mainHandler.removeCallbacks(consciousGateUpdateRunnable)
         unregisterNotificationsListener()
         unregisterMediaListener()
         removeOverlay()
@@ -958,6 +1031,9 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_ENABLED -> updateOverlay()
             SettingsRepository.KEY_ISLAND_SHOW_GLOW -> {
                 overlayView?.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+            }
+            SettingsRepository.KEY_ISLAND_SHOW_CONSCIOUS_GATE -> {
+                updateConsciousGateState()
             }
             SettingsRepository.KEY_ISLAND_SHOW_MEDIA,
             SettingsRepository.KEY_ISLAND_MEDIA_EXCLUDED_APPS -> {
@@ -981,13 +1057,16 @@ class IslandOverlayHandler(
             SettingsRepository.KEY_ISLAND_HIDE_WHEN_SCREEN_OFF -> {
                 if (isIslandContentSuppressed) {
                     mainHandler.removeCallbacks(dismissNotificationRunnable)
+                    mainHandler.removeCallbacks(consciousGateUpdateRunnable)
                     overlayView?.dismissNotificationAlert()
                     overlayView?.dismissMediaPlayback()
                     overlayView?.dismissCalendarEvent()
+                    overlayView?.dismissConsciousGateSession()
                     restoreTouchAnchor()
                 } else {
                     applyCurrentMediaState()
                     pollCalendarEvent()
+                    updateConsciousGateState()
                 }
             }
             SettingsRepository.KEY_ISLAND_USE_AUTO_DETECT,

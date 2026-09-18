@@ -190,6 +190,7 @@ class MainViewModel : ViewModel() {
     val isIslandShowGlow = mutableStateOf(true)
     val isIslandShowMedia = mutableStateOf(true)
     val isIslandShowCalendar = mutableStateOf(false)
+    val isIslandShowConsciousGate = mutableStateOf(true)
 
     val isStatusGlanceEnabled = mutableStateOf(false)
     val isStatusGlanceAutoDetect = mutableStateOf(true)
@@ -2135,6 +2136,7 @@ class MainViewModel : ViewModel() {
         isIslandShowGlow.value = settingsRepository.isIslandShowGlowEnabled()
         isIslandShowMedia.value = settingsRepository.isIslandShowMediaEnabled()
         isIslandShowCalendar.value = settingsRepository.isIslandShowCalendarEnabled()
+        isIslandShowConsciousGate.value = settingsRepository.isIslandShowConsciousGateEnabled()
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -5011,6 +5013,11 @@ class MainViewModel : ViewModel() {
     fun setIslandShowCalendar(enabled: Boolean) {
         isIslandShowCalendar.value = enabled
         settingsRepository.setIslandShowCalendarEnabled(enabled)
+    }
+
+    fun setIslandShowConsciousGate(enabled: Boolean) {
+        isIslandShowConsciousGate.value = enabled
+        settingsRepository.setIslandShowConsciousGateEnabled(enabled)
     }
 
     fun loadIslandMediaApps(context: Context): List<AppSelection> = settingsRepository.loadIslandMediaExcludedApps()

@@ -43,6 +43,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import com.sameerasw.essentials.FeatureSettingsActivity
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.ui.components.menus.SegmentedDropdownMenuItem
@@ -52,6 +54,7 @@ import com.sameerasw.essentials.ui.core.cards.IconToggleItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.sheets.AppSelectionSheet
 import com.sameerasw.essentials.ui.core.sheets.PermissionsBottomSheet
+import com.sameerasw.essentials.ui.features.consciousgate.CONSCIOUS_GATE_FEATURE_ID
 import com.sameerasw.essentials.ui.features.display.sheets.StatusGlanceCalendarOptionsBottomSheet
 import com.sameerasw.essentials.ui.modifiers.highlight
 import com.sameerasw.essentials.utils.HapticUtil
@@ -538,6 +541,23 @@ fun IslandSettingsUI(
                 },
                 onSettingsClick = { showCalendarOptionsSheet = true },
                 modifier = Modifier.highlight(highlightSetting == "island_show_calendar"),
+            )
+
+            IconToggleItem(
+                iconRes = R.drawable.rounded_pause_24,
+                title = stringResource(R.string.feat_conscious_gate_title),
+                isChecked = viewModel.isIslandShowConsciousGate.value,
+                onCheckedChange = { checked ->
+                    HapticUtil.performVirtualKeyHaptic(view)
+                    viewModel.setIslandShowConsciousGate(checked)
+                },
+                onSettingsClick = {
+                    val intent = Intent(context, FeatureSettingsActivity::class.java).apply {
+                        putExtra("feature", CONSCIOUS_GATE_FEATURE_ID)
+                    }
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.highlight(highlightSetting == "island_show_conscious_gate"),
             )
         }
 

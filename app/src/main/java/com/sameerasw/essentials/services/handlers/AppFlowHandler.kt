@@ -116,6 +116,15 @@ class AppFlowHandler(
     private var currentUsageStatsPackage: String? = null
 
     // Conscious Gate State
+    data class ConsciousGateSession(
+        val packageName: String,
+        val startTimeMillis: Long,
+        val durationMillis: Long,
+    )
+
+    var currentConsciousGateSession: ConsciousGateSession? = null
+        private set
+
     private var gatingPackage: String? = null
     private var lastGateRequestTime: Long = 0
     private val confirmedGatePackages = mutableSetOf<String>()
@@ -203,8 +212,18 @@ class AppFlowHandler(
         confirmedGatePackages.clear()
         pendingReappearRunnables.values.forEach { handler.removeCallbacks(it) }
         pendingReappearRunnables.clear()
+        currentConsciousGateSession = null
         stopFeelWastedSecond()
         gatingPackage = null
+    }
+
+    fun getActiveConsciousGateSession(): ConsciousGateSession? {
+        val session = currentConsciousGateSession ?: return null
+        if (currentPackage != null && currentPackage != context.packageName && currentPackage != session.packageName) return null
+        if (!confirmedGatePackages.contains(session.packageName)) return null
+        val now = System.currentTimeMillis()
+        if (now - session.startTimeMillis > session.durationMillis) return null
+        return session
     }
 
     private fun startFeelWastedSecond(packageName: String) {
@@ -333,6 +352,9 @@ class AppFlowHandler(
                     confirmedGatePackages.remove(packageName)
                     lastLeaveTimes.remove(packageName)
                     pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                    if (currentConsciousGateSession?.packageName == packageName) {
+                        currentConsciousGateSession = null
+                    }
                     if (activeFeelWastedSecondPackage == packageName) {
                         stopFeelWastedSecond()
                     }
@@ -340,6 +362,9 @@ class AppFlowHandler(
                     confirmedGatePackages.remove(packageName)
                     lastLeaveTimes.remove(packageName)
                     pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
+                    if (currentConsciousGateSession?.packageName == packageName) {
+                        currentConsciousGateSession = null
+                    }
                     if (activeFeelWastedSecondPackage == packageName) {
                         stopFeelWastedSecond()
                     }
@@ -383,12 +408,16 @@ class AppFlowHandler(
         lastGateRequestTime = System.currentTimeMillis()
         gatingPackage = packageName
         lastLeaveTimes[packageName] = System.currentTimeMillis()
+        if (currentConsciousGateSession?.packageName == packageName) {
+            currentConsciousGateSession = null
+        }
         if (activeFeelWastedSecondPackage == packageName) {
             stopFeelWastedSecond()
         }
     }
 
     fun onConsciousGateConfirmed(packageName: String) {
+        currentPackage = packageName
         confirmedGatePackages.add(packageName)
         if (packageName == gatingPackage) {
             gatingPackage = null
@@ -397,22 +426,36 @@ class AppFlowHandler(
 
         pendingReappearRunnables.remove(packageName)?.let { handler.removeCallbacks(it) }
 
-        startFeelWastedSecond(packageName)
-
         val prefs = context.getSharedPreferences("essentials_prefs", Context.MODE_PRIVATE)
         val reappearMinutes = prefs.getInt("conscious_gate_reappear_minutes", 0)
+        val durationMillis = if (reappearMinutes > 0) reappearMinutes * 60 * 1000L else 5 * 60 * 1000L
+        currentConsciousGateSession =
+            ConsciousGateSession(
+                packageName = packageName,
+                startTimeMillis = System.currentTimeMillis(),
+                durationMillis = durationMillis,
+            )
+
+        startFeelWastedSecond(packageName)
+
         if (reappearMinutes > 0) {
             val runnable =
                 Runnable {
                     pendingReappearRunnables.remove(packageName)
                     if (currentPackage == packageName) {
                         confirmedGatePackages.remove(packageName)
+                        if (currentConsciousGateSession?.packageName == packageName) {
+                            currentConsciousGateSession = null
+                        }
                         if (activeFeelWastedSecondPackage == packageName) {
                             stopFeelWastedSecond()
                         }
                         checkConsciousGate(packageName)
                     } else {
                         confirmedGatePackages.remove(packageName)
+                        if (currentConsciousGateSession?.packageName == packageName) {
+                            currentConsciousGateSession = null
+                        }
                         if (activeFeelWastedSecondPackage == packageName) {
                             stopFeelWastedSecond()
                         }

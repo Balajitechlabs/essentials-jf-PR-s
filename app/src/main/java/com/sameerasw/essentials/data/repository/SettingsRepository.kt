@@ -434,6 +434,7 @@ class SettingsRepository(
         const val KEY_ISLAND_SHOW_MEDIA = "island_show_media"
         const val KEY_ISLAND_MEDIA_EXCLUDED_APPS = "island_media_excluded_apps"
         const val KEY_ISLAND_SHOW_CALENDAR = "island_show_calendar"
+        const val KEY_ISLAND_SHOW_CONSCIOUS_GATE = "island_show_conscious_gate"
 
         // Status Glance
         const val KEY_STATUS_GLANCE_ENABLED = "status_glance_enabled"
@@ -3431,6 +3432,9 @@ class SettingsRepository(
 
     fun isIslandShowCalendarEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_CALENDAR, false)
     fun setIslandShowCalendarEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_CALENDAR, enabled)
+
+    fun isIslandShowConsciousGateEnabled(): Boolean = getBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, true)
+    fun setIslandShowConsciousGateEnabled(enabled: Boolean) = putBoolean(KEY_ISLAND_SHOW_CONSCIOUS_GATE, enabled)
 
     fun applyHeadsUpSuppression(suppress: Boolean = isIslandSuppressSystemHeadsUpEnabled()) {
         val targetValue = if (suppress) 0 else 1

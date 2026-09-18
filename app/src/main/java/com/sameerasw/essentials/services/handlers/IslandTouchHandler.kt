@@ -360,6 +360,11 @@ class IslandTouchHandler(
                     } else {
                         overlayView?.animateDragSnapBack()
                     }
+                } else if (overlayView?.isConsciousGateActive == true) {
+                    if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
+                        overlayView?.toggleConsciousGateExpansion()
+                        HapticUtil.performHapticForService(service, HapticFeedbackType.CLICK)
+                    }
                 } else if (overlayView?.isCalendarActive == true) {
                     if (totalDist < touchSlopPx * 2.0f && elapsed < 600L) {
                         overlayView?.toggleCalendarExpansion()
