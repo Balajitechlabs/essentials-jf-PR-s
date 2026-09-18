@@ -65,9 +65,9 @@
     <string name="like_song_toast_enabled">Показать всплывающее сообщение</string>
     <string name="like_song_aod_overlay_title">Показывать наложение на AOD</string>
     <string name="feat_essentials_on_display_title">Музыка на AOD</string>
-    <string name="feat_essentials_on_display_desc">Информация о музыке на выкл. экране</string>
-    <string name="essentials_on_display_docked_mode_title">Закрепленный режим</string>
-    <string name="essentials_on_display_docked_mode_desc">Держать наложение видимым пока играет музыка на AOD</string>
+    <string name="feat_essentials_on_display_desc">Информация о музыке на AOD</string>
+    <string name="essentials_on_display_docked_mode_title">Всегда видно</string>
+    <string name="essentials_on_display_docked_mode_desc">Оставляйте информацию всегда видимой, пока воспроизводится музыка на AOD</string>
     <string name="essentials_on_display_respect_notifications_title">Respect new notifications</string>
     <string name="essentials_on_display_respect_notifications_desc">Briefly disable for new notifications</string>
     <string name="essentials_on_display_random_shapes_title">Случайные фигуры</string>
@@ -305,7 +305,7 @@
     <string name="icon_volte">VoLTE / VoNR</string>
     <string name="icon_wifi_calling">Wi-Fi звонки / VoWiFi</string>
     <string name="icon_call_status">Статус вызова/синхронизация</string>
-    <string name="icon_tty">TTY</string>
+    <string name="icon_tty">Специальные возможности</string>
     <string name="icon_volume">Громкость</string>
     <string name="icon_headset">Наушники</string>
     <string name="icon_speakerphone">Громкая связь</string>
@@ -326,7 +326,7 @@
     <string name="icon_otg">OTG Мышь / Клавиатура</string>
     <string name="icon_samsung_smart">Интеллектуальные функции Samsung</string>
     <string name="icon_samsung_services">Сервисы Samsung</string>
-    <string name="icon_ethernet">Ethernet</string>
+    <string name="icon_ethernet">Интернет</string>
     <!-- Status Bar Settings -->
     <string name="stb_clock_seconds">Показывать секунды в часах</string>
     <string name="stb_battery_percentage">Процент заряда батареи</string>
@@ -1608,4 +1608,6 @@
     <string name="duo_action_tap_title">Нажатие</string>
     <string name="settings_genai_automation_title">Включить GenAI</string>
     <string name="settings_genai_automation_desc">Использовать Gemini Nano на устройстве для создания сценариев автоматизации на основе задач</string>
+    <string name="icon_no_sim">Нет SIM-карты</string>
+    <string name="icon_frame_rate">Частота обновления / Частота кадров</string>
 </resources>
