@@ -1419,6 +1419,7 @@ class IslandOverlayView(context: Context) : View(context) {
         override fun contentState(): IslandContentState? = currentContentState()
 
         override fun contentBounds(): RectF? = when {
+            isNotificationAlertActive -> notificationPillRect
             isConsciousGateActive && consciousGateFraction > 0.001f -> consciousGatePillRect
             isCalendarActive && calendarFraction > 0.001f -> calendarPillRect
             isMediaPlaybackActive && mediaFraction > 0.001f -> mediaPillRect
@@ -1446,7 +1447,7 @@ class IslandOverlayView(context: Context) : View(context) {
 
     // (visible fraction, compact fraction) of whatever content onDraw currently renders, by priority.
     private fun currentContentState(): IslandContentState? = when {
-        isNotificationAlertActive -> IslandContentState(animatedNotificationFraction, 0f)
+        isNotificationAlertActive -> IslandContentState(animatedNotificationFraction, catchUpFraction.coerceIn(0f, 1f) * (1f - expandedFraction))
         isConsciousGateActive && consciousGateFraction > 0.001f -> IslandContentState(consciousGateFraction, consciousGateCompactFraction)
         isCalendarActive && calendarFraction > 0.001f -> IslandContentState(calendarFraction, calendarCompactFraction)
         isMediaPlaybackActive && mediaFraction > 0.001f -> IslandContentState(mediaFraction, mediaCompactFraction * (1f - mediaFullPlayerFraction))
@@ -1816,8 +1817,8 @@ class IslandOverlayView(context: Context) : View(context) {
         val trailingSize = if (isMediaPlaybackActive) iconSize else (18f * density)
 
         if (isCenterCamera) {
-            val leftDist = cameraRadiusPx + cutoutGap + iconSize + verticalPadding + 4f * density
-            val rightDist = cameraRadiusPx + cutoutGap + trailingSize + verticalPadding + 4f * density
+            val leftDist = cameraRadiusPx + cutoutGap + iconSize + verticalPadding + 4f * density + idleIndicator.leftInset()
+            val rightDist = cameraRadiusPx + cutoutGap + trailingSize + verticalPadding + 4f * density + idleIndicator.rightInset()
             return RectF(cameraCenterX - leftDist, targetTop, cameraCenterX + rightDist, targetBottom)
         } else {
             val targetLeft = (cameraCenterX - cameraRadiusPx - verticalPadding).coerceAtLeast(8f * density)
@@ -2442,7 +2443,7 @@ class IslandOverlayView(context: Context) : View(context) {
         }
 
         val compactIconRect = RectF(mediaPillRect.right - pad - iconSize, mediaPillRect.top + pad, mediaPillRect.right - pad, mediaPillRect.top + pad + iconSize)
-        equalizerPaint.color = playerAccentColor()
+        equalizerPaint.color = materialYouAccentColor()
         equalizerPaint.alpha = (alpha * mediaCompactFraction).toInt().coerceIn(0, 255)
         drawEqualizerIcon(canvas, compactIconRect, equalizerAnimator.barLevels, equalizerPaint)
 

@@ -151,11 +151,12 @@ class IslandIdleIndicator(
         return timePaint.measureText("0") * 4f + timePaint.measureText(":")
     }
 
-    fun leftInset(): Float =
-        if (wantedFraction > 0f && host.canMerge) (timeSlotWidth() + host.cutoutGap) * wantedFraction else 0f
+    private fun sideWidth(): Float = maxOf(timeSlotWidth(), batterySize)
 
-    fun rightInset(): Float =
-        if (wantedFraction > 0f && host.canMerge) (batterySize + host.cutoutGap) * wantedFraction else 0f
+    fun leftInset(): Float =
+        if (wantedFraction > 0f && host.canMerge) (sideWidth() + host.cutoutGap) * wantedFraction else 0f
+
+    fun rightInset(): Float = leftInset()
 
     private fun refreshWanted() {
         val wanted = isEnabled && timeText.isNotEmpty()
@@ -285,9 +286,10 @@ class IslandIdleIndicator(
         if (f <= 0.001f) return
 
         val pad = (rowHeight - batterySize) / 2f
-        val targetLeft = (host.cameraCenterX - host.cameraRadiusPx - host.cutoutGap - timeSlotWidth() - pad)
+        val side = sideWidth()
+        val targetLeft = (host.cameraCenterX - host.cameraRadiusPx - host.cutoutGap - side - pad)
             .coerceAtLeast(8f * host.density)
-        val targetRight = (host.cameraCenterX + host.cameraRadiusPx + host.cutoutGap + batterySize + pad)
+        val targetRight = (host.cameraCenterX + host.cameraRadiusPx + host.cutoutGap + side + pad)
             .coerceAtMost(host.screenWidth - 8f * host.density)
         val initialLeft = host.cameraCenterX - host.cameraRadiusPx
         val initialRight = host.cameraCenterX + host.cameraRadiusPx
@@ -340,11 +342,12 @@ class IslandIdleIndicator(
             baseAlpha = alpha,
         )
 
-        val batteryLeft = host.cameraCenterX + host.cameraRadiusPx + host.cutoutGap
+        val batteryRight = host.cameraCenterX + host.cameraRadiusPx + host.cutoutGap + sideWidth()
+        val batteryLeft = batteryRight - batterySize
         batteryRect.set(
             batteryLeft,
             host.cameraCenterY - batterySize / 2f,
-            batteryLeft + batterySize,
+            batteryRight,
             host.cameraCenterY + batterySize / 2f,
         )
         val ringAlpha = (alpha * (1f - styleFraction)).toInt()
