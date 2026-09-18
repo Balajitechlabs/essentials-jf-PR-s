@@ -122,7 +122,6 @@ class IslandIdleIndicator(
     private var wantedFraction = 0f
     private var wantedTarget = false
     private val wantedAnimator = AnimatedFloatProperty()
-    private var standaloneFraction = 0f
     private var styleFraction = 0f
     private val styleAnimator = AnimatedFloatProperty()
 
@@ -192,20 +191,14 @@ class IslandIdleIndicator(
         )
     }
 
-    // Standalone visibility tracks the live content fractions instead of running its own animator,
-    // so the idle pill and content pills always cross over in lockstep.
-    private fun computeStandalone(): Float {
-        val state = host.contentState()
-        val block = if (state == null) 0f else state.visible * (1f - if (host.canMerge) state.compact else 0f)
-        return (wantedFraction * (1f - block)).coerceIn(0f, 1f)
+    private fun textVisibility(): Float {
+        val base = ((wantedFraction - 0.3f) / 0.7f).coerceIn(0f, 1f)
+        val state = host.contentState() ?: return base
+        val block = state.visible * (1f - if (host.canMerge) state.compact else 0f)
+        return base * (1f - block).coerceIn(0f, 1f)
     }
 
-    private fun mergedFraction(): Float {
-        val state = host.contentState() ?: return 0f
-        return if (host.canMerge) state.visible * state.compact * wantedFraction else 0f
-    }
-
-    private fun isShowing(): Boolean = maxOf(computeStandalone(), mergedFraction()) > 0.05f
+    private fun isShowing(): Boolean = textVisibility() > 0.05f
 
     fun setTime(text: String) {
         if (text == timeText) return
@@ -319,8 +312,7 @@ class IslandIdleIndicator(
     }
 
     fun drawBackground(canvas: Canvas) {
-        standaloneFraction = computeStandalone()
-        val f = standaloneFraction
+        val f = wantedFraction
         if (f <= 0.001f) return
 
         val pad = (rowHeight - batterySize) / 2f
@@ -341,25 +333,16 @@ class IslandIdleIndicator(
     }
 
     fun drawForeground(canvas: Canvas) {
-        val standaloneAlpha = ((standaloneFraction - 0.3f) / 0.7f).coerceIn(0f, 1f)
-        val merged = mergedFraction()
-        val alpha = (maxOf(standaloneAlpha, merged) * 255f).toInt().coerceIn(0, 255)
-        if (alpha <= 0) return
+        val alpha = (textVisibility() * 255f).toInt().coerceIn(0, 255)
+        if (alpha <= 0 || wantedFraction <= 0.001f) return
 
-        // Content is revealed with whichever pill currently holds it, never floating on empty screen.
-        var hasClip = false
-        if (standaloneFraction > 0.001f) {
-            clipRect.set(pillRect)
-            hasClip = true
-        }
-        if (merged > 0.001f) {
-            host.contentBounds()?.let {
-                if (hasClip) clipRect.union(it) else clipRect.set(it)
-                hasClip = true
-            }
+        clipRect.set(pillRect)
+        val state = host.contentState()
+        if (state != null && host.canMerge && state.compact > 0.001f) {
+            host.contentBounds()?.let { clipRect.union(it) }
         }
         val save = canvas.save()
-        if (hasClip) canvas.clipRect(clipRect)
+        canvas.clipRect(clipRect)
 
         val timeWidth = timeSlotWidth()
         val top = host.cameraCenterY - rowHeight / 2f
@@ -381,9 +364,8 @@ class IslandIdleIndicator(
         )
 
         val batteryRight = host.cameraCenterX + host.cameraRadiusPx + host.cutoutGap + sideWidth()
-        val batteryLeft = batteryRight - batterySize
         batteryRect.set(
-            batteryLeft,
+            batteryRight - batterySize,
             host.cameraCenterY - batterySize / 2f,
             batteryRight,
             host.cameraCenterY + batterySize / 2f,
