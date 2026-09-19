@@ -14,6 +14,7 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -90,7 +91,11 @@ fun AboutSection(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .animateContentSize()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(text = "$appName v$versionName", style = MaterialTheme.typography.headlineLarge)
@@ -381,6 +386,10 @@ fun AboutSection(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            ContributorsCarousel()
 
             Spacer(modifier = Modifier.height(4.dp))
 
