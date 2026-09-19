@@ -101,12 +101,12 @@ object TranslationManager {
                     map.values.any { it.trim().equals(trimmed, ignoreCase = true) }
                 }?.let { return it.key }
 
-            // Formatting pattern match (e.g. %1$s)
+            // Formatting pattern match (e.g. %1$s, %1$.1f)
             all.entries
                 .firstOrNull { (_, map) ->
                     map.values.any { v ->
                         if (!v.contains("%")) return@any false
-                        val parts = v.split(Regex("%[0-9]*\\$?[a-zA-Z]"))
+                        val parts = v.split(Regex("%(?:\\d+\\$)?[ -+0#(]*\\d*(?:\\.\\d+)?[a-zA-Z]"))
                         if (parts.all { it.isEmpty() }) return@any false
                         val regexPattern = "^" + parts.joinToString(".*?") { Regex.escape(it) } + "$"
                         try {
