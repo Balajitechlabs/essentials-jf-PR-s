@@ -1509,6 +1509,8 @@
     <string name="app_canvas">Canvas</string>
     <string name="app_tasks">Tasks</string>
     <string name="app_zero">Zero</string>
+    <string name="label_top_contributors">Top Contributors</string>
+    <string name="contributions_count_format">%1$d contributions</string>
 
     <!-- Help & Guides -->
     <string name="help_guides_title">Help &amp; Guides</string>
@@ -2414,9 +2416,9 @@
     <string name="watchface_clock_outline_desc">Show only font outlines instead of filled text</string>
     <string name="watchface_clock_outline_thickness">Outline thickness</string>
     <string name="app_medrop">MeDrop</string>
-    <string name="action_licenses_and_credits">Licenses and Credits</string>
+    <string name="action_licenses_and_credits">Licenses</string>
     <string name="licenses_credits_title">Licenses &amp; Credits</string>
-    <string name="licenses_credits_subtitle">Open source projects and contributors powering Essentials</string>
+    <string name="licenses_credits_subtitle">Open source projects powering Essentials</string>
     <string name="watch_complications_title">Complications</string>
     <string name="watch_complications_desc">Customize complication widgets</string>
     <string name="glance_complication_label">At a Glance</string>

@@ -1065,6 +1065,7 @@
     <string name="app_canvas">Canvas</string>
     <string name="app_tasks">Tasks</string>
     <string name="app_zero">Zero</string>
+    <string name="label_top_contributors">Top Contributors, Thank you!</string>
     <!-- Help & Guides -->
     <string name="help_guides_title">Help &amp; Guides</string>
     <string name="need_more_support_reach_out">Need more support? Reach out,</string>
