@@ -165,23 +165,6 @@ fun AboutSection(
                     Text(stringResource(R.string.action_website))
                 }
 
-                Button(
-                    onClick = {
-                        HapticUtil.performUIHaptic(view)
-                        val websiteUrl = "https://github.com/sameerasw/essentials"
-                        val intent = Intent(Intent.ACTION_VIEW, websiteUrl.toUri())
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.brand_github),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_view_on_github))
-                }
 
                 OutlinedButton(
                     onClick = {
@@ -387,11 +370,15 @@ fun AboutSection(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
+
+            RepoDetailsRow()
+
+            Spacer(modifier = Modifier.height(2.dp))
 
             ContributorsCarousel()
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             OutlinedButton(
                 onClick = {
