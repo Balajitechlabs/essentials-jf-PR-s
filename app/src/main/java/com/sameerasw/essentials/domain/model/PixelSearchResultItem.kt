@@ -63,6 +63,7 @@ sealed class PixelSearchResultItem {
         val isImage: Boolean = mimeType.startsWith("image/", ignoreCase = true),
         val isGif: Boolean = mimeType.equals("image/gif", ignoreCase = true),
         val isVideo: Boolean = mimeType.startsWith("video/", ignoreCase = true),
+        val isAudio: Boolean = mimeType.startsWith("audio/", ignoreCase = true),
         val durationMs: Long = 0L,
         val path: String? = null,
         @DrawableRes val iconRes: Int = com.sameerasw.essentials.R.drawable.rounded_description_24,

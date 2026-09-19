@@ -88,13 +88,16 @@ object FileSearchUtil {
 
                     val isImage = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE || mime.startsWith("image/", ignoreCase = true)
                     val isVideo = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO || mime.startsWith("video/", ignoreCase = true)
+                    val isAudio = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO || mime.startsWith("audio/", ignoreCase = true)
                     val isGif = mime.equals("image/gif", ignoreCase = true) || name.endsWith(".gif", ignoreCase = true)
-                    val isMedia = isImage || isVideo || isGif
+                    val isMedia = isImage || isVideo || isAudio || isGif
 
                     val contentUri = if (isImage) {
                         ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                     } else if (isVideo) {
                         ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                    } else if (isAudio) {
+                        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
                     } else {
                         ContentUris.withAppendedId(queryUri, id)
                     }
@@ -111,6 +114,7 @@ object FileSearchUtil {
                         isMedia = isMedia,
                         isGif = isGif,
                         isVideo = isVideo,
+                        isAudio = isAudio,
                         path = path,
                         iconRes = iconRes,
                     )

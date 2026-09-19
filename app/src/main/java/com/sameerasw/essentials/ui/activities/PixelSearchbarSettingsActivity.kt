@@ -704,7 +704,16 @@ fun PixelSearchbarSettingsUI(
                         isChecked = filesEnabled,
                         onCheckedChange = { checked ->
                             HapticUtil.performVirtualKeyHaptic(view)
-                            viewModel.setPixelSearchResultFilesEnabled(checked)
+                            if (checked) {
+                                val hasStoragePerm = PermissionUtils.hasStoragePermission(context)
+                                if (!hasStoragePerm) {
+                                    requestingPermissionKey = "STORAGE"
+                                } else {
+                                    viewModel.setPixelSearchResultFilesEnabled(true)
+                                }
+                            } else {
+                                viewModel.setPixelSearchResultFilesEnabled(false)
+                            }
                         },
                     )
 
@@ -838,6 +847,7 @@ fun PixelSearchbarSettingsUI(
                     requestingPermissionKey!!,
                     context,
                     viewModel,
+                    activity = context as? android.app.Activity,
                 )
             }
         if (permItem != null) {
@@ -851,6 +861,9 @@ fun PixelSearchbarSettingsUI(
                             android.Manifest.permission.READ_CONTACTS,
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         viewModel.setPixelSearchResultContactsEnabled(hasContactsPerm)
+                    } else if (key == "STORAGE") {
+                        val hasStoragePerm = PermissionUtils.hasStoragePermission(context)
+                        viewModel.setPixelSearchResultFilesEnabled(hasStoragePerm)
                     }
                 },
                 featureTitle = stringResource(R.string.pixel_search_results_title),
