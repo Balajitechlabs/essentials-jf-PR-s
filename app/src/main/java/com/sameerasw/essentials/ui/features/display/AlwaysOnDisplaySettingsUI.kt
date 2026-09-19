@@ -90,7 +90,12 @@ fun AlwaysOnDisplaySettingsUI(
                 isChecked = viewModel.isAodEnabled.value,
                 onCheckedChange = { checked ->
                     HapticUtil.performVirtualKeyHaptic(view)
-                    viewModel.setAodEnabled(checked)
+                    if (checked && !viewModel.isWriteSecureSettingsEnabled.value) {
+                        requestingPermissionsFor =
+                            Pair(R.string.feat_always_on_display_title, listOf("WRITE_SECURE_SETTINGS"))
+                    } else {
+                        viewModel.setAodEnabled(checked)
+                    }
                 },
                 modifier = Modifier.highlight(highlightSetting == "aod_toggle"),
             )

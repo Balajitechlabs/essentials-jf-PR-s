@@ -319,6 +319,11 @@ object FeatureRegistry {
             ) {
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isAodEnabled.value
 
+                override fun isToggleEnabled(
+                    viewModel: MainViewModel,
+                    context: Context,
+                ) = viewModel.isWriteSecureSettingsEnabled.value
+
                 override fun onToggle(
                     viewModel: MainViewModel,
                     context: Context,

@@ -846,6 +846,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                                             "Text and animations" ->
                                                                 !viewModel.isWriteSettingsEnabled.value ||
                                                                     !isWriteSecureSettingsEnabled
+                                                            "Always on Display" -> !isWriteSecureSettingsEnabled
                                                             "Lock screen clock" -> !isWriteSecureSettingsEnabled
                                                             "Screen refresh rate" ->
                                                                 !com.sameerasw.essentials.utils.ShellUtils.hasPermission(

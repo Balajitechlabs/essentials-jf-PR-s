@@ -254,37 +254,8 @@ class ScreenOffAccessibilityService :
                     duoOverlayHandler.updateState()
                     statusGlanceHandler.updateState()
                 }
-            } else if (key == SettingsRepository.KEY_DUO_ENABLED ||
-                key == SettingsRepository.KEY_DUO_USE_AUTO_DETECT ||
-                key == SettingsRepository.KEY_DUO_CAMERA_OFFSET_X ||
-                key == SettingsRepository.KEY_DUO_CAMERA_OFFSET_Y ||
-                key == SettingsRepository.KEY_DUO_CAMERA_SIZE ||
-                key == SettingsRepository.KEY_DUO_ARC_THICKNESS ||
-                key == SettingsRepository.KEY_DUO_DOT_SIZE ||
-                key == SettingsRepository.KEY_DUO_RING_RADIUS ||
-                key == SettingsRepository.KEY_DUO_SHOW_BATTERY ||
-                key == SettingsRepository.KEY_DUO_SHOW_BATTERY_PERCENTAGE ||
-                key == SettingsRepository.KEY_DUO_BATTERY_PERCENTAGE_ONLY_COLORED ||
-                key == SettingsRepository.KEY_DUO_BATTERY_CHARGING_COLOR_ENABLED ||
-                key == SettingsRepository.KEY_DUO_BATTERY_CHARGING_COLOR ||
-                key == SettingsRepository.KEY_DUO_BATTERY_LOW_COLOR_ENABLED ||
-                key == SettingsRepository.KEY_DUO_BATTERY_LOW_COLOR ||
-                key == SettingsRepository.KEY_DUO_BATTERY_CRITICAL_COLOR_ENABLED ||
-                key == SettingsRepository.KEY_DUO_BATTERY_CRITICAL_COLOR ||
-                key == SettingsRepository.KEY_DUO_SHOW_NETWORKS ||
-                key == SettingsRepository.KEY_DUO_DIFFERENTIATE_WIFI ||
-                key == SettingsRepository.KEY_DUO_SHOW_MEDIA ||
-                key == SettingsRepository.KEY_DUO_SHOW_FLASHLIGHT ||
-                key == SettingsRepository.KEY_DUO_HIDE_WHEN_SCREEN_OFF ||
-                key == SettingsRepository.KEY_DUO_HIDE_WHEN_SCREEN_OFF_ONLY_IDLE ||
-                key == SettingsRepository.KEY_DUO_USE_MATERIAL_YOU ||
-                key == SettingsRepository.KEY_DUO_CUSTOM_COLOR ||
-                key == SettingsRepository.KEY_DUO_TAP_ACTION ||
-                key == SettingsRepository.KEY_DUO_DOUBLE_TAP_ACTION ||
-                key == SettingsRepository.KEY_DUO_LONG_PRESS_ACTION ||
-                key == SettingsRepository.KEY_DUO_SWIPE_DOWN_ACTION ||
-                key == SettingsRepository.KEY_DUO_SLIDE_MODE ||
-                key == SettingsRepository.KEY_DUO_SLIDE_TRACK ||
+            } else if (key?.startsWith("duo_") == true ||
+                key == SettingsRepository.KEY_DUO_ENABLED ||
                 key == SettingsRepository.KEY_ENABLE_UNSUPPORTED_FEATURES
             ) {
                 duoOverlayHandler.updateState()
@@ -338,6 +309,7 @@ class ScreenOffAccessibilityService :
         smartPixelsHandler.init()
         duoOverlayHandler.init()
         statusGlanceHandler.init()
+        setupReceivers()
     }
 
     fun getActiveConsciousGateSession(): AppFlowHandler.ConsciousGateSession? =
