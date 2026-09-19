@@ -114,13 +114,13 @@ fun TranslationBottomSheet(
             // Header
             Column {
                 Text(
-                    text = "Translate String",
+                    text = stringResource(R.string.translation_sheet_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Key: $stringKey",
+                    text = stringResource(R.string.translation_sheet_key, stringKey),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium,
@@ -164,7 +164,7 @@ fun TranslationBottomSheet(
                                     Modifier
                                         .fillMaxWidth()
                                         .padding(end = 8.dp),
-                                placeholder = { Text("Enter translation in ${currentLocale.uppercase()}…") },
+                                placeholder = { Text(stringResource(R.string.translation_input_placeholder, currentLocale.uppercase())) },
                                 singleLine = false,
                                 maxLines = 4,
                                 shape = MaterialTheme.shapes.large,
@@ -241,7 +241,7 @@ fun TranslationBottomSheet(
                     },
                 ) {
                     Text(
-                        text = "Target Language (${currentLocale.uppercase()})",
+                        text = stringResource(R.string.translation_target_label, currentLocale.uppercase()),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
@@ -347,7 +347,7 @@ fun TranslationBottomSheet(
                             android.widget.Toast
                                 .makeText(
                                     context,
-                                    "Warning: String contains invalid characters that may crash the app.",
+                                    context.getString(R.string.translation_crash_risk_toast),
                                     android.widget.Toast.LENGTH_LONG,
                                 ).show()
                         }
@@ -375,7 +375,7 @@ fun TranslationBottomSheet(
                         contentDescription = null,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Save Edit")
+                    Text(stringResource(R.string.translation_save_edit))
                 }
             }
         }

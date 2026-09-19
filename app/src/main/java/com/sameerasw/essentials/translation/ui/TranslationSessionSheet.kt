@@ -145,7 +145,7 @@ fun TranslationSessionSheet(
                         performSubmit()
                     },
                 ) {
-                    Text("Submit Anyway")
+                    Text(stringResource(R.string.translation_submit_anyway))
                 }
             },
             dismissButton = {
@@ -155,7 +155,7 @@ fun TranslationSessionSheet(
                         showWarningDialog = false
                     },
                 ) {
-                    Text("Review Edits")
+                    Text(stringResource(R.string.translation_review_edits))
                 }
             },
         )
@@ -190,7 +190,7 @@ fun TranslationSessionSheet(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${edits.size} edit(s)",
+                        text = stringResource(R.string.translation_session_edits_count, edits.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -286,12 +286,12 @@ fun TranslationSessionSheet(
                             supportingContent = {
                                 Column {
                                     Text(
-                                        text = "Original: ${edit.originalValue}",
+                                        text = stringResource(R.string.translation_edit_original, edit.originalValue),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = "New: ${edit.newValue}",
+                                        text = stringResource(R.string.translation_edit_new, edit.newValue),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -347,7 +347,7 @@ fun TranslationSessionSheet(
                                         ) {
                                             Icon(
                                                 painter = painterResource(R.drawable.rounded_delete_24),
-                                                contentDescription = "Remove edit",
+                                                contentDescription = stringResource(R.string.translation_action_remove_edit),
                                                 tint = MaterialTheme.colorScheme.error,
                                             )
                                         }
@@ -357,7 +357,7 @@ fun TranslationSessionSheet(
                                 },
                         ) {
                             Text(
-                                text = "Key: ${edit.key} (${edit.locale.uppercase()})",
+                                text = stringResource(R.string.translation_edit_key_locale, edit.key, edit.locale.uppercase()),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
@@ -367,7 +367,7 @@ fun TranslationSessionSheet(
                 }
             } else {
                 Text(
-                    text = "No pending edits",
+                    text = stringResource(R.string.translation_session_no_edits),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp),
