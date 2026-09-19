@@ -2323,7 +2323,7 @@
     <string name="translation_warning_point3_desc">Submissions automatically create or update a dedicated pull request on GitHub under your account.</string>
     <string name="translation_warning_do_not_show">Do not show again</string>
     <string name="translation_warning_point4_title">Preserve Format Placeholders</string>
-    <string name="translation_warning_point4_desc">Keep placeholders like %1$s or %2$d intact so dynamic parameters like distances and names display correctly without crashes.</string>
+    <string name="translation_warning_point4_desc" formatted="false">Keep placeholders like %1$s or %2$d intact so dynamic parameters like distances and names display correctly without crashes.</string>
     <string name="translation_insert_placeholder">Insert placeholder:</string>
     <string name="translation_format_warning_title">Formatting Warning</string>
     <string name="translation_format_error_title">Critical Format Error</string>
