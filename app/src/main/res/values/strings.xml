@@ -2606,6 +2606,7 @@
     <string name="duo_differentiate_wifi_desc">Show distinct curved arc segments instead of dots when connected to Wi-Fi</string>
     <string name="duo_show_time_title">Time</string>
     <string name="duo_show_media_title">Media playback</string>
+    <string name="duo_rotate_album_art_title">Rotate album art</string>
     <string name="duo_show_progress_title">Progress notifications</string>
     <string name="duo_show_flashlight_title">Flashlight</string>
     <string name="duo_section_behavior">Behavior</string>

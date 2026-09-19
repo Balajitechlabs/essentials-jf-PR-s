@@ -229,6 +229,14 @@ class DuoOverlayView(context: Context) : View(context) {
             }
         }
 
+    var isRotateAlbumArt: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                updateMediaArtSpin()
+            }
+        }
+
     var showProgress: Boolean = true
         set(value) {
             if (field != value) {
@@ -834,6 +842,7 @@ class DuoOverlayView(context: Context) : View(context) {
     private fun isMediaArtDisplayed(): Boolean {
         return isMediaPlaying &&
             showMedia &&
+            isRotateAlbumArt &&
             !isScreenOff &&
             visibility == VISIBLE &&
             windowVisibility == VISIBLE &&
