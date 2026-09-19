@@ -880,6 +880,7 @@ class DuoOverlayHandler(
                 this.isDifferentiateWifi = settingsRepository.isDuoDifferentiateWifiEnabled()
                 this.showTime = settingsRepository.isDuoShowTimeEnabled()
                 this.showMedia = settingsRepository.isDuoShowMediaEnabled()
+                this.isRotateAlbumArt = settingsRepository.isDuoRotateAlbumArtEnabled()
                 this.showProgress = settingsRepository.isDuoShowProgressEnabled()
                 this.showFlashlight = settingsRepository.isDuoShowFlashlightEnabled()
                 this.setCharging(this@DuoOverlayHandler.isChargingState, this@DuoOverlayHandler.isFastChargingState)

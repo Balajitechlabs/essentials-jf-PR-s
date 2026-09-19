@@ -406,6 +406,7 @@ class SettingsRepository(
         const val KEY_DUO_DIFFERENTIATE_WIFI = "duo_differentiate_wifi"
         const val KEY_DUO_SHOW_TIME = "duo_show_time"
         const val KEY_DUO_SHOW_MEDIA = "duo_show_media"
+        const val KEY_DUO_ROTATE_ALBUM_ART = "duo_rotate_album_art"
         const val KEY_DUO_SHOW_PROGRESS = "duo_show_progress"
         const val KEY_DUO_SHOW_FLASHLIGHT = "duo_show_flashlight"
         const val KEY_DUO_HIDE_WHEN_SCREEN_OFF = "duo_hide_when_screen_off"
@@ -3340,6 +3341,9 @@ class SettingsRepository(
 
     fun isDuoShowMediaEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_MEDIA, true)
     fun setDuoShowMediaEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_MEDIA, enabled)
+
+    fun isDuoRotateAlbumArtEnabled(): Boolean = getBoolean(KEY_DUO_ROTATE_ALBUM_ART, false)
+    fun setDuoRotateAlbumArtEnabled(enabled: Boolean) = putBoolean(KEY_DUO_ROTATE_ALBUM_ART, enabled)
 
     fun isDuoShowProgressEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_PROGRESS, true)
     fun setDuoShowProgressEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_PROGRESS, enabled)

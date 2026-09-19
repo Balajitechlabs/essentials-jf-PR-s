@@ -154,6 +154,7 @@ class MainViewModel : ViewModel() {
     val isDuoDifferentiateWifi = mutableStateOf(true)
     val isDuoShowTime = mutableStateOf(false)
     val isDuoShowMedia = mutableStateOf(true)
+    val isDuoRotateAlbumArt = mutableStateOf(false)
     val isDuoShowProgress = mutableStateOf(true)
     val isDuoShowFlashlight = mutableStateOf(true)
     val isDuoHideWhenScreenOff = mutableStateOf(true)
@@ -683,6 +684,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_DUO_SHOW_MEDIA ->
                         isDuoShowMedia.value = settingsRepository.isDuoShowMediaEnabled()
+
+                    SettingsRepository.KEY_DUO_ROTATE_ALBUM_ART ->
+                        isDuoRotateAlbumArt.value = settingsRepository.isDuoRotateAlbumArtEnabled()
 
                     SettingsRepository.KEY_DUO_SHOW_PROGRESS ->
                         isDuoShowProgress.value = settingsRepository.isDuoShowProgressEnabled()
@@ -2104,6 +2108,7 @@ class MainViewModel : ViewModel() {
         isDuoDifferentiateWifi.value = settingsRepository.isDuoDifferentiateWifiEnabled()
         isDuoShowTime.value = settingsRepository.isDuoShowTimeEnabled()
         isDuoShowMedia.value = settingsRepository.isDuoShowMediaEnabled()
+        isDuoRotateAlbumArt.value = settingsRepository.isDuoRotateAlbumArtEnabled()
         isDuoShowProgress.value = settingsRepository.isDuoShowProgressEnabled()
         isDuoShowFlashlight.value = settingsRepository.isDuoShowFlashlightEnabled()
         isDuoHideWhenScreenOff.value = settingsRepository.isDuoHideWhenScreenOffEnabled()
@@ -4909,6 +4914,11 @@ class MainViewModel : ViewModel() {
     fun setDuoShowMedia(enabled: Boolean) {
         isDuoShowMedia.value = enabled
         settingsRepository.setDuoShowMediaEnabled(enabled)
+    }
+
+    fun setDuoRotateAlbumArt(enabled: Boolean) {
+        isDuoRotateAlbumArt.value = enabled
+        settingsRepository.setDuoRotateAlbumArtEnabled(enabled)
     }
 
     fun setDuoShowProgress(enabled: Boolean) {
