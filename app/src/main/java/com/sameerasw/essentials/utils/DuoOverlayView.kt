@@ -263,6 +263,7 @@ class DuoOverlayView(context: Context) : View(context) {
             animateScreenOffVisibility(true)
             animateThemeChange()
         }
+        updateMediaArtSpin()
     }
 
     var useMaterialYouColors: Boolean = true
@@ -833,6 +834,9 @@ class DuoOverlayView(context: Context) : View(context) {
     private fun isMediaArtDisplayed(): Boolean {
         return isMediaPlaying &&
             showMedia &&
+            !isScreenOff &&
+            visibility == VISIBLE &&
+            windowVisibility == VISIBLE &&
             interactiveMode == INTERACTIVE_MODE_NONE &&
             !isChargingAnnounce &&
             !(isFlashlightOn && showFlashlight) &&
@@ -1853,6 +1857,16 @@ class DuoOverlayView(context: Context) : View(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        updateMediaArtSpin()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        updateMediaArtSpin()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
         updateMediaArtSpin()
     }
 
