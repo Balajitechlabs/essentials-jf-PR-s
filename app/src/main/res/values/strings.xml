@@ -1608,6 +1608,9 @@
     <string name="bug_report_raw_json">Raw Report</string>
     <string name="action_report_github">Open GitHub Issue</string>
     <string name="action_report_email">Email Report</string>
+    <string name="action_save_report">Save Report</string>
+    <string name="toast_report_saved">Report saved</string>
+    <string name="error_save_report">Failed to save report</string>
     <string name="action_copy_clipboard">Copy to Clipboard</string>
     <string name="bug_report_email_subject">Essentials Bug Report</string>
     <string name="bug_report_send_via">Please enable crash reporting as it will automatically report details that would help resolving issues.</string>
