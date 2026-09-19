@@ -36,6 +36,8 @@ INVALID_ESCAPE_REGEX = re.compile(r'\\([^\'"\\nt?@u])|\\u(?![0-9a-fA-F]{4})')
 
 # Format specifiers regex: %1$s, %2$d, %s, %d, %1$.1f, %% etc.
 FORMAT_SPEC_REGEX = re.compile(r'%(?:(\d+)\$)?[-+ #0(]*\d*(?:\.\d+)?[a-zA-Z%]')
+NON_ASCII_SPEC_REGEX = re.compile(r'%(\d+)\$[-+ #0(]*\d*(?:\.\d+)?([^\x00-\x7f])')
+COMMA_SPEC_REGEX = re.compile(r'%(\d+)(?:\$,|,)\d*[a-zA-Z]')
 
 def get_base_strings(base_path):
     """Loads base strings from values/strings.xml into a dict: {key: (raw_val, placeholders)}"""
@@ -111,7 +113,23 @@ def check_string_value(key, value, is_formatted_attribute):
                     'fixable': True
                 })
 
-    # 3. Invalid escape sequence check (e.g. \e or \x)
+    # 3. Malformed format specifiers check (e.g. Cyrillic characters like %1$.1ф or decimal comma %1$,1f)
+    for m in NON_ASCII_SPEC_REGEX.finditer(value):
+        issues.append({
+            'type': 'MALFORMED_FORMAT_SPECIFIER',
+            'msg': f"Malformed format specifier '{m.group(0)}' detected (non-ASCII character '{m.group(2)}' causes runtime UnknownFormatConversionException crash).",
+            'is_error': True,
+            'fixable': True
+        })
+    for m in COMMA_SPEC_REGEX.finditer(value):
+        issues.append({
+            'type': 'MALFORMED_COMMA_SPECIFIER',
+            'msg': f"Malformed format specifier '{m.group(0)}' detected (comma used instead of dot decimal separator).",
+            'is_error': True,
+            'fixable': True
+        })
+
+    # 4. Invalid escape sequence check (e.g. \e or \x)
     invalid_escapes = INVALID_ESCAPE_REGEX.findall(value)
     if invalid_escapes:
         issues.append({
@@ -225,6 +243,12 @@ def validate_file(file_path, base_strings, auto_fix=False):
                         temp = temp.replace('%', '%%')
                         temp = temp.replace('VALID_SPEC_', '')
                         fixed_val = temp.replace('DOUBLE_PERCENT_MARKER', '%%')
+                        fixed_this_item = True
+                    elif issue['type'] == 'MALFORMED_FORMAT_SPECIFIER':
+                        fixed_val = fixed_val.replace('ф', 'f')
+                        fixed_this_item = True
+                    elif issue['type'] == 'MALFORMED_COMMA_SPECIFIER':
+                        fixed_val = re.sub(r'%(\d+)(?:\$,|,)(\d*[a-zA-Z])', r'%\1$.\2', fixed_val)
                         fixed_this_item = True
 
             if auto_fix and fixed_this_item:

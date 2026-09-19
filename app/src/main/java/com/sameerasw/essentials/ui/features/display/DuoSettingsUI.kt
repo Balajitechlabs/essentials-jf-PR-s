@@ -83,6 +83,10 @@ fun DuoSettingsUI(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
+    val displayConfiguration = androidx.compose.ui.platform.LocalConfiguration.current
+    LaunchedEffect(displayConfiguration.screenWidthDp, displayConfiguration.screenHeightDp) {
+        viewModel.refreshDuoCameraPlacement()
+    }
 
     var requestingPermissionsFor by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
     var showBatteryOptionsSheet by remember { mutableStateOf(false) }
@@ -246,6 +250,19 @@ fun DuoSettingsUI(
                 }
             }
 
+            AnimatedVisibility(
+                visible = viewModel.hasMultipleDuoDisplays.value,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                Text(
+                    text = stringResource(R.string.duo_per_display_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+
             ConfigSliderItem(
                 title = stringResource(R.string.duo_camera_size_title),
                 value = viewModel.duoCameraSize.floatValue,
@@ -389,6 +406,22 @@ fun DuoSettingsUI(
                 },
                 modifier = Modifier.highlight(highlightSetting == "duo_show_media"),
             )
+            AnimatedVisibility(
+                visible = viewModel.isDuoShowMedia.value,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                IconToggleItem(
+                    iconRes = R.drawable.rounded_rotate_right_24,
+                    title = stringResource(R.string.duo_rotate_album_art_title),
+                    isChecked = viewModel.isDuoRotateAlbumArt.value,
+                    onCheckedChange = { checked ->
+                        HapticUtil.performVirtualKeyHaptic(view)
+                        viewModel.setDuoRotateAlbumArt(checked)
+                    },
+                    modifier = Modifier.highlight(highlightSetting == "duo_rotate_album_art"),
+                )
+            }
             IconToggleItem(
                 iconRes = R.drawable.rounded_downloading_24,
                 title = stringResource(R.string.duo_show_progress_title),

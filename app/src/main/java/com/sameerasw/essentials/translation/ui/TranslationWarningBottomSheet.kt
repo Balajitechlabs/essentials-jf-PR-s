@@ -27,10 +27,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
+import com.sameerasw.essentials.ui.core.sheets.EssentialsBottomSheet
 import com.sameerasw.essentials.utils.ColorUtil
 import com.sameerasw.essentials.utils.HapticUtil
 
@@ -56,13 +55,10 @@ fun TranslationWarningBottomSheet(
     onConfirm: (dontShowAgain: Boolean) -> Unit,
 ) {
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var dontShowAgain by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
+    EssentialsBottomSheet(
         onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
             modifier =
@@ -118,13 +114,6 @@ fun TranslationWarningBottomSheet(
                             modifier = Modifier.size(22.dp),
                         )
                     },
-                    headlineContent = {
-                        Text(
-                            text = stringResource(R.string.translation_warning_point1_title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    },
                     supportingContent = {
                         Text(
                             text = stringResource(R.string.translation_warning_point1_desc),
@@ -132,7 +121,13 @@ fun TranslationWarningBottomSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.translation_warning_point1_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
 
                 ListItem(
                     modifier =
@@ -147,13 +142,6 @@ fun TranslationWarningBottomSheet(
                             modifier = Modifier.size(22.dp),
                         )
                     },
-                    headlineContent = {
-                        Text(
-                            text = stringResource(R.string.translation_warning_point2_title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    },
                     supportingContent = {
                         Text(
                             text = stringResource(R.string.translation_warning_point2_desc),
@@ -161,7 +149,13 @@ fun TranslationWarningBottomSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.translation_warning_point2_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
 
                 ListItem(
                     modifier =
@@ -176,13 +170,6 @@ fun TranslationWarningBottomSheet(
                             modifier = Modifier.size(22.dp),
                         )
                     },
-                    headlineContent = {
-                        Text(
-                            text = stringResource(R.string.translation_warning_point3_title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    },
                     supportingContent = {
                         Text(
                             text = stringResource(R.string.translation_warning_point3_desc),
@@ -190,7 +177,41 @@ fun TranslationWarningBottomSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.translation_warning_point3_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                ListItem(
+                    modifier =
+                        Modifier
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(MaterialTheme.colorScheme.surfaceBright),
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.rounded_code_24),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(R.string.translation_warning_point4_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.translation_warning_point4_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
 
             Row(
