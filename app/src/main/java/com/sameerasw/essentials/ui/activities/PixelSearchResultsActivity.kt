@@ -476,7 +476,7 @@ fun PixelSearchResultsScreen(
             }
 
             if (isMediaEnabled && PermissionUtils.hasMediaPermissions(context)) {
-                val mediaSearchResults = FileSearchUtil.searchFiles(context, trimmed, searchMedia = true, searchDocs = false)
+                val mediaSearchResults = FileSearchUtil.searchFiles(context, trimmed, limit = 6, searchMedia = true, searchDocs = false)
                 withContext(Dispatchers.Main) {
                     mediaResults = mediaSearchResults.mediaItems
                 }
@@ -487,7 +487,7 @@ fun PixelSearchResultsScreen(
             }
 
             if (isFilesEnabled && (PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context))) {
-                val fileSearchResults = FileSearchUtil.searchFiles(context, trimmed, searchMedia = false, searchDocs = true)
+                val fileSearchResults = FileSearchUtil.searchFiles(context, trimmed, limit = 6, searchMedia = false, searchDocs = true)
                 withContext(Dispatchers.Main) {
                     fileResults = fileSearchResults.documentItems
                 }

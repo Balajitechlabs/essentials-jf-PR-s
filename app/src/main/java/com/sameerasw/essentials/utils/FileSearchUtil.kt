@@ -27,7 +27,7 @@ object FileSearchUtil {
     suspend fun searchFiles(
         context: Context,
         query: String,
-        limit: Int = 16,
+        limit: Int = 6,
         searchMedia: Boolean = true,
         searchDocs: Boolean = true,
     ): FileSearchResults = withContext(Dispatchers.IO) {
