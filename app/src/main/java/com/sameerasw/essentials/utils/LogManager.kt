@@ -235,7 +235,7 @@ object LogManager {
 
     fun generateReport(
         context: Context,
-        settingsJson: String,
+        settingsJson: String? = null,
     ): String {
         val report = JSONObject()
 
@@ -285,12 +285,13 @@ object LogManager {
             report.put("last_crash_log", lastCrashLog)
         }
 
-        // Settings
-        try {
-            report.put("settings", JSONObject(settingsJson))
-        } catch (e: Exception) {
-            report.put("settings", "Failed to parse settings JSON: ${e.message}")
-            report.put("settings_raw", settingsJson)
+        if (!settingsJson.isNullOrBlank()) {
+            try {
+                report.put("settings", JSONObject(settingsJson))
+            } catch (e: Exception) {
+                report.put("settings", "Failed to parse settings JSON: ${e.message}")
+                report.put("settings_raw", settingsJson)
+            }
         }
 
         return report.toString(4) // Pretty print with 4 indentation

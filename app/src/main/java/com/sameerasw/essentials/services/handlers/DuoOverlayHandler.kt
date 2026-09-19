@@ -54,6 +54,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
+import com.sameerasw.essentials.domain.model.ActiveNotificationAlert
 import com.sameerasw.essentials.domain.model.AppSelection
 import com.sameerasw.essentials.domain.model.ProgressNotificationData
 import com.sameerasw.essentials.services.NotificationListener
@@ -81,6 +82,10 @@ class DuoOverlayHandler(
     private var isTouchAnchorAdded = false
     private var duoTouchHandler: DuoTouchHandler? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var currentCenterX = 0f
+    private var currentCenterY = 0f
+    private var currentCameraRadiusPx = 36f
 
     private val settingsRepository by lazy { SettingsRepository(service) }
     private val telephonyManager by lazy { service.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager }
@@ -797,14 +802,15 @@ class DuoOverlayHandler(
             } else if (!settingsRepository.isDuoAutoDetectEnabled()) {
                 val rawXRatio = settingsRepository.getDuoCameraOffsetX() / 100f
                 val rawYRatio = settingsRepository.getDuoCameraOffsetY() / 100f
+
                 when (rotation) {
                     android.view.Surface.ROTATION_90 -> {
-                        centerX = screenWidth * rawYRatio
-                        centerY = screenHeight * (1f - rawXRatio)
-                    }
-                    android.view.Surface.ROTATION_270 -> {
                         centerX = screenWidth * (1f - rawYRatio)
                         centerY = screenHeight * rawXRatio
+                    }
+                    android.view.Surface.ROTATION_270 -> {
+                        centerX = screenWidth * rawYRatio
+                        centerY = screenHeight * (1f - rawXRatio)
                     }
                     android.view.Surface.ROTATION_180 -> {
                         centerX = screenWidth * (1f - rawXRatio)
@@ -816,6 +822,10 @@ class DuoOverlayHandler(
                     }
                 }
             }
+
+            currentCenterX = centerX
+            currentCenterY = centerY
+            currentCameraRadiusPx = cameraRadiusPx
 
             val isNightMode = (service.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
@@ -870,6 +880,7 @@ class DuoOverlayHandler(
                 this.isDifferentiateWifi = settingsRepository.isDuoDifferentiateWifiEnabled()
                 this.showTime = settingsRepository.isDuoShowTimeEnabled()
                 this.showMedia = settingsRepository.isDuoShowMediaEnabled()
+                this.isRotateAlbumArt = settingsRepository.isDuoRotateAlbumArtEnabled()
                 this.showProgress = settingsRepository.isDuoShowProgressEnabled()
                 this.showFlashlight = settingsRepository.isDuoShowFlashlightEnabled()
                 this.setCharging(this@DuoOverlayHandler.isChargingState, this@DuoOverlayHandler.isFastChargingState)
@@ -1117,6 +1128,51 @@ class DuoOverlayHandler(
             isProgressListenerRegistered = false
             checkAndApplyProgressNotificationState(null)
         }
+    }
+
+
+
+    private fun restoreTouchAnchor() {
+        val wm = windowManager ?: return
+        val anchor = touchAnchorView ?: return
+        if (!isTouchAnchorAdded) return
+
+        val gesturesEnabled = settingsRepository.getDuoTapAction() != null ||
+            settingsRepository.getDuoDoubleTapAction() != null ||
+            settingsRepository.getDuoLongPressAction() != null ||
+            settingsRepository.getDuoSwipeDownAction() != null ||
+            settingsRepository.getDuoSlideMode() != "none" ||
+            settingsRepository.isDuoSlideTrackEnabled()
+
+        if (!gesturesEnabled) {
+            try {
+                wm.removeView(anchor)
+                isTouchAnchorAdded = false
+            } catch (_: Exception) {}
+            return
+        }
+
+        val density = service.resources.displayMetrics.density
+        val diameter = (((currentCameraRadiusPx + 20f * density) * 2 * settingsRepository.getDuoRingRadius()).toInt()).coerceAtLeast((44f * density).toInt())
+        val touchParams = WindowManager.LayoutParams(
+            diameter,
+            diameter,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = (currentCenterX - diameter / 2f).toInt()
+            y = (currentCenterY - diameter / 2f).toInt()
+        }
+        try {
+            wm.updateViewLayout(anchor, touchParams)
+        } catch (_: Exception) {}
     }
 
     private fun registerBatteryReceiver() {

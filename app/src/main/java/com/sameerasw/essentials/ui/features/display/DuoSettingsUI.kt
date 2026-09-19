@@ -406,6 +406,22 @@ fun DuoSettingsUI(
                 },
                 modifier = Modifier.highlight(highlightSetting == "duo_show_media"),
             )
+            AnimatedVisibility(
+                visible = viewModel.isDuoShowMedia.value,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                IconToggleItem(
+                    iconRes = R.drawable.rounded_rotate_right_24,
+                    title = stringResource(R.string.duo_rotate_album_art_title),
+                    isChecked = viewModel.isDuoRotateAlbumArt.value,
+                    onCheckedChange = { checked ->
+                        HapticUtil.performVirtualKeyHaptic(view)
+                        viewModel.setDuoRotateAlbumArt(checked)
+                    },
+                    modifier = Modifier.highlight(highlightSetting == "duo_rotate_album_art"),
+                )
+            }
             IconToggleItem(
                 iconRes = R.drawable.rounded_downloading_24,
                 title = stringResource(R.string.duo_show_progress_title),

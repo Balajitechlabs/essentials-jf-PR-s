@@ -126,7 +126,7 @@ enum class AppPermission(
         key = "STORAGE",
         titleRes = R.string.perm_storage_title,
         iconRes = R.drawable.rounded_image_24,
-        aliases = listOf("READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE", "MANAGE_EXTERNAL_STORAGE"),
+        aliases = listOf("READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO", "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE", "MANAGE_EXTERNAL_STORAGE"),
     ),
     NOTIFICATION_BUBBLES(
         key = "NOTIFICATION_BUBBLES",

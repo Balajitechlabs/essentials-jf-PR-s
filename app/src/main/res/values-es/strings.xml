@@ -689,7 +689,7 @@ Sin embargo, sí te permite reanudarla desde la lista de aplicaciones del lanzad
     <string name="label_haptic_feedback">Retroalimentación háptica</string>
     <string name="label_updates">Actualizaciones</string>
     <string name="label_auto_check_updates">Comprobación automática de actualizaciones</string>
-    <string name="desc_auto_check_updates">Buscar actualizaciones al iniciar la aplicación</string>
+    <string name="desc_auto_check_updates">Buscar actualizaciones al iniciar la aplicacion</string>
     <string name="action_all_set">Todo listo</string>
     <string name="action_check_whats_new">¿Qué hay de nuevo?</string>
     <string name="welcome_back_title">Bienvenido de nuevo a Essentials</string>
@@ -1134,7 +1134,7 @@ Cuando llegue un mensaje o alerta de una aplicación seleccionada, la Pantalla s
     <string name="location_reached_fsi_desc">Necesario para activar tu dispositivo al llegar. Toca para concederlo.</string>
     <string name="location_reached_dist_m">%1$d m</string>
     <string name="location_reached_dist_km">%1$.1f km</string>
-    <string name="location_reached_service_title">Alarma de viaje activa</string>
+    <string name="location_reached_service_title">Viajando a %1$s</string>
     <string name="location_reached_service_remaining">%1$s restante (%2$d%%)</string>
     <string name="location_reached_channel_name">Progreso del viaje</string>
     <string name="location_reached_channel_desc">Muestra la distancia al destino en tiempo real</string>

@@ -1,4 +1,5 @@
 <resources>
+    <string name="app_name">Essentials</string>
     <string name="diy_genai_lazy_title">I’m lazy, Do it for me</string>
     <string name="settings_genai_automation_title">Enable GenAI use</string>
 
@@ -1509,6 +1510,8 @@
     <string name="app_canvas">Canvas</string>
     <string name="app_tasks">Tasks</string>
     <string name="app_zero">Zero</string>
+    <string name="label_top_contributors">Top Contributors</string>
+    <string name="contributions_count_format">%1$d contributions</string>
 
     <!-- Help & Guides -->
     <string name="help_guides_title">Help &amp; Guides</string>
@@ -1606,6 +1609,9 @@
     <string name="bug_report_raw_json">Raw Report</string>
     <string name="action_report_github">Open GitHub Issue</string>
     <string name="action_report_email">Email Report</string>
+    <string name="action_save_report">Save Report</string>
+    <string name="toast_report_saved">Report saved</string>
+    <string name="error_save_report">Failed to save report</string>
     <string name="action_copy_clipboard">Copy to Clipboard</string>
     <string name="bug_report_email_subject">Essentials Bug Report</string>
     <string name="bug_report_send_via">Please enable crash reporting as it will automatically report details that would help resolving issues.</string>
@@ -2243,6 +2249,8 @@
     <string name="perm_external_control_label">control Essentials features</string>
     <string name="perm_external_control_desc">read, update and control Essentials features and settings</string>
     <string name="pixel_searchbar_settings_title">Pixel Searchbar Customization</string>
+    <string name="pixel_searchbar_style_searchbar">Search</string>
+    <string name="pixel_searchbar_placeholder">Search phone &amp; web…</string>
     <string name="pixel_searchbar_style_empty">Empty</string>
     <string name="pixel_searchbar_style_date">Date</string>
     <string name="pixel_searchbar_background_pill_title">Background pill</string>
@@ -2308,7 +2316,7 @@
     <string name="translation_menu_translate">Translate</string>
     <string name="translation_menu_view">View All</string>
     <string name="translation_menu_dismiss">Dismiss</string>
-    <string name="translation_source_label">Source (English)</string>
+    <string name="translation_source_label">English (Source)</string>
     <string name="translation_login_required">GitHub login required to submit translations</string>
     <string name="translation_submitting">Submitting…</string>
     <string name="translation_submitted">Submitted! Thank you (‘∀’●)♡</string>
@@ -2324,6 +2332,30 @@
     <string name="translation_warning_point3_title">GitHub Pull Request</string>
     <string name="translation_warning_point3_desc">Submissions automatically create or update a dedicated pull request on GitHub under your account.</string>
     <string name="translation_warning_do_not_show">Do not show again</string>
+    <string name="translation_warning_point4_title">Preserve Format Placeholders</string>
+    <string name="translation_warning_point4_desc" formatted="false">Keep placeholders like %1$s or %2$d intact so dynamic parameters like distances and names display correctly without crashes.</string>
+    <string name="translation_insert_placeholder">Insert placeholder:</string>
+    <string name="translation_format_warning_title">Formatting Warning</string>
+    <string name="translation_format_error_title">Critical Format Error</string>
+    <string name="translation_submit_warnings_prompt">Some translation edits have formatting warnings. Submitting broken placeholders may cause runtime errors or app crashes. Do you want to proceed anyway?</string>
+    <string name="translation_sheet_title">Translate String</string>
+    <string name="translation_sheet_key">Key: %1$s</string>
+    <string name="translation_target_label">Translation (%1$s)</string>
+    <string name="translation_input_placeholder">Enter translation in %1$s…</string>
+    <string name="translation_crash_risk_toast">Warning: String contains invalid characters that may crash the app.</string>
+    <string name="translation_save_edit">Save Edit</string>
+    <string name="translation_submit_anyway">Submit Anyway</string>
+    <string name="translation_review_edits">Review Edits</string>
+    <string name="translation_session_edits_count">%1$d edit(s)</string>
+    <string name="translation_edit_key_locale">Key: %1$s (%2$s)</string>
+    <string name="translation_edit_original">Original: %1$s</string>
+    <string name="translation_edit_new">New: %1$s</string>
+    <string name="translation_action_remove_edit">Remove edit</string>
+    <string name="translation_session_no_edits">No pending edits</string>
+    <string name="translation_menu_translate_title">Translate Title (%1$s)</string>
+    <string name="translation_menu_translate_description">Translate Description (%1$s)</string>
+    <string name="translation_menu_translate_option">Translate Option \'%1$s\' (%2$s)</string>
+    <string name="translation_menu_no_key_found">No string key found</string>
     <string name="msg_missing_accessibility_permission">Missing Accessibility permission!</string>
     <string name="msg_device_admin_required_lockdown">Please enable Device Admin to lockdown this device.</string>
     <string name="msg_shizuku_root_required_lock">Missing Shizuku or Root permission for Input method!</string>
@@ -2414,9 +2446,9 @@
     <string name="watchface_clock_outline_desc">Show only font outlines instead of filled text</string>
     <string name="watchface_clock_outline_thickness">Outline thickness</string>
     <string name="app_medrop">MeDrop</string>
-    <string name="action_licenses_and_credits">Licenses and Credits</string>
+    <string name="action_licenses_and_credits">Licenses</string>
     <string name="licenses_credits_title">Licenses &amp; Credits</string>
-    <string name="licenses_credits_subtitle">Open source projects and contributors powering Essentials</string>
+    <string name="licenses_credits_subtitle">Open source projects powering Essentials</string>
     <string name="watch_complications_title">Complications</string>
     <string name="watch_complications_desc">Customize complication widgets</string>
     <string name="glance_complication_label">At a Glance</string>
@@ -2475,8 +2507,39 @@
     <string name="pixel_search_section_essentials">Essentials</string>
     <string name="pixel_search_section_shortcuts">Shortcuts</string>
     <string name="pixel_search_section_web">Web</string>
+    <string name="pixel_search_section_media">Photos &amp; Videos</string>
+    <string name="pixel_search_section_files">Files &amp; Documents</string>
+    <string name="pixel_search_results_media_title">Photos &amp; videos</string>
+    <string name="pixel_search_results_media_desc">Search photos, videos, and GIFs</string>
+    <string name="pixel_search_results_files_title">Files &amp; documents</string>
+    <string name="pixel_search_results_files_desc">Search documents, audio, and downloaded files</string>
+    <string name="perm_all_files_title">All files access</string>
+    <string name="perm_all_files_desc">Allows Essentials to index and search documents, audio, and downloaded files on your device.</string>
+    <string name="essential_search_label">Essential Search</string>
+    <string name="pixel_search_tab_all">All</string>
+    <string name="pixel_search_tab_apps">Apps</string>
+    <string name="pixel_search_tab_media">Media</string>
+    <string name="pixel_search_tab_files">Files</string>
+    <string name="pixel_search_tab_contacts">Contacts</string>
+    <string name="pixel_search_tab_settings">Settings</string>
+    <string name="pixel_search_tab_web">Web</string>
+    <string name="pixel_search_section_calculation">Calculation</string>
+    <string name="pixel_search_copied_to_clipboard">Copied to clipboard</string>
+    <string name="pixel_search_action_open">Open</string>
+    <string name="pixel_search_action_open_with">Open with&#8230;</string>
+    <string name="pixel_search_action_show_in_folder">Show in file manager</string>
+    <string name="pixel_search_action_share">Share</string>
+    <string name="pixel_search_action_copy_path">Copy path</string>
+    <string name="pixel_search_action_play_store">View in Google Play</string>
+    <string name="pixel_search_action_share_app">Share app</string>
+    <string name="pixel_search_action_call">Call</string>
+    <string name="pixel_search_action_sms">Send SMS</string>
+    <string name="pixel_search_action_view_contact">View contact</string>
+    <string name="pixel_search_action_copy_phone">Copy phone number</string>
     <string name="perm_contacts_title">Contacts permission</string>
     <string name="perm_contacts_desc">To show contacts in Pixel Search results, Essentials needs permission to read your contacts.</string>
+    <string name="perm_files_media_title">Files &amp; media permission</string>
+    <string name="perm_files_media_desc">To search and display photos, videos, audio, and documents in Pixel Search results, Essentials needs permission to access files and media.</string>
     <string name="pixel_search_use_bubbles_title">Use bubbles for web search</string>
     <string name="pixel_search_use_bubbles_desc">Open search results and links in floating bubble overlays</string>
     <string name="pixel_search_engine_title">Search engine</string>
@@ -2543,6 +2606,7 @@
     <string name="duo_differentiate_wifi_desc">Show distinct curved arc segments instead of dots when connected to Wi-Fi</string>
     <string name="duo_show_time_title">Time</string>
     <string name="duo_show_media_title">Media playback</string>
+    <string name="duo_rotate_album_art_title">Rotate album art</string>
     <string name="duo_show_progress_title">Progress notifications</string>
     <string name="duo_show_flashlight_title">Flashlight</string>
     <string name="duo_section_behavior">Behavior</string>
@@ -2626,6 +2690,7 @@
     <string name="status_glance_calendar_timeframe_24_hours">24 hrs</string>
     <string name="status_glance_calendar_timeframe_today">today</string>
     <string name="status_glance_calendar_timeframe_next">Next</string>
+    <string name="status_glance_calendar_show_all_day_title">Show all day events</string>
     <string name="status_glance_calendar_select_calendars_title">Calendars to show</string>
     <string name="status_glance_calendar_no_calendars">No calendars found on device</string>
     <string name="status_glance_calendar_event_in_time">in %1$s</string>
@@ -2641,6 +2706,67 @@
     <string name="action_backup_app_list">Backup app list</string>
     <string name="msg_backup_app_list_success">App list backed up successfully</string>
     <string name="msg_backup_app_list_failed">Failed to back up app list</string>
+
+    <!-- Island -->
+    <string name="island_title">Island</string>
+    <string name="island_desc">Dynamic island</string>
+    <string name="island_enable_title">Enable Island</string>
+    <string name="island_enable_desc">Display dynaic island</string>
+    <string name="island_section_position">Position and dimensions</string>
+    <string name="island_section_placement">Placement</string>
+    <string name="island_section_visuals">Visuals</string>
+    <string name="island_section_duration">Duration</string>
+    <string name="island_section_notifications">Notifications</string>
+    <string name="island_auto_detect_title">Auto-detect camera</string>
+    <string name="island_auto_detect_desc">Automatically locate the front camera cutout</string>
+    <string name="island_camera_offset_x_title">Horizontal position</string>
+    <string name="island_camera_offset_y_title">Vertical position</string>
+    <string name="island_camera_size_title">Camera size</string>
+    <string name="island_max_width_title">Maximum width</string>
+    <string name="island_max_width_desc">Limit expanded width across the screen</string>
+    <string name="island_section_behavior">Behavior</string>
+    <string name="island_suppress_system_heads_up_title">Hide system heads up</string>
+    <string name="island_suppress_system_heads_up_desc">Prevent default Android heads-up banners</string>
+    <string name="island_hide_when_screen_off_title">Hide when screen off</string>
+    <string name="island_hide_when_screen_off_desc">Do not show when screen is locked or off</string>
+    <string name="island_timeout_title">Display duration</string>
+    <string name="island_section_actions">Actions</string>
+    <string name="island_action_tap_title">Single tap</string>
+    <string name="island_action_tap_desc">Open app</string>
+    <string name="island_tap_action_title">Tap action</string>
+    <string name="island_show_time_battery_title">Time and battery</string>
+    <string name="island_battery_style_title">Battery style</string>
+    <string name="island_battery_style_ring">Ring</string>
+    <string name="island_battery_style_icon">Icon</string>
+    <string name="island_tap_action_desc">Choose what tap and long press do</string>
+    <string name="island_tap_action_open">Open</string>
+    <string name="island_tap_action_expand">Expand</string>
+    <string name="island_action_swipe_up_title">Swipe up</string>
+    <string name="island_action_swipe_up_desc">Dismiss</string>
+
+    <string name="island_preview_title">Island</string>
+    <string name="island_preview_sample">Dynamic notifications preview</string>
+    <string name="island_show_glow_title">Show accent glow</string>
+    <string name="island_show_glow_desc">App based color glow</string>
+    <string name="island_expanded_width_title">Expanded width</string>
+    <string name="island_cutout_gap_title">Camera gap</string>
+    <string name="island_expanded_width_desc">Width when long pressed to expand</string>
+    <string name="island_expanded_roundness_title">Expanded corner radius</string>
+    <string name="island_expanded_roundness_desc">Roundness of expanded card</string>
+    <string name="island_expanded_timeout_title">Expanded timeout</string>
+    <string name="island_expanded_timeout_desc">Duration before reverting to collapsed pill (0 for infinity)</string>
+    <string name="island_timeout_infinity">Infinity</string>
+    <string name="island_reply_sent">Reply sent</string>
+    <string name="island_action_executed">Action executed</string>
+    <string name="island_reply_title">Reply</string>
+    <string name="island_reply_hint">Type a message…</string>
+    <string name="island_reply_send">Send</string>
+    <string name="island_expanded_padding_title">Expanded padding</string>
+    <string name="island_expanded_top_padding_title">Expanded top padding</string>
+    <string name="island_catch_up_title">Catch up</string>
+    <string name="island_catch_up_desc">Keep last notification in island for longer</string>
+    <string name="island_catch_up_timeout_title">Catch up duration</string>
+
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
     <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
@@ -2648,7 +2774,10 @@
     <string name="shizuku_permission_missing_desc">Please grant Shizuku permission for Essentials.</string>
     <string name="shizuku_permission_missing_feature_desc">Please grant Shizuku permission for Essentials to use %1$s.</string>
     <string name="shizuku_status_alerts_channel_name">Shizuku Status Alerts</string>
+    <string name="conscious_gate_island_wasting_time">Wasting time</string>
+    <string name="conscious_gate_island_remaining">remaining</string>
     <string name="action_expand_notifications">Expand notifications</string>
     <string name="action_expand_settings">Expand settings</string>
     <string name="action_collapse_status_bar">Collapse status bar</string>
 </resources>
+

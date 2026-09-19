@@ -319,6 +319,11 @@ object FeatureRegistry {
             ) {
                 override fun isEnabled(viewModel: MainViewModel) = viewModel.isAodEnabled.value
 
+                override fun isToggleEnabled(
+                    viewModel: MainViewModel,
+                    context: Context,
+                ) = viewModel.isWriteSecureSettingsEnabled.value
+
                 override fun onToggle(
                     viewModel: MainViewModel,
                     context: Context,
@@ -728,6 +733,65 @@ object FeatureRegistry {
                     context: Context,
                     enabled: Boolean,
                 ) = viewModel.setDuoEnabled(enabled)
+            },
+            object : Feature(
+                id = "Island",
+                title = R.string.island_title,
+                iconRes = R.drawable.rounded_upcoming_24,
+                category = R.string.cat_interface,
+                description = R.string.island_desc,
+                aboutDescription = R.string.island_desc,
+                permissionKeys = listOf("ACCESSIBILITY", "NOTIFICATION_LISTENER"),
+                hasMoreSettings = true,
+                showToggle = true,
+                isBeta = true,
+                searchableSettings =
+                    listOf(
+                        SearchSetting(
+                            R.string.island_max_width_title,
+                            R.string.island_max_width_desc,
+                            "island_max_width",
+                        ),
+                        SearchSetting(
+                            R.string.island_suppress_system_heads_up_title,
+                            R.string.island_suppress_system_heads_up_desc,
+                            "island_suppress_system_heads_up",
+                        ),
+                        SearchSetting(
+                            R.string.island_action_tap_title,
+                            R.string.island_action_tap_desc,
+                            "island_tap_action_enabled",
+                        ),
+                        SearchSetting(
+                            R.string.island_show_time_battery_title,
+                            R.string.island_battery_style_title,
+                            "island_show_time_battery",
+                        ),
+                        SearchSetting(
+                            R.string.island_tap_action_title,
+                            R.string.island_tap_action_desc,
+                            "island_tap_action",
+                        ),
+                        SearchSetting(
+                            R.string.island_action_swipe_up_title,
+                            R.string.island_action_swipe_up_desc,
+                            "island_swipe_up_action_enabled",
+                        ),
+                    ),
+                parentFeatureId = "Display",
+            ) {
+                override fun isEnabled(viewModel: MainViewModel) = viewModel.isIslandEnabled.value
+
+                override fun isToggleEnabled(
+                    viewModel: MainViewModel,
+                    context: Context,
+                ) = viewModel.isAccessibilityEnabled.value && viewModel.isNotificationListenerEnabled.value
+
+                override fun onToggle(
+                    viewModel: MainViewModel,
+                    context: Context,
+                    enabled: Boolean,
+                ) = viewModel.setIslandEnabled(enabled)
             },
             object : Feature(
                 id = "Maps power saving mode",

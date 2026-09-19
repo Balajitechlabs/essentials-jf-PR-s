@@ -9,11 +9,13 @@
 
 package com.sameerasw.essentials.ui.activities
 
+import android.Manifest
 import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -82,6 +84,7 @@ import com.sameerasw.essentials.ui.modifiers.scrollMotionBlur
 import com.sameerasw.essentials.ui.theme.EssentialsTheme
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.PermissionUIHelper
+import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
 
 class PixelSearchbarSettingsActivity : ComponentActivity() {
@@ -225,9 +228,25 @@ fun PixelSearchbarSettingsUI(
     var requestingPermissionKey by remember { mutableStateOf<String?>(null) }
     val currentType = viewModel.pixelSearchbarType.value
 
-    val options = listOf("empty", "date", "widget", "music")
+    val mediaPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) { permissions ->
+            val allGranted = permissions.values.isNotEmpty() && permissions.values.all { it }
+            viewModel.setPixelSearchResultMediaEnabled(allGranted)
+        }
+
+    val contactsPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { isGranted ->
+            viewModel.setPixelSearchResultContactsEnabled(isGranted)
+        }
+
+    val options = listOf("searchbar", "empty", "date", "widget", "music")
     val labels =
         mapOf(
+            "searchbar" to stringResource(R.string.pixel_searchbar_style_searchbar),
             "empty" to stringResource(R.string.pixel_searchbar_style_empty),
             "date" to stringResource(R.string.pixel_searchbar_style_date),
             "widget" to stringResource(R.string.pixel_searchbar_style_widget),
@@ -240,7 +259,28 @@ fun PixelSearchbarSettingsUI(
     // Track the allocated ID so we can deallocate on cancel
     var pendingWidgetId by remember { mutableStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
 
-    // Single launcher — ACTION_APPWIDGET_PICK handles bind permission internally
+    val bindLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val widgetId = pendingWidgetId
+                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val info = awm.getAppWidgetInfo(widgetId)
+                    val providerName = info?.provider?.flattenToString()
+                    viewModel.setPixelSearchbarType("widget", context)
+                    viewModel.setPixelSearchbarWidgetId(widgetId, providerName, context)
+                    WidgetScraperService.start(context)
+                    pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                }
+            } else {
+                if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    widgetHost.deleteAppWidgetId(pendingWidgetId)
+                    pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                }
+            }
+        }
+
     val pickerLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.StartActivityForResult(),
@@ -254,10 +294,23 @@ fun PixelSearchbarSettingsUI(
                     )
                 if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val info = awm.getAppWidgetInfo(widgetId)
-                    val providerName = info?.provider?.flattenToString()
-                    viewModel.setPixelSearchbarType("widget", context)
-                    viewModel.setPixelSearchbarWidgetId(widgetId, providerName, context)
-                    WidgetScraperService.start(context)
+                    val isBound = if (info?.provider != null) {
+                        awm.bindAppWidgetIdIfAllowed(widgetId, info.provider)
+                    } else true
+
+                    if (!isBound && info?.provider != null) {
+                        val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
+                        }
+                        bindLauncher.launch(bindIntent)
+                    } else {
+                        val providerName = info?.provider?.flattenToString()
+                        viewModel.setPixelSearchbarType("widget", context)
+                        viewModel.setPixelSearchbarWidgetId(widgetId, providerName, context)
+                        WidgetScraperService.start(context)
+                        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                    }
                 }
             } else {
                 // Deallocate the ID we pre-allocated if user cancelled
@@ -679,6 +732,8 @@ fun PixelSearchbarSettingsUI(
                 )
 
                 val appsEnabled = viewModel.pixelSearchResultApps.value
+                val mediaEnabled = viewModel.pixelSearchResultMedia.value
+                val filesEnabled = viewModel.pixelSearchResultFiles.value
                 val contactsEnabled = viewModel.pixelSearchResultContacts.value
                 val settingsEnabled = viewModel.pixelSearchResultSettings.value
                 val shortcutsEnabled = viewModel.pixelSearchResultShortcuts.value
@@ -697,6 +752,48 @@ fun PixelSearchbarSettingsUI(
                     )
 
                     IconToggleItem(
+                        iconRes = R.drawable.rounded_image_24,
+                        title = stringResource(R.string.pixel_search_results_media_title),
+                        description = stringResource(R.string.pixel_search_results_media_desc),
+                        isChecked = mediaEnabled,
+                        onCheckedChange = { checked ->
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            if (checked) {
+                                val hasMediaPerm = PermissionUtils.hasMediaPermissions(context)
+                                if (!hasMediaPerm) {
+                                    requestingPermissionKey = "MEDIA"
+                                } else {
+                                    viewModel.setPixelSearchResultMediaEnabled(true)
+                                }
+                            } else {
+                                viewModel.setPixelSearchResultMediaEnabled(false)
+                            }
+                        },
+                    )
+
+                    IconToggleItem(
+                        iconRes = R.drawable.rounded_description_24,
+                        title = stringResource(R.string.pixel_search_results_files_title),
+                        description = stringResource(R.string.pixel_search_results_files_desc),
+                        isChecked = filesEnabled,
+                        onCheckedChange = { checked ->
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            if (checked) {
+                                val hasFilesPerm = PermissionUtils.hasManageExternalStoragePermission(context) ||
+                                    PermissionUtils.hasStoragePermission(context) ||
+                                    viewModel.isStoragePermissionGranted.value
+                                if (!hasFilesPerm) {
+                                    requestingPermissionKey = "ALL_FILES"
+                                } else {
+                                    viewModel.setPixelSearchResultFilesEnabled(true)
+                                }
+                            } else {
+                                viewModel.setPixelSearchResultFilesEnabled(false)
+                            }
+                        },
+                    )
+
+                    IconToggleItem(
                         iconRes = R.drawable.rounded_call_24,
                         title = stringResource(R.string.pixel_search_results_contacts_title),
                         description = stringResource(R.string.pixel_search_results_contacts_desc),
@@ -706,7 +803,7 @@ fun PixelSearchbarSettingsUI(
                             if (checked) {
                                 val hasContactsPerm = androidx.core.content.ContextCompat.checkSelfPermission(
                                     context,
-                                    android.Manifest.permission.READ_CONTACTS,
+                                    Manifest.permission.READ_CONTACTS,
                                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
                                 if (!hasContactsPerm) {
@@ -820,25 +917,133 @@ fun PixelSearchbarSettingsUI(
     }
 
     if (requestingPermissionKey != null) {
+        val key = requestingPermissionKey!!
+        var isPermGranted by remember(key) {
+            mutableStateOf(
+                when (key) {
+                    "MEDIA" -> PermissionUtils.hasMediaPermissions(context)
+                    "ALL_FILES" -> PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context) || viewModel.isStoragePermissionGranted.value
+                    "READ_CONTACTS" -> androidx.core.content.ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.READ_CONTACTS,
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    else -> false
+                }
+            )
+        }
+
+        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+        androidx.compose.runtime.DisposableEffect(lifecycleOwner, key) {
+            val observer =
+                androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        viewModel.check(context)
+                        val granted = when (key) {
+                            "MEDIA" -> PermissionUtils.hasMediaPermissions(context)
+                            "ALL_FILES" -> PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context) || viewModel.isStoragePermissionGranted.value
+                            "READ_CONTACTS" -> androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.READ_CONTACTS,
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            else -> false
+                        }
+                        isPermGranted = granted
+                        if (key == "MEDIA") {
+                            viewModel.setPixelSearchResultMediaEnabled(granted)
+                            if (granted) requestingPermissionKey = null
+                        } else if (key == "ALL_FILES") {
+                            viewModel.setPixelSearchResultFilesEnabled(granted)
+                            if (granted) requestingPermissionKey = null
+                        } else if (key == "READ_CONTACTS") {
+                            viewModel.setPixelSearchResultContactsEnabled(granted)
+                            if (granted) requestingPermissionKey = null
+                        }
+                    }
+                }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
         val permItem =
-            remember(requestingPermissionKey, context, viewModel) {
-                PermissionUIHelper.getPermissionItem(
-                    requestingPermissionKey!!,
-                    context,
-                    viewModel,
-                )
+            remember(key, isPermGranted, context, viewModel) {
+                if (key == "MEDIA") {
+                    com.sameerasw.essentials.ui.core.sheets.PermissionItem(
+                        iconRes = R.drawable.rounded_image_24,
+                        title = R.string.perm_files_media_title,
+                        description = R.string.perm_files_media_desc,
+                        dependentFeatures = listOf(R.string.pixel_search_results_media_title),
+                        actionLabel = if (isPermGranted) R.string.perm_action_granted else R.string.perm_action_grant,
+                        action = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                mediaPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_MEDIA_IMAGES,
+                                        Manifest.permission.READ_MEDIA_VIDEO,
+                                        Manifest.permission.READ_MEDIA_AUDIO,
+                                    ),
+                                )
+                            } else {
+                                mediaPermissionLauncher.launch(
+                                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                                )
+                            }
+                        },
+                        isGranted = isPermGranted,
+                    )
+                } else if (key == "ALL_FILES") {
+                    com.sameerasw.essentials.ui.core.sheets.PermissionItem(
+                        iconRes = R.drawable.rounded_folder_24,
+                        title = R.string.perm_all_files_title,
+                        description = R.string.perm_all_files_desc,
+                        dependentFeatures = listOf(R.string.pixel_search_results_files_title),
+                        actionLabel = if (isPermGranted) R.string.perm_action_granted else R.string.perm_action_grant,
+                        action = {
+                            PermissionUtils.openManageExternalStorageSettings(context)
+                        },
+                        isGranted = isPermGranted,
+                    )
+                } else if (key == "READ_CONTACTS") {
+                    com.sameerasw.essentials.ui.core.sheets.PermissionItem(
+                        iconRes = R.drawable.rounded_call_24,
+                        title = R.string.perm_contacts_title,
+                        description = R.string.perm_contacts_desc,
+                        dependentFeatures = listOf(R.string.pixel_search_results_contacts_title),
+                        actionLabel = if (isPermGranted) R.string.perm_action_granted else R.string.perm_action_grant,
+                        action = {
+                            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                        },
+                        isGranted = isPermGranted,
+                    )
+                } else {
+                    PermissionUIHelper.getPermissionItem(
+                        key,
+                        context,
+                        viewModel,
+                        activity = context as? Activity,
+                    )
+                }
             }
         if (permItem != null) {
             PermissionsBottomSheet(
                 onDismissRequest = {
-                    val key = requestingPermissionKey
+                    val currentKey = requestingPermissionKey
                     requestingPermissionKey = null
-                    if (key == "READ_CONTACTS") {
+                    if (currentKey == "READ_CONTACTS") {
                         val hasContactsPerm = androidx.core.content.ContextCompat.checkSelfPermission(
                             context,
-                            android.Manifest.permission.READ_CONTACTS,
+                            Manifest.permission.READ_CONTACTS,
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         viewModel.setPixelSearchResultContactsEnabled(hasContactsPerm)
+                    } else if (currentKey == "ALL_FILES") {
+                        val hasFilesPerm = PermissionUtils.hasManageExternalStoragePermission(context) ||
+                            PermissionUtils.hasStoragePermission(context) ||
+                            viewModel.isStoragePermissionGranted.value
+                        viewModel.setPixelSearchResultFilesEnabled(hasFilesPerm)
+                    } else if (currentKey == "MEDIA") {
+                        val hasMediaPerm = PermissionUtils.hasMediaPermissions(context)
+                        viewModel.setPixelSearchResultMediaEnabled(hasMediaPerm)
                     }
                 },
                 featureTitle = stringResource(R.string.pixel_search_results_title),
