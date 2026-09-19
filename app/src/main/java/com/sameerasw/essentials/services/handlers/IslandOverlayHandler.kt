@@ -795,6 +795,20 @@ class IslandOverlayHandler(
         scheduleCalendarPoll()
     }
 
+    fun updateState() {
+        mainHandler.post {
+            if (windowManager == null) {
+                windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            }
+            updateOverlay()
+            updateIdlePill()
+            updateFlashlightState()
+            applyCurrentMediaState()
+            pollCalendarEvent()
+            updateConsciousGateState()
+        }
+    }
+
     fun onConfigurationChanged() {
         val landscape = service.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         if (isLandscape != landscape) {
@@ -1039,7 +1053,17 @@ class IslandOverlayHandler(
                     pollCalendarEvent()
                 }
             }
+        } else {
+            overlayView?.isIslandEnabled = settingsRepository.isIslandEnabled()
+            overlayView?.isShowGlow = settingsRepository.isIslandShowGlowEnabled()
+            overlayView?.expandedWidthDp = settingsRepository.getIslandExpandedWidth()
+            overlayView?.expandedCornerRadiusDp = settingsRepository.getIslandExpandedRoundness()
+            overlayView?.expandedPaddingDp = settingsRepository.getIslandExpandedPadding()
+            overlayView?.expandedTopPaddingDp = settingsRepository.getIslandExpandedTopPadding()
+            overlayView?.touchHandler = this@IslandOverlayHandler.touchHandler
+        }
 
+        if (!isOverlayAdded) {
             val params = OverlayHelper.createOverlayLayoutParams(
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -1055,8 +1079,6 @@ class IslandOverlayHandler(
             } catch (e: Exception) {
                 Log.e("IslandOverlayHandler", "Failed to add Island overlay", e)
             }
-        } else {
-            overlayView?.touchHandler = touchHandler
         }
 
         if (touchAnchorView == null) {
