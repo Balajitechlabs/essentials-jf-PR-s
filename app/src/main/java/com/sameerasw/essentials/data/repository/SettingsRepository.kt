@@ -43,6 +43,7 @@ class SettingsRepository(
     init {
         migrateUsageAccessKey()
         migrateRemapStringToAction()
+        migratePixelSearchbarType()
     }
 
     private fun migrateUsageAccessKey() {
@@ -90,6 +91,16 @@ class SettingsRepository(
         }
 
         putBoolean(KEY_BUTTON_REMAP_MIGRATION_DONE, true)
+    }
+
+    private fun migratePixelSearchbarType() {
+        if (!prefs.getBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, false)) {
+            putBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, true)
+            val raw = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, null)
+            if (raw == null || raw == "empty") {
+                putString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar")
+            }
+        }
     }
 
     fun getRemapAction(key: String): Action? {
@@ -1897,17 +1908,7 @@ class SettingsRepository(
      * Executes the get pixel searchbar type operation.
      * @return The resulting String data.
      */
-    fun getPixelSearchbarType(): String {
-        if (!prefs.getBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, false)) {
-            putBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, true)
-            val raw = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, null)
-            if (raw == null || raw == "empty") {
-                putString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar")
-                return "searchbar"
-            }
-        }
-        return prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar") ?: "searchbar"
-    }
+    fun getPixelSearchbarType(): String = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar") ?: "searchbar"
 
     /**
      * Executes the set pixel searchbar type operation.

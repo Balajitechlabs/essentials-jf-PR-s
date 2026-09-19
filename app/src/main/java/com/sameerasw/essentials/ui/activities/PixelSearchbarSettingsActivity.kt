@@ -253,6 +253,7 @@ fun PixelSearchbarSettingsUI(
                     viewModel.setPixelSearchbarType("widget", context)
                     viewModel.setPixelSearchbarWidgetId(widgetId, providerName, context)
                     WidgetScraperService.start(context)
+                    pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
                 }
             } else {
                 if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -290,6 +291,7 @@ fun PixelSearchbarSettingsUI(
                         viewModel.setPixelSearchbarType("widget", context)
                         viewModel.setPixelSearchbarWidgetId(widgetId, providerName, context)
                         WidgetScraperService.start(context)
+                        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
                     }
                 }
             } else {

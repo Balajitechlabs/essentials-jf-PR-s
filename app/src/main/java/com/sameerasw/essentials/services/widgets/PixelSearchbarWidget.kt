@@ -24,6 +24,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import com.sameerasw.essentials.ui.activities.PixelSearchResultsActivity
+import com.sameerasw.essentials.ui.activities.PixelSearchbarTapActivity
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -80,7 +81,7 @@ class PixelSearchbarWidget : GlanceAppWidget() {
 
         val globalTapAction =
             if (tapActionEnabled) {
-                actionStartActivity(com.sameerasw.essentials.ui.activities.PixelSearchbarTapActivity::class.java)
+                actionStartActivity(PixelSearchbarTapActivity::class.java)
             } else {
                 actionStartActivity(PixelSearchResultsActivity::class.java)
             }
@@ -92,13 +93,7 @@ class PixelSearchbarWidget : GlanceAppWidget() {
                         .fillMaxSize()
                         .background(Color.Transparent)
                         .padding(horizontal = paddingH, vertical = paddingV)
-                        .then(
-                            if (globalTapAction != null) {
-                                GlanceModifier.clickable(globalTapAction)
-                            } else {
-                                GlanceModifier
-                            },
-                        )
+                        .clickable(globalTapAction)
 
                 when (type) {
                     "empty" -> {
@@ -120,7 +115,7 @@ class PixelSearchbarWidget : GlanceAppWidget() {
                                 )
                             } else {
                                 val providerName = settingsRepository.getPixelSearchbarWidgetProvider()
-                                val label = providerName?.substringAfterLast(".")?.takeIf { it.isNotEmpty() } ?: "Widget"
+                                val label = providerName?.substringAfterLast(".")?.takeIf { it.isNotEmpty() } ?: context.getString(R.string.pixel_searchbar_style_widget)
                                 Row(
                                     modifier =
                                         GlanceModifier
@@ -288,7 +283,7 @@ class PixelSearchbarWidget : GlanceAppWidget() {
                         ) {
                             Image(
                                 provider = ImageProvider(R.drawable.rounded_search_24),
-                                contentDescription = "Search",
+                                contentDescription = null,
                                 colorFilter = ColorFilter.tint(GlanceTheme.colors.primary),
                                 modifier = GlanceModifier.size(24.dp),
                             )
@@ -306,7 +301,7 @@ class PixelSearchbarWidget : GlanceAppWidget() {
                             )
                             Image(
                                 provider = ImageProvider(R.drawable.rounded_image_search_24),
-                                contentDescription = "Lens",
+                                contentDescription = null,
                                 colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
                                 modifier = GlanceModifier.size(22.dp),
                             )

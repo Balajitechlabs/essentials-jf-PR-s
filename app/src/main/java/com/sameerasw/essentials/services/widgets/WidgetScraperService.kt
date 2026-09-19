@@ -171,7 +171,8 @@ class WidgetScraperService : Service() {
     }
 
     private fun bindAndListenWidget() {
-        // Clear any media components
+        // Clear any previous widget or media components before binding
+        cleanupWidgetListener()
         cleanupMediaListener()
 
         val widgetId = settingsRepository.getPixelSearchbarWidgetId()
@@ -193,6 +194,16 @@ class WidgetScraperService : Service() {
 
         handler.post {
             try {
+                if (appWidgetHost == null) return@post
+
+                if (isViewAttached && scrapingHostView != null && windowManager != null) {
+                    try {
+                        windowManager?.removeView(scrapingHostView)
+                    } catch (_: Exception) {
+                    }
+                    isViewAttached = false
+                }
+
                 val view = host.createView(this, widgetId, info) as? ScrapingHostView
                 scrapingHostView = view
 
@@ -350,6 +361,7 @@ class WidgetScraperService : Service() {
     }
 
     private fun cleanupWidgetListener() {
+        handler.removeCallbacksAndMessages(null)
         if (isViewAttached && scrapingHostView != null && windowManager != null) {
             try {
                 windowManager?.removeView(scrapingHostView)
