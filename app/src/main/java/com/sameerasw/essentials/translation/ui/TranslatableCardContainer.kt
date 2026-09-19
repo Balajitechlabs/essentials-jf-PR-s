@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.translation.TranslationManager
 import com.sameerasw.essentials.ui.components.menus.SegmentedDropdownMenu
@@ -87,7 +88,7 @@ fun TranslatableCardContainer(
 
                 if (keyT != null) {
                     SegmentedDropdownMenuItem(
-                        text = { Text("Translate Title ($keyT)") },
+                        text = { Text(stringResource(R.string.translation_menu_translate_title, keyT)) },
                         onClick = {
                             showMenu = false
                             activeKeyForSheet = keyT
@@ -103,7 +104,7 @@ fun TranslatableCardContainer(
 
                 if (keyD != null) {
                     SegmentedDropdownMenuItem(
-                        text = { Text("Translate Description ($keyD)") },
+                        text = { Text(stringResource(R.string.translation_menu_translate_description, keyD)) },
                         onClick = {
                             showMenu = false
                             activeKeyForSheet = keyD
@@ -119,7 +120,7 @@ fun TranslatableCardContainer(
 
                 if (keyT == null && keyD == null) {
                     SegmentedDropdownMenuItem(
-                        text = { Text("No string key found") },
+                        text = { Text(stringResource(R.string.translation_menu_no_key_found)) },
                         onClick = { showMenu = false },
                     )
                 }
