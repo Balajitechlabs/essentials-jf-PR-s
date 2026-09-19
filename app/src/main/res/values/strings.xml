@@ -2504,6 +2504,10 @@
     <string name="pixel_search_section_essentials">Essentials</string>
     <string name="pixel_search_section_shortcuts">Shortcuts</string>
     <string name="pixel_search_section_web">Web</string>
+    <string name="pixel_search_section_media">Photos &amp; Videos</string>
+    <string name="pixel_search_section_files">Files &amp; Documents</string>
+    <string name="pixel_search_results_files_title">Files &amp; media</string>
+    <string name="pixel_search_results_files_desc">Search photos, videos, GIFs, PDFs, and downloads</string>
     <string name="perm_contacts_title">Contacts permission</string>
     <string name="perm_contacts_desc">To show contacts in Pixel Search results, Essentials needs permission to read your contacts.</string>
     <string name="pixel_search_use_bubbles_title">Use bubbles for web search</string>
