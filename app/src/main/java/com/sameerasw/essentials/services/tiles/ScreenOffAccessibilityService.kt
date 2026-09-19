@@ -331,6 +331,7 @@ class ScreenOffAccessibilityService :
                             aodWallpaperOverlayHandler.onScreenOn()
                             duoOverlayHandler.onScreenOn()
                             statusGlanceHandler.onScreenOn()
+                            islandOverlayHandler.updateState()
                             freezeHandler.removeCallbacks(freezeRunnable)
                             stopInputEventListener()
                             updateOmniOverlay()
@@ -355,6 +356,7 @@ class ScreenOffAccessibilityService :
                         Intent.ACTION_USER_PRESENT -> {
                             aodWallpaperOverlayHandler.onScreenOn()
                             statusGlanceHandler.onUserPresent()
+                            islandOverlayHandler.updateState()
                             val prefs = getSharedPreferences("essentials_prefs", MODE_PRIVATE)
                             if (prefs.getBoolean("pocket_mode_lock_screen_only", false)) {
                                 pocketModeHandler.onScreenOff() // cancel pending timer + remove overlay
@@ -459,6 +461,7 @@ class ScreenOffAccessibilityService :
         updateOmniOverlay()
         duoOverlayHandler.updateState()
         statusGlanceHandler.updateState()
+        islandOverlayHandler.updateState()
     }
 
     private fun updateOmniOverlay() {

@@ -48,6 +48,7 @@ import androidx.work.WorkManager
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.data.repository.UpdateRepository
+import com.sameerasw.essentials.utils.LogManager
 import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.MapsState
 import com.sameerasw.essentials.domain.diy.Action
@@ -153,6 +154,7 @@ class MainViewModel : ViewModel() {
     val isDuoDifferentiateWifi = mutableStateOf(true)
     val isDuoShowTime = mutableStateOf(false)
     val isDuoShowMedia = mutableStateOf(true)
+    val isDuoRotateAlbumArt = mutableStateOf(false)
     val isDuoShowProgress = mutableStateOf(true)
     val isDuoShowFlashlight = mutableStateOf(true)
     val isDuoHideWhenScreenOff = mutableStateOf(true)
@@ -682,6 +684,9 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_DUO_SHOW_MEDIA ->
                         isDuoShowMedia.value = settingsRepository.isDuoShowMediaEnabled()
+
+                    SettingsRepository.KEY_DUO_ROTATE_ALBUM_ART ->
+                        isDuoRotateAlbumArt.value = settingsRepository.isDuoRotateAlbumArtEnabled()
 
                     SettingsRepository.KEY_DUO_SHOW_PROGRESS ->
                         isDuoShowProgress.value = settingsRepository.isDuoShowProgressEnabled()
@@ -2103,6 +2108,7 @@ class MainViewModel : ViewModel() {
         isDuoDifferentiateWifi.value = settingsRepository.isDuoDifferentiateWifiEnabled()
         isDuoShowTime.value = settingsRepository.isDuoShowTimeEnabled()
         isDuoShowMedia.value = settingsRepository.isDuoShowMediaEnabled()
+        isDuoRotateAlbumArt.value = settingsRepository.isDuoRotateAlbumArtEnabled()
         isDuoShowProgress.value = settingsRepository.isDuoShowProgressEnabled()
         isDuoShowFlashlight.value = settingsRepository.isDuoShowFlashlightEnabled()
         isDuoHideWhenScreenOff.value = settingsRepository.isDuoHideWhenScreenOffEnabled()
@@ -2429,6 +2435,8 @@ class MainViewModel : ViewModel() {
         isAodWallpaperKeepOnMedia.value =
             settingsRepository.isAodWallpaperKeepOnMediaEnabled()
         pixelSearchResultApps.value = settingsRepository.isPixelSearchResultAppsEnabled()
+        pixelSearchResultMedia.value = settingsRepository.isPixelSearchResultMediaEnabled()
+        pixelSearchResultFiles.value = settingsRepository.isPixelSearchResultFilesEnabled()
         pixelSearchResultContacts.value = settingsRepository.isPixelSearchResultContactsEnabled()
         pixelSearchResultSettings.value = settingsRepository.isPixelSearchResultSettingsEnabled()
         pixelSearchResultShortcuts.value = settingsRepository.isPixelSearchResultShortcutsEnabled()
@@ -4109,6 +4117,8 @@ class MainViewModel : ViewModel() {
     }
 
     val pixelSearchResultApps = mutableStateOf(true)
+    val pixelSearchResultMedia = mutableStateOf(false)
+    val pixelSearchResultFiles = mutableStateOf(false)
     val pixelSearchResultContacts = mutableStateOf(true)
     val pixelSearchResultSettings = mutableStateOf(true)
     val pixelSearchResultShortcuts = mutableStateOf(true)
@@ -4119,6 +4129,16 @@ class MainViewModel : ViewModel() {
     fun setPixelSearchResultAppsEnabled(enabled: Boolean) {
         pixelSearchResultApps.value = enabled
         settingsRepository.setPixelSearchResultAppsEnabled(enabled)
+    }
+
+    fun setPixelSearchResultMediaEnabled(enabled: Boolean) {
+        pixelSearchResultMedia.value = enabled
+        settingsRepository.setPixelSearchResultMediaEnabled(enabled)
+    }
+
+    fun setPixelSearchResultFilesEnabled(enabled: Boolean) {
+        pixelSearchResultFiles.value = enabled
+        settingsRepository.setPixelSearchResultFilesEnabled(enabled)
     }
 
     fun setPixelSearchResultContactsEnabled(enabled: Boolean) {
@@ -4894,6 +4914,11 @@ class MainViewModel : ViewModel() {
     fun setDuoShowMedia(enabled: Boolean) {
         isDuoShowMedia.value = enabled
         settingsRepository.setDuoShowMediaEnabled(enabled)
+    }
+
+    fun setDuoRotateAlbumArt(enabled: Boolean) {
+        isDuoRotateAlbumArt.value = enabled
+        settingsRepository.setDuoRotateAlbumArtEnabled(enabled)
     }
 
     fun setDuoShowProgress(enabled: Boolean) {
@@ -8190,9 +8215,7 @@ class MainViewModel : ViewModel() {
      * @return The resulting String data.
      */
     fun generateBugReport(context: Context): String {
-        val settingsJson = settingsRepository.getAllConfigsAsJsonString()
-        return com.sameerasw.essentials.utils.LogManager
-            .generateReport(context, settingsJson)
+        return LogManager.generateReport(context)
     }
 
     /**

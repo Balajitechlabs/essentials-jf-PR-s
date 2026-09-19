@@ -146,6 +146,9 @@ class StatusGlanceHandler(
 
     fun updateState() {
         mainHandler.post {
+            if (windowManager == null) {
+                windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            }
             val isEnabled = settingsRepository.isStatusGlanceEnabled()
 
             if (isEnabled) {
@@ -216,6 +219,9 @@ class StatusGlanceHandler(
     }
 
     private fun syncConfigToView() {
+        if (settingsRepository.isStatusGlanceEnabled() && (!isOverlayAdded || glanceView == null)) {
+            createOverlay()
+        }
         glanceView?.let { v ->
             val isNightMode = (service.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             v.isDarkTheme = isNightMode
@@ -269,13 +275,19 @@ class StatusGlanceHandler(
     }
 
     private fun createOverlay() {
-        if (isOverlayAdded || windowManager == null) return
+        if (isOverlayAdded) return
+        if (windowManager == null) {
+            windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        }
+        val wm = windowManager ?: return
 
-        glanceView = StatusGlanceView(service)
+        if (glanceView == null) {
+            glanceView = StatusGlanceView(service)
+        }
         val params = getOverlayLayoutParams()
 
         try {
-            windowManager?.addView(glanceView, params)
+            wm.addView(glanceView, params)
             isOverlayAdded = true
             updateGlancePosition()
         } catch (e: Exception) {

@@ -43,6 +43,7 @@ class SettingsRepository(
     init {
         migrateUsageAccessKey()
         migrateRemapStringToAction()
+        migratePixelSearchbarType()
     }
 
     private fun migrateUsageAccessKey() {
@@ -90,6 +91,16 @@ class SettingsRepository(
         }
 
         putBoolean(KEY_BUTTON_REMAP_MIGRATION_DONE, true)
+    }
+
+    private fun migratePixelSearchbarType() {
+        if (!prefs.getBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, false)) {
+            putBoolean(KEY_PIXEL_SEARCHBAR_MIGRATED_V1, true)
+            val raw = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, null)
+            if (raw == null || raw == "empty") {
+                putString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar")
+            }
+        }
     }
 
     fun getRemapAction(key: String): Action? {
@@ -343,6 +354,8 @@ class SettingsRepository(
         const val KEY_PIXEL_SEARCH_RESULT_SETTINGS = "pixel_search_result_settings"
         const val KEY_PIXEL_SEARCH_RESULT_SHORTCUTS = "pixel_search_result_shortcuts"
         const val KEY_PIXEL_SEARCH_RESULT_WEB = "pixel_search_result_web"
+        const val KEY_PIXEL_SEARCH_RESULT_MEDIA = "pixel_search_result_media"
+        const val KEY_PIXEL_SEARCH_RESULT_FILES = "pixel_search_result_files"
         const val KEY_PIXEL_SEARCH_BUBBLES_WEB = "pixel_search_bubbles_web"
         const val KEY_PIXEL_SEARCH_ENGINE = "pixel_search_engine"
         const val KEY_AUTO_ACCESSIBILITY_ENABLED = "auto_accessibility_enabled"
@@ -393,6 +406,7 @@ class SettingsRepository(
         const val KEY_DUO_DIFFERENTIATE_WIFI = "duo_differentiate_wifi"
         const val KEY_DUO_SHOW_TIME = "duo_show_time"
         const val KEY_DUO_SHOW_MEDIA = "duo_show_media"
+        const val KEY_DUO_ROTATE_ALBUM_ART = "duo_rotate_album_art"
         const val KEY_DUO_SHOW_PROGRESS = "duo_show_progress"
         const val KEY_DUO_SHOW_FLASHLIGHT = "duo_show_flashlight"
         const val KEY_DUO_HIDE_WHEN_SCREEN_OFF = "duo_hide_when_screen_off"
@@ -498,6 +512,7 @@ class SettingsRepository(
         const val KEY_STANDBY_APPS = "standby_apps"
         const val KEY_PIXEL_SEARCHBAR = "pixel_searchbar"
         const val KEY_PIXEL_SEARCHBAR_TYPE = "pixel_searchbar_type"
+        const val KEY_PIXEL_SEARCHBAR_MIGRATED_V1 = "pixel_searchbar_migrated_v1"
         const val KEY_PIXEL_SEARCHBAR_DATE_FORMAT = "pixel_searchbar_date_format"
         const val KEY_PIXEL_SEARCHBAR_BACKGROUND_PILL = "pixel_searchbar_background_pill"
         const val KEY_PIXEL_SEARCHBAR_WIDGET_ID = "pixel_searchbar_widget_id"
@@ -1896,7 +1911,7 @@ class SettingsRepository(
      * Executes the get pixel searchbar type operation.
      * @return The resulting String data.
      */
-    fun getPixelSearchbarType(): String = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, "empty") ?: "empty"
+    fun getPixelSearchbarType(): String = prefs.getString(KEY_PIXEL_SEARCHBAR_TYPE, "searchbar") ?: "searchbar"
 
     /**
      * Executes the set pixel searchbar type operation.
@@ -3204,6 +3219,12 @@ class SettingsRepository(
     fun isPixelSearchResultWebEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_WEB, true)
     fun setPixelSearchResultWebEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_WEB, enabled)
 
+    fun isPixelSearchResultMediaEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_MEDIA, false)
+    fun setPixelSearchResultMediaEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_MEDIA, enabled)
+
+    fun isPixelSearchResultFilesEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_FILES, false)
+    fun setPixelSearchResultFilesEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_FILES, enabled)
+
     fun isPixelSearchBubblesWebEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_BUBBLES_WEB, false)
     fun setPixelSearchBubblesWebEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_BUBBLES_WEB, enabled)
 
@@ -3320,6 +3341,9 @@ class SettingsRepository(
 
     fun isDuoShowMediaEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_MEDIA, true)
     fun setDuoShowMediaEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_MEDIA, enabled)
+
+    fun isDuoRotateAlbumArtEnabled(): Boolean = getBoolean(KEY_DUO_ROTATE_ALBUM_ART, false)
+    fun setDuoRotateAlbumArtEnabled(enabled: Boolean) = putBoolean(KEY_DUO_ROTATE_ALBUM_ART, enabled)
 
     fun isDuoShowProgressEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_PROGRESS, true)
     fun setDuoShowProgressEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_PROGRESS, enabled)

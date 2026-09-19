@@ -473,18 +473,49 @@ object PermissionUIHelper {
                 )
             }
 
-            AppPermission.STORAGE ->
+            AppPermission.STORAGE -> {
+                val isGranted = PermissionUtils.hasStoragePermission(context)
+                var targetActivity: Activity? = activity
+                if (targetActivity == null) {
+                    var ctx: Context? = context
+                    while (ctx is android.content.ContextWrapper) {
+                        if (ctx is Activity) {
+                            targetActivity = ctx
+                            break
+                        }
+                        ctx = ctx.baseContext
+                    }
+                }
+
+                val descriptionRes =
+                    if (PermissionRegistry.getFeatures(permission).contains(R.string.pixel_search_results_files_title)) {
+                        R.string.perm_files_media_desc
+                    } else {
+                        R.string.perm_storage_desc
+                    }
+
                 PermissionItem(
                     iconRes = permission.iconRes,
                     title = permission.titleRes,
-                    description = R.string.perm_storage_desc,
+                    description = descriptionRes,
                     dependentFeatures = PermissionRegistry.getFeatures(permission),
-                    actionLabel = if (PermissionUtils.hasStoragePermission(context)) R.string.perm_action_granted else R.string.perm_action_grant,
+                    actionLabel = if (isGranted) R.string.perm_action_granted else R.string.perm_action_grant,
                     action = {
-                        PermissionUtils.openManageExternalStorageSettings(context)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            PermissionUtils.openManageExternalStorageSettings(context)
+                        } else if (targetActivity != null) {
+                            ActivityCompat.requestPermissions(
+                                targetActivity,
+                                arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
+                                110,
+                            )
+                        } else {
+                            PermissionUtils.openManageExternalStorageSettings(context)
+                        }
                     },
-                    isGranted = PermissionUtils.hasStoragePermission(context),
+                    isGranted = isGranted,
                 )
+            }
 
             AppPermission.NOTIFICATION_BUBBLES ->
                 PermissionItem(

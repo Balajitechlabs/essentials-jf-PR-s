@@ -229,6 +229,14 @@ class DuoOverlayView(context: Context) : View(context) {
             }
         }
 
+    var isRotateAlbumArt: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                updateMediaArtSpin()
+            }
+        }
+
     var showProgress: Boolean = true
         set(value) {
             if (field != value) {
@@ -263,6 +271,7 @@ class DuoOverlayView(context: Context) : View(context) {
             animateScreenOffVisibility(true)
             animateThemeChange()
         }
+        updateMediaArtSpin()
     }
 
     var useMaterialYouColors: Boolean = true
@@ -463,6 +472,7 @@ class DuoOverlayView(context: Context) : View(context) {
         const val INTERACTIVE_MODE_BRIGHTNESS = 2
         const val INTERACTIVE_MODE_TRACK = 3
         const val INTERACTIVE_MODE_SOUND_MODE = 4
+        const val MEDIA_ART_SPIN_DURATION_MS = 32000L
     }
 
     private var interactiveMode: Int = INTERACTIVE_MODE_NONE
@@ -476,6 +486,8 @@ class DuoOverlayView(context: Context) : View(context) {
     private var tapAnimator: ValueAnimator? = null
     private var pullDownAnimator: ValueAnimator? = null
     private var trackRotationAnimator: ValueAnimator? = null
+    private var mediaArtRotation: Float = 0f
+    private var mediaArtSpinAnimator: ValueAnimator? = null
 
     private var brightnessBitmap: Bitmap? = null
 
@@ -827,6 +839,41 @@ class DuoOverlayView(context: Context) : View(context) {
         }
     }
 
+    private fun isMediaArtDisplayed(): Boolean {
+        return isMediaPlaying &&
+            showMedia &&
+            isRotateAlbumArt &&
+            !isScreenOff &&
+            visibility == VISIBLE &&
+            windowVisibility == VISIBLE &&
+            interactiveMode == INTERACTIVE_MODE_NONE &&
+            !isChargingAnnounce &&
+            !(isFlashlightOn && showFlashlight) &&
+            mediaAppIcon != null
+    }
+
+    private fun updateMediaArtSpin() {
+        if (isMediaArtDisplayed()) {
+            if (mediaArtSpinAnimator?.isRunning == true) return
+            mediaArtSpinAnimator?.cancel()
+            val start = mediaArtRotation
+            mediaArtSpinAnimator = ValueAnimator.ofFloat(start, start + 360f).apply {
+                duration = MEDIA_ART_SPIN_DURATION_MS
+                interpolator = LinearInterpolator()
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                addUpdateListener { anim ->
+                    mediaArtRotation = (anim.animatedValue as Float) % 360f
+                    invalidate()
+                }
+                start()
+            }
+        } else {
+            mediaArtSpinAnimator?.cancel()
+            mediaArtSpinAnimator = null
+        }
+    }
+
     private fun updateActiveProgressMode() {
         val wasActive = animatedCustomFraction > 0.5f
         val isNowActive = isCustomProgressActive()
@@ -841,6 +888,7 @@ class DuoOverlayView(context: Context) : View(context) {
             updateVisibilityAnimation()
         }
         updateProgressAnimation()
+        updateMediaArtSpin()
     }
 
     fun setMediaState(isPlaying: Boolean, progress: Float, appIcon: Bitmap?) {
@@ -866,6 +914,7 @@ class DuoOverlayView(context: Context) : View(context) {
             updateVisibilityAnimation()
         }
         updateProgressAnimation()
+        updateMediaArtSpin()
     }
 
     fun setProgressNotificationState(isActive: Boolean, progress: Float, icon: Bitmap?) {
@@ -889,6 +938,7 @@ class DuoOverlayView(context: Context) : View(context) {
             updateVisibilityAnimation()
         }
         updateProgressAnimation()
+        updateMediaArtSpin()
     }
 
     fun setFlashlightState(isOn: Boolean, brightnessProgress: Float, icon: Bitmap?) {
@@ -922,6 +972,7 @@ class DuoOverlayView(context: Context) : View(context) {
         if (progressChanged || stateChanged) {
             updateProgressAnimation()
         }
+        updateMediaArtSpin()
     }
 
     private var targetProgress: Float = 100f
@@ -1771,12 +1822,6 @@ class DuoOverlayView(context: Context) : View(context) {
                     iconClipPath.addCircle(iconCenterX, iconCenterY, iconRadius, Path.Direction.CW)
                     canvas.clipPath(iconClipPath)
 
-                    iconRect.set(
-                        iconCenterX - iconRadius,
-                        iconCenterY - iconRadius,
-                        iconCenterX + iconRadius,
-                        iconCenterY + iconRadius
-                    )
                     iconPaint.alpha = (255 * animatedCustomFraction * animatedVisibilityAlpha).toInt()
                     val isTintable = (isFlashlightOn && showFlashlight) ||
                         isChargingAnnounce ||
@@ -1788,7 +1833,28 @@ class DuoOverlayView(context: Context) : View(context) {
                     } else {
                         iconPaint.colorFilter = null
                     }
-                    canvas.drawBitmap(icon, null, iconRect, iconPaint)
+                    val isSpinningMediaArt = icon === mediaAppIcon && isMediaArtDisplayed()
+                    if (isSpinningMediaArt) {
+                        canvas.save()
+                        canvas.rotate(mediaArtRotation, iconCenterX, iconCenterY)
+                        val coverRadius = iconRadius * 1.42f
+                        iconRect.set(
+                            iconCenterX - coverRadius,
+                            iconCenterY - coverRadius,
+                            iconCenterX + coverRadius,
+                            iconCenterY + coverRadius
+                        )
+                        canvas.drawBitmap(icon, null, iconRect, iconPaint)
+                        canvas.restore()
+                    } else {
+                        iconRect.set(
+                            iconCenterX - iconRadius,
+                            iconCenterY - iconRadius,
+                            iconCenterX + iconRadius,
+                            iconCenterY + iconRadius
+                        )
+                        canvas.drawBitmap(icon, null, iconRect, iconPaint)
+                    }
                     canvas.restoreToCount(saveIcon)
                 }
             }
@@ -1798,10 +1864,27 @@ class DuoOverlayView(context: Context) : View(context) {
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        updateMediaArtSpin()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        updateMediaArtSpin()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        updateMediaArtSpin()
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         removeCallbacks(revertChargingRunnable)
         removeCallbacks(revertInteractiveRunnable)
+        mediaArtSpinAnimator?.cancel()
+        mediaArtSpinAnimator = null
         tracerAnimator?.cancel()
         progressAnimator?.cancel()
         signalAnimator?.cancel()
