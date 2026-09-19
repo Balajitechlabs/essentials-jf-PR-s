@@ -51,7 +51,6 @@ sealed class PixelSearchResultItem {
     data class WebItem(
         val query: String,
     ) : PixelSearchResultItem()
-
     data class FileItem(
         val id: Long,
         val uri: android.net.Uri,
