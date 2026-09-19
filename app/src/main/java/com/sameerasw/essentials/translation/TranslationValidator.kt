@@ -26,8 +26,8 @@ object TranslationValidator {
     // Malformed positional tokens with non-ASCII characters (e.g. Cyrillic ф)
     private val NON_ASCII_SPEC_REGEX = Pattern.compile("%(\\d+)\\$[-+ #0(]*\\d*(?:\\.\\d+)?([^\\u0000-\\u007F])")
 
-    // Comma instead of dot in format specifier (e.g. %1,1f)
-    private val COMMA_SPEC_REGEX = Pattern.compile("%(\\d+)\\$,\\d*[a-zA-Z]")
+    // Comma instead of dot in format specifier (e.g. %1,1f or %1$,1f)
+    private val COMMA_SPEC_REGEX = Pattern.compile("%(\\d+)(?:\\$,|,)\\d*[a-zA-Z]")
 
     /**
      * Extracts distinct placeholder tokens from a source string (e.g., ["%1$s", "%2$d"]).
@@ -94,11 +94,17 @@ object TranslationValidator {
             warnings.add("Malformed token '$matchStr' contains invalid non-ASCII character '$badChar'. This will crash the app at runtime!")
         }
 
-        // 3. Comma delimiter in format specifier (e.g. %1,1f)
+        // 3. Comma delimiter in format specifier (e.g. %1,1f or %1$,1f)
         val commaMatcher = COMMA_SPEC_REGEX.matcher(translatedText)
         while (commaMatcher.find()) {
             val matchStr = commaMatcher.group(0) ?: ""
-            warnings.add("Format token '$matchStr' uses a comma instead of a decimal point. Use '${matchStr.replace(",", ".")}'.")
+            val suggested =
+                if (matchStr.contains("$,")) {
+                    matchStr.replace("$,", "$.")
+                } else {
+                    matchStr.replace(",", "$.")
+                }
+            warnings.add("Format token '$matchStr' uses a comma instead of a decimal point. Use '$suggested'.")
         }
 
         // 4. Unescaped single quotes

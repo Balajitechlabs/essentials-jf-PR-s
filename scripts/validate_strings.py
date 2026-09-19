@@ -37,7 +37,7 @@ INVALID_ESCAPE_REGEX = re.compile(r'\\([^\'"\\nt?@u])|\\u(?![0-9a-fA-F]{4})')
 # Format specifiers regex: %1$s, %2$d, %s, %d, %1$.1f, %% etc.
 FORMAT_SPEC_REGEX = re.compile(r'%(?:(\d+)\$)?[-+ #0(]*\d*(?:\.\d+)?[a-zA-Z%]')
 NON_ASCII_SPEC_REGEX = re.compile(r'%(\d+)\$[-+ #0(]*\d*(?:\.\d+)?([^\x00-\x7f])')
-COMMA_SPEC_REGEX = re.compile(r'%(\d+)\$,\d*[a-zA-Z]')
+COMMA_SPEC_REGEX = re.compile(r'%(\d+)(?:\$,|,)\d*[a-zA-Z]')
 
 def get_base_strings(base_path):
     """Loads base strings from values/strings.xml into a dict: {key: (raw_val, placeholders)}"""
