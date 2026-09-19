@@ -124,9 +124,9 @@ import com.sameerasw.essentials.utils.DeviceUtils
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.utils.PermissionUIHelper
+import com.sameerasw.essentials.ui.core.sheets.BugReportBottomSheet
 import com.sameerasw.essentials.viewmodels.GitHubAuthViewModel
 import com.sameerasw.essentials.viewmodels.MainViewModel
-import com.sameerasw.essentials.ui.core.sheets.CrashLogsBottomSheet
 import rikka.shizuku.Shizuku
 import java.io.File
 import java.text.SimpleDateFormat
@@ -171,7 +171,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
 
                 if (showBugReportSheet) {
-                    com.sameerasw.essentials.ui.core.sheets.BugReportBottomSheet(
+                    BugReportBottomSheet(
                         viewModel = viewModel,
                         onDismissRequest = { showBugReportSheet = false },
                     )
@@ -337,7 +337,6 @@ fun SettingsContent(
     val isRootPermissionGranted by viewModel.isRootPermissionGranted
     val isDeveloperModeEnabled by viewModel.isDeveloperModeEnabled
     var showInstructionsSheet by remember { mutableStateOf(false) }
-    var showCrashLogsSheet by remember { mutableStateOf(false) }
     var showShizukuHelpBottomSheet by remember { mutableStateOf(false) }
     var showUnsupportedFeaturesSheet by remember { mutableStateOf(false) }
     var showPreReleaseConfirmSheet by remember { mutableStateOf(false) }
@@ -454,12 +453,6 @@ fun SettingsContent(
     if (showInstructionsSheet) {
         InstructionsBottomSheet(
             onDismissRequest = { showInstructionsSheet = false },
-        )
-    }
-
-    if (showCrashLogsSheet) {
-        CrashLogsBottomSheet(
-            onDismissRequest = { showCrashLogsSheet = false },
         )
     }
 
@@ -1641,15 +1634,7 @@ fun SettingsContent(
                     }
                 }
 
-                IconToggleItem(
-                    iconRes = R.drawable.rounded_bug_report_24,
-                    title = stringResource(R.string.crash_logs_title),
-                    description = stringResource(R.string.crash_logs_desc),
-                    showToggle = false,
-                    onClick = {
-                        showCrashLogsSheet = true
-                    },
-                )
+
 
                 Row(
                     modifier =
