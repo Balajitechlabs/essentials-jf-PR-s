@@ -48,6 +48,7 @@ import androidx.work.WorkManager
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.SettingsRepository
 import com.sameerasw.essentials.data.repository.UpdateRepository
+import com.sameerasw.essentials.utils.LogManager
 import com.sameerasw.essentials.domain.HapticFeedbackType
 import com.sameerasw.essentials.domain.MapsState
 import com.sameerasw.essentials.domain.diy.Action
@@ -8190,9 +8191,7 @@ class MainViewModel : ViewModel() {
      * @return The resulting String data.
      */
     fun generateBugReport(context: Context): String {
-        val settingsJson = settingsRepository.getAllConfigsAsJsonString()
-        return com.sameerasw.essentials.utils.LogManager
-            .generateReport(context, settingsJson)
+        return LogManager.generateReport(context)
     }
 
     /**

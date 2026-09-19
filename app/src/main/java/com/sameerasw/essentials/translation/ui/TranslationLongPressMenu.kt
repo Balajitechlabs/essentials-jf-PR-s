@@ -62,7 +62,7 @@ fun TranslationLongPressMenu(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "Key: $stringKey",
+                        text = stringResource(R.string.translation_sheet_key, stringKey),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,

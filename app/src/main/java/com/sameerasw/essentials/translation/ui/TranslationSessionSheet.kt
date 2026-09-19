@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,10 +30,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -51,9 +51,12 @@ import androidx.compose.ui.unit.dp
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.data.repository.GitHubRepository
 import com.sameerasw.essentials.data.repository.SettingsRepository
+import com.sameerasw.essentials.translation.StringLoader
 import com.sameerasw.essentials.translation.TranslationManager
+import com.sameerasw.essentials.translation.TranslationValidator
 import com.sameerasw.essentials.translation.model.TranslationEdit
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
+import com.sameerasw.essentials.ui.core.sheets.EssentialsBottomSheet
 import com.sameerasw.essentials.utils.HapticUtil
 import kotlinx.coroutines.launch
 
@@ -66,7 +69,6 @@ fun TranslationSessionSheet(
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val settingsRepository = remember { SettingsRepository(context) }
     val gitHubRepository = remember { GitHubRepository() }
@@ -78,21 +80,100 @@ fun TranslationSessionSheet(
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successSubmitted by remember { mutableStateOf(false) }
+    var showWarningDialog by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
+    val performSubmit = {
+        val token = settingsRepository.getGitHubToken()
+        if (token == null || currentUser == null) {
+            onNeedLogin()
+        } else {
+            isSubmitting = true
+            errorMessage = null
+            scope.launch {
+                val jsonPayload = TranslationManager.session.toJsonPayload()
+                val commentBody =
+                    "Automated translation submission from Essentials app.\n\n```json\n$jsonPayload\n```"
+                Log.d(
+                    "TranslationSessionSheet",
+                    "Posting submission comment for user: ${currentUser.login}",
+                )
+                val success =
+                    gitHubRepository.addDiscussionComment(
+                        token = token,
+                        owner = "sameerasw",
+                        repo = "essentials",
+                        discussionNumber = 601,
+                        body = commentBody,
+                    )
+                isSubmitting = false
+                if (success) {
+                    Log.d(
+                        "TranslationSessionSheet",
+                        "Discussion comment posted successfully",
+                    )
+                    successSubmitted = true
+                    TranslationManager.discardSession()
+                } else {
+                    Log.e(
+                        "TranslationSessionSheet",
+                        "Posting discussion comment failed",
+                    )
+                    errorMessage =
+                        context.getString(R.string.translation_submit_error)
+                }
+            }
+        }
+    }
+
+    if (showWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showWarningDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.translation_format_warning_title),
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(text = stringResource(R.string.translation_submit_warnings_prompt))
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        HapticUtil.performUIHaptic(view)
+                        showWarningDialog = false
+                        performSubmit()
+                    },
+                ) {
+                    Text(stringResource(R.string.translation_submit_anyway))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        HapticUtil.performUIHaptic(view)
+                        showWarningDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.translation_review_edits))
+                }
+            },
+        )
+    }
+
+    EssentialsBottomSheet(
         onDismissRequest = {
             if (successSubmitted) {
                 TranslationManager.discardSession()
             }
             onDismissRequest()
         },
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -109,7 +190,7 @@ fun TranslationSessionSheet(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${edits.size} edit(s)",
+                        text = stringResource(R.string.translation_session_edits_count, edits.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -134,46 +215,19 @@ fun TranslationSessionSheet(
                     Button(
                         onClick = {
                             HapticUtil.performUIHaptic(view)
-                            val token = settingsRepository.getGitHubToken()
-                            if (token == null || currentUser == null) {
-                                onNeedLogin()
-                                return@Button
-                            }
-
-                            isSubmitting = true
-                            errorMessage = null
-                            scope.launch {
-                                val jsonPayload = TranslationManager.session.toJsonPayload()
-                                val commentBody =
-                                    "Automated translation submission from Essentials app.\n\n```json\n$jsonPayload\n```"
-                                Log.d(
-                                    "TranslationSessionSheet",
-                                    "Posting submission comment for user: ${currentUser.login}",
-                                )
-                                val success =
-                                    gitHubRepository.addDiscussionComment(
-                                        token = token,
-                                        owner = "sameerasw",
-                                        repo = "essentials",
-                                        discussionNumber = 601,
-                                        body = commentBody,
-                                    )
-                                isSubmitting = false
-                                if (success) {
-                                    Log.d(
-                                        "TranslationSessionSheet",
-                                        "Discussion comment posted successfully",
-                                    )
-                                    successSubmitted = true
-                                    TranslationManager.discardSession()
-                                } else {
-                                    Log.e(
-                                        "TranslationSessionSheet",
-                                        "Posting discussion comment failed",
-                                    )
-                                    errorMessage =
-                                        context.getString(R.string.translation_submit_error)
+                            val hasAnyWarning =
+                                edits.any { edit ->
+                                    val src =
+                                        StringLoader.getTranslationsForKey(
+                                            context,
+                                            edit.key,
+                                        )["en"] ?: ""
+                                    !TranslationValidator.validate(src, edit.newValue).isValid
                                 }
+                            if (hasAnyWarning) {
+                                showWarningDialog = true
+                            } else {
+                                performSubmit()
                             }
                         },
                         enabled = !isSubmitting && edits.isNotEmpty() && !successSubmitted,
@@ -214,68 +268,106 @@ fun TranslationSessionSheet(
             // Edits List wrapped in RoundedCardContainer
             if (edits.isNotEmpty()) {
                 RoundedCardContainer {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        items(
-                            items = edits,
-                            key = { "${it.key}_${it.locale}" },
-                        ) { edit ->
-                            ListItem(
-                                headlineContent = {
+                    edits.forEach { edit ->
+                        val sourceEnglish =
+                            remember(edit.key) {
+                                StringLoader.getTranslationsForKey(context, edit.key)["en"] ?: ""
+                            }
+                        val validation =
+                            remember(sourceEnglish, edit.newValue) {
+                                TranslationValidator.validate(sourceEnglish, edit.newValue)
+                            }
+
+                        ListItem(
+                            modifier =
+                                Modifier
+                                    .clip(MaterialTheme.shapes.extraSmall)
+                                    .background(color = MaterialTheme.colorScheme.surfaceBright),
+                            supportingContent = {
+                                Column {
                                     Text(
-                                        text = "Key: ${edit.key} (${edit.locale.uppercase()})",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
+                                        text = stringResource(R.string.translation_edit_original, edit.originalValue),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                },
-                                supportingContent = {
-                                    Column {
-                                        Text(
-                                            text = "Original: ${edit.originalValue}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                        Text(
-                                            text = "New: ${edit.newValue}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                },
-                                trailingContent =
-                                    if (!successSubmitted) {
-                                        {
-                                            IconButton(
-                                                onClick = {
-                                                    HapticUtil.performUIHaptic(view)
-                                                    TranslationManager.removeEdit(edit.key, edit.locale)
-                                                    edits.remove(edit)
-                                                },
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.rounded_delete_24),
-                                                    contentDescription = "Remove edit",
-                                                    tint = MaterialTheme.colorScheme.error,
-                                                )
-                                            }
+                                    Text(
+                                        text = stringResource(R.string.translation_edit_new, edit.newValue),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    if (!validation.isValid) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            modifier = Modifier.padding(top = 4.dp),
+                                        ) {
+                                            Icon(
+                                                painter =
+                                                    painterResource(
+                                                        if (validation.hasCrashRisk) {
+                                                            R.drawable.rounded_release_alert_24
+                                                        } else {
+                                                            R.drawable.rounded_info_24
+                                                        },
+                                                    ),
+                                                contentDescription = null,
+                                                tint =
+                                                    if (validation.hasCrashRisk) {
+                                                        MaterialTheme.colorScheme.error
+                                                    } else {
+                                                        MaterialTheme.colorScheme.tertiary
+                                                    },
+                                                modifier = Modifier.size(14.dp),
+                                            )
+                                            Text(
+                                                text = validation.warnings.first(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color =
+                                                    if (validation.hasCrashRisk) {
+                                                        MaterialTheme.colorScheme.error
+                                                    } else {
+                                                        MaterialTheme.colorScheme.tertiary
+                                                    },
+                                                maxLines = 1,
+                                            )
                                         }
-                                    } else {
-                                        null
-                                    },
-                                modifier =
-                                    Modifier
-                                        .clip(MaterialTheme.shapes.extraSmall)
-                                        .background(color = MaterialTheme.colorScheme.surfaceBright),
+                                    }
+                                }
+                            },
+                            trailingContent =
+                                if (!successSubmitted) {
+                                    {
+                                        IconButton(
+                                            onClick = {
+                                                HapticUtil.performUIHaptic(view)
+                                                TranslationManager.removeEdit(edit.key, edit.locale)
+                                                edits.remove(edit)
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_delete_24),
+                                                contentDescription = stringResource(R.string.translation_action_remove_edit),
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                        ) {
+                            Text(
+                                text = stringResource(R.string.translation_edit_key_locale, edit.key, edit.locale.uppercase()),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
                 }
             } else {
                 Text(
-                    text = "No pending edits",
+                    text = stringResource(R.string.translation_session_no_edits),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp),
