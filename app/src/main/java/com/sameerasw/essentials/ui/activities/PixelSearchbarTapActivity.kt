@@ -9,6 +9,7 @@
 
 package com.sameerasw.essentials.ui.activities
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
@@ -33,6 +34,11 @@ class PixelSearchbarTapActivity : ComponentActivity() {
                 finish()
             }
         } else {
+            val resultsIntent =
+                Intent(this, PixelSearchResultsActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+            startActivity(resultsIntent)
             finish()
         }
     }
