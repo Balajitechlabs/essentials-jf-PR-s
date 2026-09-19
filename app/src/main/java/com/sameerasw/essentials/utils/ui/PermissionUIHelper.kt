@@ -487,10 +487,17 @@ object PermissionUIHelper {
                     }
                 }
 
+                val descriptionRes =
+                    if (PermissionRegistry.getFeatures(permission).contains(R.string.pixel_search_results_files_title)) {
+                        R.string.perm_files_media_desc
+                    } else {
+                        R.string.perm_storage_desc
+                    }
+
                 PermissionItem(
                     iconRes = permission.iconRes,
                     title = permission.titleRes,
-                    description = R.string.perm_storage_desc,
+                    description = descriptionRes,
                     dependentFeatures = PermissionRegistry.getFeatures(permission),
                     actionLabel = if (isGranted) R.string.perm_action_granted else R.string.perm_action_grant,
                     action = {

@@ -2533,6 +2533,8 @@
     <string name="pixel_search_action_copy_phone">Copy phone number</string>
     <string name="perm_contacts_title">Contacts permission</string>
     <string name="perm_contacts_desc">To show contacts in Pixel Search results, Essentials needs permission to read your contacts.</string>
+    <string name="perm_files_media_title">Files &amp; media permission</string>
+    <string name="perm_files_media_desc">To search and display photos, videos, audio, and documents in Pixel Search results, Essentials needs permission to access files and media.</string>
     <string name="pixel_search_use_bubbles_title">Use bubbles for web search</string>
     <string name="pixel_search_use_bubbles_desc">Open search results and links in floating bubble overlays</string>
     <string name="pixel_search_engine_title">Search engine</string>

@@ -591,7 +591,7 @@ object PermissionUtils {
         }
     }
 
-    fun hasStoragePermission(context: Context): Boolean {
+    fun hasMediaPermissions(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasImages = androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
@@ -605,12 +605,16 @@ object PermissionUtils {
                 context,
                 android.Manifest.permission.READ_MEDIA_AUDIO,
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            (hasImages || hasVideo || hasAudio) || hasManageExternalStoragePermission(context)
+            hasImages && hasVideo && hasAudio
         } else {
             androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED || hasManageExternalStoragePermission(context)
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
+    }
+
+    fun hasStoragePermission(context: Context): Boolean {
+        return hasMediaPermissions(context) || hasManageExternalStoragePermission(context)
     }
 }

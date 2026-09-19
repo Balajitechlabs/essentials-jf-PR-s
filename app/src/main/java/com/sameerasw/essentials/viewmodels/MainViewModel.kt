@@ -4111,7 +4111,7 @@ class MainViewModel : ViewModel() {
     }
 
     val pixelSearchResultApps = mutableStateOf(true)
-    val pixelSearchResultFiles = mutableStateOf(true)
+    val pixelSearchResultFiles = mutableStateOf(false)
     val pixelSearchResultContacts = mutableStateOf(true)
     val pixelSearchResultSettings = mutableStateOf(true)
     val pixelSearchResultShortcuts = mutableStateOf(true)
