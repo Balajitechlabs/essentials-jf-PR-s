@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.sameerasw.essentials.R
 import com.sameerasw.essentials.translation.TranslationManager
 import com.sameerasw.essentials.ui.components.menus.SegmentedDropdownMenuItem
@@ -32,7 +33,7 @@ fun TranslationMenuItems(
 
     if (keyTitle != null) {
         SegmentedDropdownMenuItem(
-            text = { Text("Translate Title ($keyTitle)") },
+            text = { Text(stringResource(R.string.translation_menu_translate_title, keyTitle)) },
             onClick = { onSelectKey(keyTitle) },
             leadingIcon = {
                 Icon(
@@ -45,7 +46,7 @@ fun TranslationMenuItems(
 
     if (keyDesc != null) {
         SegmentedDropdownMenuItem(
-            text = { Text("Translate Description ($keyDesc)") },
+            text = { Text(stringResource(R.string.translation_menu_translate_description, keyDesc)) },
             onClick = { onSelectKey(keyDesc) },
             leadingIcon = {
                 Icon(
@@ -74,7 +75,7 @@ fun TranslationMenuItems(
             }
         if (keyOpt != null && keyOpt != keyTitle && keyOpt != keyDesc) {
             SegmentedDropdownMenuItem(
-                text = { Text("Translate Option '$labelOpt' ($keyOpt)") },
+                text = { Text(stringResource(R.string.translation_menu_translate_option, labelOpt, keyOpt)) },
                 onClick = { onSelectKey(keyOpt) },
                 leadingIcon = {
                     Icon(
@@ -97,7 +98,7 @@ fun TranslationMenuItems(
             }
     if (!hasAnyKey) {
         SegmentedDropdownMenuItem(
-            text = { Text("No string key found") },
+            text = { Text(stringResource(R.string.translation_menu_no_key_found)) },
             onClick = {},
         )
     }
