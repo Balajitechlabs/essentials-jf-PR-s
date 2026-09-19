@@ -48,7 +48,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,11 +56,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import com.sameerasw.essentials.domain.model.PixelSearchTab
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -201,7 +201,7 @@ class PixelSearchResultsActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PixelSearchResultsScreen(
     initialQuery: String,
@@ -528,6 +528,7 @@ fun PixelSearchResultsScreen(
     val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarHeightPx = with(LocalDensity.current) { statusBarHeight.toPx() }
     val bottomBlurHeightPx = with(LocalDensity.current) { 140.dp.toPx() }
+    val topBlurHeightPx = with(LocalDensity.current) { (statusBarHeight + 56.dp).toPx() }
 
     // Identify which section is topmost
     val hasApps = (isAllTab || selectedTab == PixelSearchTab.APPS) && isAppsEnabled && appResults.isNotEmpty()
@@ -588,12 +589,7 @@ fun PixelSearchResultsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(scrimColor)
-            .progressiveBlur(
-                blurRadius = 40f,
-                height = statusBarHeightPx * 1.2f,
-                direction = BlurDirection.TOP,
-            ),
+            .background(scrimColor),
     ) {
         Box(
             modifier = Modifier
@@ -601,58 +597,76 @@ fun PixelSearchResultsScreen(
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) },
         ) {
             // Pinned top category filter tabs
+            val tabs = remember { PixelSearchTab.entries }
+            val carouselState = rememberCarouselState { tabs.size }
+
             Box(
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .zIndex(15f)
+                        .zIndex(20f)
                         .padding(top = statusBarHeight),
             ) {
-                LazyRow(
+                HorizontalMultiBrowseCarousel(
+                    state = carouselState,
+                    preferredItemWidth = 112.dp,
+                    itemSpacing = 8.dp,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                ) {
-                    items(PixelSearchTab.entries) { tab ->
-                        val isSelected = selectedTab == tab
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                HapticUtil.performVirtualKeyHaptic(view)
-                                selectedTab = tab
-                            },
-                            label = {
-                                Text(
-                                    text = stringResource(tab.labelRes),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            .padding(vertical = 6.dp)
+                            .height(44.dp),
+                ) { index ->
+                    val tab = tabs[index]
+                    val isSelected = selectedTab == tab
+                    val containerColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }
+                    val contentColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .maskClip(CircleShape)
+                                .background(containerColor)
+                                .clickable {
+                                    HapticUtil.performVirtualKeyHaptic(view)
+                                    selectedTab = tab
+                                }
+                                .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            tab.iconRes?.let { iconRes ->
+                                Icon(
+                                    painter = painterResource(iconRes),
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(16.dp),
                                 )
-                            },
-                            leadingIcon =
-                                tab.iconRes?.let { iconRes ->
-                                    {
-                                        Icon(
-                                            painter = painterResource(iconRes),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                },
-                            shape = CircleShape,
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
-                            border = null,
-                        )
+                            }
+                            Text(
+                                text = stringResource(tab.labelRes),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = contentColor,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
@@ -661,6 +675,11 @@ fun PixelSearchResultsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .imePadding()
+                    .progressiveBlur(
+                        blurRadius = 40f,
+                        height = topBlurHeightPx,
+                        direction = BlurDirection.TOP,
+                    )
                     .progressiveBlur(
                         blurRadius = 40f,
                         height = bottomBlurHeightPx,
