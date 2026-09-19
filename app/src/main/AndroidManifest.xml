@@ -705,7 +705,7 @@
         <service
             android:name=".services.EssentialsVoiceInteractionService"
             android:exported="true"
-            android:label="Essentials"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_VOICE_INTERACTION">
             <meta-data
                 android:name="android.voice_interaction"
@@ -722,8 +722,8 @@
         <service
             android:name=".services.EssentialsRecognitionService"
             android:exported="true"
-            android:label="Essentials"
-            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE">
             <intent-filter>
                 <action android:name="android.speech.RecognitionService" />
                 <category android:name="android.intent.category.DEFAULT" />
