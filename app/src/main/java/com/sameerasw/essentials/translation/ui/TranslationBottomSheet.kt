@@ -19,8 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -181,11 +180,14 @@ fun TranslationBottomSheet(
                                     fontWeight = FontWeight.Medium,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                LazyRow(
+                                Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
                                 ) {
-                                    items(validationResult.availablePlaceholders) { placeholder ->
+                                    validationResult.availablePlaceholders.forEach { placeholder ->
                                         val isPresent = !validationResult.missingPlaceholders.contains(placeholder)
                                         SuggestionChip(
                                             onClick = {
@@ -333,7 +335,7 @@ fun TranslationBottomSheet(
                         onDismissRequest()
                     },
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
