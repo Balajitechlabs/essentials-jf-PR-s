@@ -1312,7 +1312,7 @@
     <string name="feat_input_actions_desc">Control your device with ease</string>
     <string name="feat_widgets_title">Widgets</string>
     <string name="feat_widgets_desc">At a glance on your home screen</string>
-    <string name="feat_display_visuals_title">Display</string>
+    <string name="feat_display_visuals_title">डिस्प्ले</string>
     <string name="feat_display_visuals_desc">Visuals to enhance your experience</string>
     <string name="feat_watch_title">Watch</string>
     <string name="feat_watch_desc">Integrations with WearOS</string>
