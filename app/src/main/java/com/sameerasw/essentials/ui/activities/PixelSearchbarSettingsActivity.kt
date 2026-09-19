@@ -82,6 +82,7 @@ import com.sameerasw.essentials.ui.modifiers.scrollMotionBlur
 import com.sameerasw.essentials.ui.theme.EssentialsTheme
 import com.sameerasw.essentials.utils.HapticUtil
 import com.sameerasw.essentials.utils.PermissionUIHelper
+import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
 
 class PixelSearchbarSettingsActivity : ComponentActivity() {
@@ -714,6 +715,7 @@ fun PixelSearchbarSettingsUI(
                 )
 
                 val appsEnabled = viewModel.pixelSearchResultApps.value
+                val filesEnabled = viewModel.pixelSearchResultFiles.value
                 val contactsEnabled = viewModel.pixelSearchResultContacts.value
                 val settingsEnabled = viewModel.pixelSearchResultSettings.value
                 val shortcutsEnabled = viewModel.pixelSearchResultShortcuts.value
@@ -728,6 +730,26 @@ fun PixelSearchbarSettingsUI(
                         onCheckedChange = { checked ->
                             HapticUtil.performVirtualKeyHaptic(view)
                             viewModel.setPixelSearchResultAppsEnabled(checked)
+                        },
+                    )
+
+                    IconToggleItem(
+                        iconRes = R.drawable.rounded_description_24,
+                        title = stringResource(R.string.pixel_search_results_files_title),
+                        description = stringResource(R.string.pixel_search_results_files_desc),
+                        isChecked = filesEnabled,
+                        onCheckedChange = { checked ->
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            if (checked) {
+                                val hasStoragePerm = PermissionUtils.hasStoragePermission(context)
+                                if (!hasStoragePerm) {
+                                    requestingPermissionKey = "STORAGE"
+                                } else {
+                                    viewModel.setPixelSearchResultFilesEnabled(true)
+                                }
+                            } else {
+                                viewModel.setPixelSearchResultFilesEnabled(false)
+                            }
                         },
                     )
 
@@ -861,6 +883,7 @@ fun PixelSearchbarSettingsUI(
                     requestingPermissionKey!!,
                     context,
                     viewModel,
+                    activity = context as? android.app.Activity,
                 )
             }
         if (permItem != null) {
@@ -874,6 +897,9 @@ fun PixelSearchbarSettingsUI(
                             android.Manifest.permission.READ_CONTACTS,
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         viewModel.setPixelSearchResultContactsEnabled(hasContactsPerm)
+                    } else if (key == "STORAGE") {
+                        val hasStoragePerm = PermissionUtils.hasStoragePermission(context)
+                        viewModel.setPixelSearchResultFilesEnabled(hasStoragePerm)
                     }
                 },
                 featureTitle = stringResource(R.string.pixel_search_results_title),
