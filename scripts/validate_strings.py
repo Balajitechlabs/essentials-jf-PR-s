@@ -248,7 +248,7 @@ def validate_file(file_path, base_strings, auto_fix=False):
                         fixed_val = fixed_val.replace('ф', 'f')
                         fixed_this_item = True
                     elif issue['type'] == 'MALFORMED_COMMA_SPECIFIER':
-                        fixed_val = re.sub(r'%(?:(\d+)\$)?,(\d*[a-zA-Z])', r'%\1$.\2', fixed_val)
+                        fixed_val = re.sub(r'%(\d+)(?:\$,|,)(\d*[a-zA-Z])', r'%\1$.\2', fixed_val)
                         fixed_this_item = True
 
             if auto_fix and fixed_this_item:
