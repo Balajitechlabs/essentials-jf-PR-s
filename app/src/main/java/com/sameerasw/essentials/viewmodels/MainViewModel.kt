@@ -2430,6 +2430,7 @@ class MainViewModel : ViewModel() {
         isAodWallpaperKeepOnMedia.value =
             settingsRepository.isAodWallpaperKeepOnMediaEnabled()
         pixelSearchResultApps.value = settingsRepository.isPixelSearchResultAppsEnabled()
+        pixelSearchResultFiles.value = settingsRepository.isPixelSearchResultFilesEnabled()
         pixelSearchResultContacts.value = settingsRepository.isPixelSearchResultContactsEnabled()
         pixelSearchResultSettings.value = settingsRepository.isPixelSearchResultSettingsEnabled()
         pixelSearchResultShortcuts.value = settingsRepository.isPixelSearchResultShortcutsEnabled()
@@ -4110,6 +4111,7 @@ class MainViewModel : ViewModel() {
     }
 
     val pixelSearchResultApps = mutableStateOf(true)
+    val pixelSearchResultFiles = mutableStateOf(true)
     val pixelSearchResultContacts = mutableStateOf(true)
     val pixelSearchResultSettings = mutableStateOf(true)
     val pixelSearchResultShortcuts = mutableStateOf(true)
@@ -4120,6 +4122,11 @@ class MainViewModel : ViewModel() {
     fun setPixelSearchResultAppsEnabled(enabled: Boolean) {
         pixelSearchResultApps.value = enabled
         settingsRepository.setPixelSearchResultAppsEnabled(enabled)
+    }
+
+    fun setPixelSearchResultFilesEnabled(enabled: Boolean) {
+        pixelSearchResultFiles.value = enabled
+        settingsRepository.setPixelSearchResultFilesEnabled(enabled)
     }
 
     fun setPixelSearchResultContactsEnabled(enabled: Boolean) {

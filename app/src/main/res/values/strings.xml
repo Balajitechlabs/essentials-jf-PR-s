@@ -1,4 +1,5 @@
 <resources>
+    <string name="app_name">Essentials</string>
     <string name="diy_genai_lazy_title">I’m lazy, Do it for me</string>
     <string name="settings_genai_automation_title">Enable GenAI use</string>
 
@@ -2504,6 +2505,18 @@
     <string name="pixel_search_section_essentials">Essentials</string>
     <string name="pixel_search_section_shortcuts">Shortcuts</string>
     <string name="pixel_search_section_web">Web</string>
+    <string name="pixel_search_section_media">Photos &amp; Videos</string>
+    <string name="pixel_search_section_files">Files &amp; Documents</string>
+    <string name="pixel_search_results_files_title">Files &amp; media</string>
+    <string name="pixel_search_results_files_desc">Search photos, videos, GIFs, PDFs, and downloads</string>
+    <string name="pixel_search_tab_all">All</string>
+    <string name="pixel_search_tab_apps">Apps</string>
+    <string name="pixel_search_tab_media">Media</string>
+    <string name="pixel_search_tab_files">Files</string>
+    <string name="pixel_search_tab_contacts">Contacts</string>
+    <string name="pixel_search_tab_settings">Settings</string>
+    <string name="pixel_search_tab_web">Web</string>
+    <string name="pixel_search_section_calculation">Calculation</string>
     <string name="pixel_search_copied_to_clipboard">Copied to clipboard</string>
     <string name="pixel_search_action_open">Open</string>
     <string name="pixel_search_action_open_with">Open with&#8230;</string>

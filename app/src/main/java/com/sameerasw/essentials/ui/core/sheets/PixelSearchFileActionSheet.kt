@@ -47,6 +47,7 @@ import com.sameerasw.essentials.domain.model.PixelSearchResultItem
 import com.sameerasw.essentials.ui.core.containers.RoundedCardContainer
 import com.sameerasw.essentials.ui.core.cards.FeatureCard
 import com.sameerasw.essentials.utils.ColorUtil
+import com.sameerasw.essentials.utils.FileSearchUtil
 import com.sameerasw.essentials.utils.HapticUtil
 
 @Composable
@@ -116,7 +117,7 @@ fun PixelSearchFileActionSheet(
                         overflow = TextOverflow.Ellipsis,
                     )
                     val details = buildString {
-                        append(formatFileSize(fileItem.sizeBytes))
+                        append(FileSearchUtil.formatFileSize(fileItem.sizeBytes))
                         fileItem.path?.let { p ->
                             append(" • ")
                             append(p)
@@ -295,13 +296,4 @@ private fun copyFilePath(context: Context, item: PixelSearchResultItem.FileItem)
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         Toast.makeText(context, context.getString(R.string.pixel_search_copied_to_clipboard), Toast.LENGTH_SHORT).show()
     }
-}
-
-private fun formatFileSize(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val units = arrayOf("B", "KB", "MB", "GB", "TB")
-    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-    val index = digitGroups.coerceIn(0, units.size - 1)
-    val formatted = bytes / Math.pow(1024.0, index.toDouble())
-    return if (index == 0) "$bytes B" else java.text.DecimalFormat("#,##0.0").format(formatted) + " " + units[index]
 }
