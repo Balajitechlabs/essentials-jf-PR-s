@@ -2626,6 +2626,7 @@
     <string name="status_glance_calendar_timeframe_24_hours">24 hrs</string>
     <string name="status_glance_calendar_timeframe_today">today</string>
     <string name="status_glance_calendar_timeframe_next">Next</string>
+    <string name="status_glance_calendar_show_all_day_title">Show all day events</string>
     <string name="status_glance_calendar_select_calendars_title">Calendars to show</string>
     <string name="status_glance_calendar_no_calendars">No calendars found on device</string>
     <string name="status_glance_calendar_event_in_time">in %1$s</string>
@@ -2641,6 +2642,67 @@
     <string name="action_backup_app_list">Backup app list</string>
     <string name="msg_backup_app_list_success">App list backed up successfully</string>
     <string name="msg_backup_app_list_failed">Failed to back up app list</string>
+
+    <!-- Island -->
+    <string name="island_title">Island</string>
+    <string name="island_desc">Dynamic island</string>
+    <string name="island_enable_title">Enable Island</string>
+    <string name="island_enable_desc">Display dynaic island</string>
+    <string name="island_section_position">Position and dimensions</string>
+    <string name="island_section_placement">Placement</string>
+    <string name="island_section_visuals">Visuals</string>
+    <string name="island_section_duration">Duration</string>
+    <string name="island_section_notifications">Notifications</string>
+    <string name="island_auto_detect_title">Auto-detect camera</string>
+    <string name="island_auto_detect_desc">Automatically locate the front camera cutout</string>
+    <string name="island_camera_offset_x_title">Horizontal position</string>
+    <string name="island_camera_offset_y_title">Vertical position</string>
+    <string name="island_camera_size_title">Camera size</string>
+    <string name="island_max_width_title">Maximum width</string>
+    <string name="island_max_width_desc">Limit expanded width across the screen</string>
+    <string name="island_section_behavior">Behavior</string>
+    <string name="island_suppress_system_heads_up_title">Hide system heads up</string>
+    <string name="island_suppress_system_heads_up_desc">Prevent default Android heads-up banners</string>
+    <string name="island_hide_when_screen_off_title">Hide when screen off</string>
+    <string name="island_hide_when_screen_off_desc">Do not show when screen is locked or off</string>
+    <string name="island_timeout_title">Display duration</string>
+    <string name="island_section_actions">Actions</string>
+    <string name="island_action_tap_title">Single tap</string>
+    <string name="island_action_tap_desc">Open app</string>
+    <string name="island_tap_action_title">Tap action</string>
+    <string name="island_show_time_battery_title">Time and battery</string>
+    <string name="island_battery_style_title">Battery style</string>
+    <string name="island_battery_style_ring">Ring</string>
+    <string name="island_battery_style_icon">Icon</string>
+    <string name="island_tap_action_desc">Choose what tap and long press do</string>
+    <string name="island_tap_action_open">Open</string>
+    <string name="island_tap_action_expand">Expand</string>
+    <string name="island_action_swipe_up_title">Swipe up</string>
+    <string name="island_action_swipe_up_desc">Dismiss</string>
+
+    <string name="island_preview_title">Island</string>
+    <string name="island_preview_sample">Dynamic notifications preview</string>
+    <string name="island_show_glow_title">Show accent glow</string>
+    <string name="island_show_glow_desc">App based color glow</string>
+    <string name="island_expanded_width_title">Expanded width</string>
+    <string name="island_cutout_gap_title">Camera gap</string>
+    <string name="island_expanded_width_desc">Width when long pressed to expand</string>
+    <string name="island_expanded_roundness_title">Expanded corner radius</string>
+    <string name="island_expanded_roundness_desc">Roundness of expanded card</string>
+    <string name="island_expanded_timeout_title">Expanded timeout</string>
+    <string name="island_expanded_timeout_desc">Duration before reverting to collapsed pill (0 for infinity)</string>
+    <string name="island_timeout_infinity">Infinity</string>
+    <string name="island_reply_sent">Reply sent</string>
+    <string name="island_action_executed">Action executed</string>
+    <string name="island_reply_title">Reply</string>
+    <string name="island_reply_hint">Type a message…</string>
+    <string name="island_reply_send">Send</string>
+    <string name="island_expanded_padding_title">Expanded padding</string>
+    <string name="island_expanded_top_padding_title">Expanded top padding</string>
+    <string name="island_catch_up_title">Catch up</string>
+    <string name="island_catch_up_desc">Keep last notification in island for longer</string>
+    <string name="island_catch_up_timeout_title">Catch up duration</string>
+
     <string name="shizuku_not_running_title">Shizuku is not running</string>
     <string name="shizuku_not_running_desc">Please start Shizuku to enable features.</string>
     <string name="shizuku_not_running_feature_desc">Please start Shizuku to use %1$s.</string>
@@ -2648,7 +2710,10 @@
     <string name="shizuku_permission_missing_desc">Please grant Shizuku permission for Essentials.</string>
     <string name="shizuku_permission_missing_feature_desc">Please grant Shizuku permission for Essentials to use %1$s.</string>
     <string name="shizuku_status_alerts_channel_name">Shizuku Status Alerts</string>
+    <string name="conscious_gate_island_wasting_time">Wasting time</string>
+    <string name="conscious_gate_island_remaining">remaining</string>
     <string name="action_expand_notifications">Expand notifications</string>
     <string name="action_expand_settings">Expand settings</string>
     <string name="action_collapse_status_bar">Collapse status bar</string>
 </resources>
+
