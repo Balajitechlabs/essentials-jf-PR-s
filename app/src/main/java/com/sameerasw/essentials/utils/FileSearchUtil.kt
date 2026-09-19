@@ -28,6 +28,8 @@ object FileSearchUtil {
         context: Context,
         query: String,
         limit: Int = 16,
+        searchMedia: Boolean = true,
+        searchDocs: Boolean = true,
     ): FileSearchResults = withContext(Dispatchers.IO) {
         val trimmed = query.trim()
 
@@ -119,9 +121,9 @@ object FileSearchUtil {
                         iconRes = iconRes,
                     )
 
-                    if (isMedia) {
+                    if (isMedia && searchMedia) {
                         mediaList.add(item)
-                    } else {
+                    } else if (!isMedia && searchDocs) {
                         docList.add(item)
                     }
                 }

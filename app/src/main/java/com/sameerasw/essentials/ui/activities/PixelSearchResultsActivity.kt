@@ -398,6 +398,7 @@ fun PixelSearchResultsScreen(
 
     val isAppsEnabled = remember { repository.isPixelSearchResultAppsEnabled() }
     val isContactsEnabled = remember { repository.isPixelSearchResultContactsEnabled() }
+    val isMediaEnabled = remember { repository.isPixelSearchResultMediaEnabled() }
     val isFilesEnabled = remember { repository.isPixelSearchResultFilesEnabled() }
     val isSettingsEnabled = remember { repository.isPixelSearchResultSettingsEnabled() }
     val isShortcutsEnabled = remember { repository.isPixelSearchResultShortcutsEnabled() }
@@ -474,11 +475,25 @@ fun PixelSearchResultsScreen(
                 }
             }
 
-            if (isFilesEnabled && PermissionUtils.hasStoragePermission(context)) {
-                val fileSearchResults = FileSearchUtil.searchFiles(context, trimmed)
+            if (isMediaEnabled && PermissionUtils.hasMediaPermissions(context)) {
+                val mediaSearchResults = FileSearchUtil.searchFiles(context, trimmed, searchMedia = true, searchDocs = false)
                 withContext(Dispatchers.Main) {
-                    mediaResults = fileSearchResults.mediaItems
+                    mediaResults = mediaSearchResults.mediaItems
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    mediaResults = emptyList()
+                }
+            }
+
+            if (isFilesEnabled && (PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context))) {
+                val fileSearchResults = FileSearchUtil.searchFiles(context, trimmed, searchMedia = false, searchDocs = true)
+                withContext(Dispatchers.Main) {
                     fileResults = fileSearchResults.documentItems
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    fileResults = emptyList()
                 }
             }
 
@@ -561,7 +576,7 @@ fun PixelSearchResultsScreen(
     // Identify which section is topmost
     val hasApps = (isAllTab || selectedTab == PixelSearchTab.APPS) && isAppsEnabled && appResults.isNotEmpty()
     val hasContacts = !hasApps && (isAllTab || selectedTab == PixelSearchTab.CONTACTS) && isContactsEnabled && contactResults.isNotEmpty()
-    val hasMedia = !hasApps && !hasContacts && (isAllTab || selectedTab == PixelSearchTab.MEDIA) && isFilesEnabled && mediaResults.isNotEmpty()
+    val hasMedia = !hasApps && !hasContacts && (isAllTab || selectedTab == PixelSearchTab.MEDIA) && isMediaEnabled && mediaResults.isNotEmpty()
     val hasFiles = !hasApps && !hasContacts && !hasMedia && (isAllTab || selectedTab == PixelSearchTab.FILES) && isFilesEnabled && fileResults.isNotEmpty()
     val hasSystemSettings = !hasApps && !hasContacts && !hasMedia && !hasFiles && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()
     val hasEssentials = !hasApps && !hasContacts && !hasMedia && !hasFiles && !hasSystemSettings && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())
@@ -635,7 +650,19 @@ fun PixelSearchResultsScreen(
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) },
         ) {
             // Pinned top category filter tabs
-            val tabs = remember { PixelSearchTab.entries }
+            val tabs = remember(isAppsEnabled, isContactsEnabled, isMediaEnabled, isFilesEnabled, isSettingsEnabled, isWebEnabled) {
+                PixelSearchTab.entries.filter { tab ->
+                    when (tab) {
+                        PixelSearchTab.ALL -> true
+                        PixelSearchTab.APPS -> isAppsEnabled
+                        PixelSearchTab.CONTACTS -> isContactsEnabled
+                        PixelSearchTab.MEDIA -> isMediaEnabled
+                        PixelSearchTab.FILES -> isFilesEnabled
+                        PixelSearchTab.SETTINGS -> isSettingsEnabled
+                        PixelSearchTab.WEB -> isWebEnabled
+                    }
+                }
+            }
             val carouselState = rememberCarouselState { tabs.size }
 
             Box(
@@ -929,7 +956,7 @@ fun PixelSearchResultsScreen(
                     }
                 }
 
-                if ((isAllTab || selectedTab == PixelSearchTab.MEDIA) && isFilesEnabled && mediaResults.isNotEmpty()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.MEDIA) && isMediaEnabled && mediaResults.isNotEmpty()) {
                     item(key = "media_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_media),

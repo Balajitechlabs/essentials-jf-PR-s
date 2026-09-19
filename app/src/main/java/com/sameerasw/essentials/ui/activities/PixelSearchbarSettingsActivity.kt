@@ -233,7 +233,7 @@ fun PixelSearchbarSettingsUI(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { permissions ->
             val allGranted = permissions.values.isNotEmpty() && permissions.values.all { it }
-            viewModel.setPixelSearchResultFilesEnabled(allGranted)
+            viewModel.setPixelSearchResultMediaEnabled(allGranted)
         }
 
     val contactsPermissionLauncher =
@@ -732,6 +732,7 @@ fun PixelSearchbarSettingsUI(
                 )
 
                 val appsEnabled = viewModel.pixelSearchResultApps.value
+                val mediaEnabled = viewModel.pixelSearchResultMedia.value
                 val filesEnabled = viewModel.pixelSearchResultFiles.value
                 val contactsEnabled = viewModel.pixelSearchResultContacts.value
                 val settingsEnabled = viewModel.pixelSearchResultSettings.value
@@ -751,6 +752,26 @@ fun PixelSearchbarSettingsUI(
                     )
 
                     IconToggleItem(
+                        iconRes = R.drawable.rounded_image_24,
+                        title = stringResource(R.string.pixel_search_results_media_title),
+                        description = stringResource(R.string.pixel_search_results_media_desc),
+                        isChecked = mediaEnabled,
+                        onCheckedChange = { checked ->
+                            HapticUtil.performVirtualKeyHaptic(view)
+                            if (checked) {
+                                val hasMediaPerm = PermissionUtils.hasMediaPermissions(context)
+                                if (!hasMediaPerm) {
+                                    requestingPermissionKey = "MEDIA"
+                                } else {
+                                    viewModel.setPixelSearchResultMediaEnabled(true)
+                                }
+                            } else {
+                                viewModel.setPixelSearchResultMediaEnabled(false)
+                            }
+                        },
+                    )
+
+                    IconToggleItem(
                         iconRes = R.drawable.rounded_description_24,
                         title = stringResource(R.string.pixel_search_results_files_title),
                         description = stringResource(R.string.pixel_search_results_files_desc),
@@ -758,9 +779,11 @@ fun PixelSearchbarSettingsUI(
                         onCheckedChange = { checked ->
                             HapticUtil.performVirtualKeyHaptic(view)
                             if (checked) {
-                                val hasMediaPerm = PermissionUtils.hasMediaPermissions(context)
-                                if (!hasMediaPerm) {
-                                    requestingPermissionKey = "STORAGE"
+                                val hasFilesPerm = PermissionUtils.hasManageExternalStoragePermission(context) ||
+                                    PermissionUtils.hasStoragePermission(context) ||
+                                    viewModel.isStoragePermissionGranted.value
+                                if (!hasFilesPerm) {
+                                    requestingPermissionKey = "ALL_FILES"
                                 } else {
                                     viewModel.setPixelSearchResultFilesEnabled(true)
                                 }
@@ -898,7 +921,8 @@ fun PixelSearchbarSettingsUI(
         var isPermGranted by remember(key) {
             mutableStateOf(
                 when (key) {
-                    "STORAGE" -> PermissionUtils.hasMediaPermissions(context)
+                    "MEDIA" -> PermissionUtils.hasMediaPermissions(context)
+                    "ALL_FILES" -> PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context) || viewModel.isStoragePermissionGranted.value
                     "READ_CONTACTS" -> androidx.core.content.ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.READ_CONTACTS,
@@ -913,8 +937,10 @@ fun PixelSearchbarSettingsUI(
             val observer =
                 androidx.lifecycle.LifecycleEventObserver { _, event ->
                     if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        viewModel.check(context)
                         val granted = when (key) {
-                            "STORAGE" -> PermissionUtils.hasMediaPermissions(context)
+                            "MEDIA" -> PermissionUtils.hasMediaPermissions(context)
+                            "ALL_FILES" -> PermissionUtils.hasManageExternalStoragePermission(context) || PermissionUtils.hasStoragePermission(context) || viewModel.isStoragePermissionGranted.value
                             "READ_CONTACTS" -> androidx.core.content.ContextCompat.checkSelfPermission(
                                 context,
                                 Manifest.permission.READ_CONTACTS,
@@ -922,10 +948,15 @@ fun PixelSearchbarSettingsUI(
                             else -> false
                         }
                         isPermGranted = granted
-                        if (key == "STORAGE") {
+                        if (key == "MEDIA") {
+                            viewModel.setPixelSearchResultMediaEnabled(granted)
+                            if (granted) requestingPermissionKey = null
+                        } else if (key == "ALL_FILES") {
                             viewModel.setPixelSearchResultFilesEnabled(granted)
+                            if (granted) requestingPermissionKey = null
                         } else if (key == "READ_CONTACTS") {
                             viewModel.setPixelSearchResultContactsEnabled(granted)
+                            if (granted) requestingPermissionKey = null
                         }
                     }
                 }
@@ -937,12 +968,12 @@ fun PixelSearchbarSettingsUI(
 
         val permItem =
             remember(key, isPermGranted, context, viewModel) {
-                if (key == "STORAGE") {
+                if (key == "MEDIA") {
                     com.sameerasw.essentials.ui.core.sheets.PermissionItem(
                         iconRes = R.drawable.rounded_image_24,
                         title = R.string.perm_files_media_title,
                         description = R.string.perm_files_media_desc,
-                        dependentFeatures = listOf(R.string.pixel_search_results_files_title),
+                        dependentFeatures = listOf(R.string.pixel_search_results_media_title),
                         actionLabel = if (isPermGranted) R.string.perm_action_granted else R.string.perm_action_grant,
                         action = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -958,6 +989,18 @@ fun PixelSearchbarSettingsUI(
                                     arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
                                 )
                             }
+                        },
+                        isGranted = isPermGranted,
+                    )
+                } else if (key == "ALL_FILES") {
+                    com.sameerasw.essentials.ui.core.sheets.PermissionItem(
+                        iconRes = R.drawable.rounded_folder_24,
+                        title = R.string.perm_all_files_title,
+                        description = R.string.perm_all_files_desc,
+                        dependentFeatures = listOf(R.string.pixel_search_results_files_title),
+                        actionLabel = if (isPermGranted) R.string.perm_action_granted else R.string.perm_action_grant,
+                        action = {
+                            PermissionUtils.openManageExternalStorageSettings(context)
                         },
                         isGranted = isPermGranted,
                     )
@@ -993,9 +1036,14 @@ fun PixelSearchbarSettingsUI(
                             Manifest.permission.READ_CONTACTS,
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         viewModel.setPixelSearchResultContactsEnabled(hasContactsPerm)
-                    } else if (currentKey == "STORAGE") {
+                    } else if (currentKey == "ALL_FILES") {
+                        val hasFilesPerm = PermissionUtils.hasManageExternalStoragePermission(context) ||
+                            PermissionUtils.hasStoragePermission(context) ||
+                            viewModel.isStoragePermissionGranted.value
+                        viewModel.setPixelSearchResultFilesEnabled(hasFilesPerm)
+                    } else if (currentKey == "MEDIA") {
                         val hasMediaPerm = PermissionUtils.hasMediaPermissions(context)
-                        viewModel.setPixelSearchResultFilesEnabled(hasMediaPerm)
+                        viewModel.setPixelSearchResultMediaEnabled(hasMediaPerm)
                     }
                 },
                 featureTitle = stringResource(R.string.pixel_search_results_title),

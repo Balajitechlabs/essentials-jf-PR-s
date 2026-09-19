@@ -2509,8 +2509,12 @@
     <string name="pixel_search_section_web">Web</string>
     <string name="pixel_search_section_media">Photos &amp; Videos</string>
     <string name="pixel_search_section_files">Files &amp; Documents</string>
-    <string name="pixel_search_results_files_title">Files &amp; media</string>
-    <string name="pixel_search_results_files_desc">Search photos, videos, GIFs, PDFs, and downloads</string>
+    <string name="pixel_search_results_media_title">Photos &amp; videos</string>
+    <string name="pixel_search_results_media_desc">Search photos, videos, and GIFs</string>
+    <string name="pixel_search_results_files_title">Files &amp; documents</string>
+    <string name="pixel_search_results_files_desc">Search documents, audio, and downloaded files</string>
+    <string name="perm_all_files_title">All files access</string>
+    <string name="perm_all_files_desc">Allows Essentials to index and search documents, audio, and downloaded files on your device.</string>
     <string name="pixel_search_tab_all">All</string>
     <string name="pixel_search_tab_apps">Apps</string>
     <string name="pixel_search_tab_media">Media</string>

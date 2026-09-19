@@ -501,24 +501,14 @@ object PermissionUIHelper {
                     dependentFeatures = PermissionRegistry.getFeatures(permission),
                     actionLabel = if (isGranted) R.string.perm_action_granted else R.string.perm_action_grant,
                     action = {
-                        if (targetActivity != null) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                ActivityCompat.requestPermissions(
-                                    targetActivity,
-                                    arrayOf(
-                                        android.Manifest.permission.READ_MEDIA_IMAGES,
-                                        android.Manifest.permission.READ_MEDIA_VIDEO,
-                                        android.Manifest.permission.READ_MEDIA_AUDIO,
-                                    ),
-                                    110,
-                                )
-                            } else {
-                                ActivityCompat.requestPermissions(
-                                    targetActivity,
-                                    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
-                                    110,
-                                )
-                            }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            PermissionUtils.openManageExternalStorageSettings(context)
+                        } else if (targetActivity != null) {
+                            ActivityCompat.requestPermissions(
+                                targetActivity,
+                                arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
+                                110,
+                            )
                         } else {
                             PermissionUtils.openManageExternalStorageSettings(context)
                         }
