@@ -1635,10 +1635,22 @@ Ve ayarın etkili olması için birden fazla kez uygulanması gerekebilir.</stri
     <string name="qs_secure_sensitive_tiles_title">Güvenli hassas kutucuklar</string>
     <string name="status_glance_enable_title">Durum önizlemesini etkinleştir</string>
     <string name="status_glance_enable_desc">Durum önizlemesini görüntüle</string>
-    <string name="feat_status_glance_title">Durum önizlemesi</string>
+    <string name="feat_status_glance_title">Durum ön izlemesi</string>
     <string name="feat_status_glance_desc">Genel bakış katmanında</string>
     <string name="duo_desc">Bu katlanmıyor</string>
     <string name="duo_enable_title">Duo\'yu etkinleştir</string>
     <string name="duo_enable_desc">Bu katlanmıyor ama havalı şeyler yapıyor</string>
     <string name="about_desc_status_glance">Durum önizlemesi, ön kamera deliğinin hemen yanında, öncelik odaklı bir ortam çipi görüntüler. Bu özellik; aktif el fenerini, yaklaşan takvim etkinliklerini, o anda oynatılan medyayı ve geçerli saati dinamik bir şekilde gösterir.</string>
+    <string name="pixel_searchbar_settings_title">Pixel Arama Çubuğu Özelleştirmesi</string>
+    <string name="setting_show_legacy_features_title">Eski özellikleri göster</string>
+    <string name="setting_show_legacy_features_desc">Bu özellikler, teknik kısıtlamalar veya zorunlu olmamaları nedeniyle gelecekte güncelleme almayabilir.</string>
+    <string name="feat_conscious_gate_title">Bilinçli kapı</string>
+    <string name="feat_conscious_gate_desc">Seçilen uygulamaları açmadan önce durakla</string>
+    <string name="conscious_gate_enable_title">Bilinçli kapıyı etkinleştir</string>
+    <string name="about_desc_conscious_gate">Sosyal medya gibi daha bilinçli bir şekilde kullanmayı seçtiğiniz uygulamaları açmadan önce, kısa ve farkındalık odaklı bir ara ekran ekler.
+
+Devam et düğmesi birkaç saniyeliğine devre dışı kalır; böylece karar vermek için kısa bir süreniz olur. Ayrıca, uygulamayı belirlenen sürenin ötesinde kullanmaya devam ederseniz, bu duraklatma ekranı isteğe bağlı olarak tekrar karşınıza çıkabilir.</string>
+    <string name="conscious_gate_select_apps_desc">Açılmadan önce bilinçli farkındalık ekranı gösterecek uygulamaları seçin</string>
+    <string name="conscious_gate_select_apps_title">Kısıtlı uygulamaları seçin</string>
+    <string name="conscious_gate_preview_button">Bilinçli kapı ekranı ön izlemesi</string>
 </resources>
