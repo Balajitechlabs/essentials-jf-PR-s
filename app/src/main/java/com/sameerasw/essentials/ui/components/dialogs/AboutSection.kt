@@ -26,6 +26,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -141,82 +144,100 @@ fun AboutSection(
 
             var isOtherAppsExpanded by remember { mutableStateOf(false) }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            HapticUtil.performUIHaptic(view)
+                            val websiteUrl = "https://sameerasw.com"
+                            val intent = Intent(Intent.ACTION_VIEW, websiteUrl.toUri())
+                            context.startActivity(intent)
+                        },
+                        shape =
+                            RoundedCornerShape(
+                                topStart = 20.dp,
+                                bottomStart = 20.dp,
+                                topEnd = 6.dp,
+                                bottomEnd = 6.dp,
+                            ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.rounded_globe_24),
+                            contentDescription = stringResource(R.string.action_website),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            HapticUtil.performUIHaptic(view)
+                            val mailUri = "mailto:mail@sameerasw.com".toUri()
+                            val emailIntent =
+                                Intent(Intent.ACTION_SENDTO, mailUri).apply {
+                                    putExtra(Intent.EXTRA_SUBJECT, "Hello from Essentials")
+                                }
+                            try {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        emailIntent,
+                                        context.getString(R.string.send_email_chooser_title),
+                                    ),
+                                )
+                            } catch (e: ActivityNotFoundException) {
+                                Log.w("AboutSection", "No email app available", e)
+                                Toast
+                                    .makeText(context, R.string.error_no_email_app, Toast.LENGTH_SHORT)
+                                    .show()
+                            }
+                        },
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.rounded_mail_24),
+                            contentDescription = stringResource(R.string.action_contact),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            HapticUtil.performUIHaptic(view)
+                            val websiteUrl = "https://t.me/tidwib"
+                            val intent = Intent(Intent.ACTION_VIEW, websiteUrl.toUri())
+                            context.startActivity(intent)
+                        },
+                        shape =
+                            RoundedCornerShape(
+                                topStart = 6.dp,
+                                bottomStart = 6.dp,
+                                topEnd = 20.dp,
+                                bottomEnd = 20.dp,
+                            ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.brand_telegram),
+                            contentDescription = stringResource(R.string.action_telegram),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            }
+
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                maxItemsInEachRow = 3,
             ) {
-                Button(
-                    onClick = {
-                        HapticUtil.performUIHaptic(view)
-                        val websiteUrl = "https://sameerasw.com"
-                        val intent = Intent(Intent.ACTION_VIEW, websiteUrl.toUri())
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.rounded_web_traffic_24),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_website))
-                }
-
-
-                OutlinedButton(
-                    onClick = {
-                        HapticUtil.performUIHaptic(view)
-                        val mailUri = "mailto:mail@sameerasw.com".toUri()
-                        val emailIntent =
-                            Intent(Intent.ACTION_SENDTO, mailUri).apply {
-                                putExtra(Intent.EXTRA_SUBJECT, "Hello from Essentials")
-                            }
-                        try {
-                            context.startActivity(
-                                Intent.createChooser(
-                                    emailIntent,
-                                    context.getString(R.string.send_email_chooser_title),
-                                ),
-                            )
-                        } catch (e: ActivityNotFoundException) {
-                            Log.w("AboutSection", "No email app available", e)
-                            Toast
-                                .makeText(context, R.string.error_no_email_app, Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.rounded_mail_24),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_contact))
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        HapticUtil.performUIHaptic(view)
-                        val websiteUrl = "https://t.me/tidwib"
-                        val intent = Intent(Intent.ACTION_VIEW, websiteUrl.toUri())
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.brand_telegram),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.action_telegram))
-                }
-
                 OutlinedButton(
                     onClick = {
                         HapticUtil.performUIHaptic(view)
