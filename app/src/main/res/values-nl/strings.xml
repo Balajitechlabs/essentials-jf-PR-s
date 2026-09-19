@@ -1567,4 +1567,17 @@
     <string name="watchface_clock_outline_desc">Toon enkel een omlijning van de tekst in plaats van gevulde tekst</string>
     <string name="watchface_complication_outline_title">Complicatie omlijning</string>
     <string name="watchface_complication_outline_desc">Toon een dunne ronde rand om items heen</string>
+    <string name="feat_flashlight_title">Zaklamp</string>
+    <string name="feat_flashlight_desc">Verbeter zaklamp functionaliteit</string>
+    <string name="qs_secure_sensitive_tiles_title">Beveilig gevoelige tegels</string>
+    <string name="qs_secure_sensitive_tiles_desc">Vraag om ontgrendeling voor het gebruik van gevoelige tegels wanneer het apparaat is vergrendeld</string>
+    <string name="watchface_clock_dual_tone_title">Duo tinen</string>
+    <string name="watch_notif_sync_choose_apps">Selecteer apps</string>
+    <string name="watch_notif_sync_choose_apps_desc">Alleen de gekozen apps zullen worden gesynchroniseerd met het horloge</string>
+    <string name="feat_sim_names_title">SIM namen</string>
+    <string name="feat_sim_names_desc">Verander de weergavenaam van internet providers voor active SIM-kaarten</string>
+    <string name="icon_glove_mode">Handschoen Modus</string>
+    <string name="icon_frame_rate">Verversingssnelheid</string>
+    <string name="icon_network_speed">Netwerk Snelheid</string>
+    <string name="icon_no_sim">Geen SIM</string>
 </resources>
