@@ -20,20 +20,21 @@ data class ValidationResult(
 )
 
 object TranslationValidator {
-    // Positional specifier tokens e.g. %1$s, %2$d, %1$.1f (excluding %%)
-    private val POSITIONAL_TOKEN_REGEX = Pattern.compile("%(\\d+)\\$[-+ #0(]*\\d*(?:\\.\\d+)?[a-zA-Z]")
+    // Positional or standard format specifier tokens e.g. %1$s, %2$d, %s, %d, %1$.1f (excluding %%)
+    private val FORMAT_TOKEN_REGEX = Pattern.compile("%(?:(\\d+)\\$)?[-+ #0(]*\\d*(?:\\.\\d+)?[a-zA-Z]")
 
-    // Malformed positional tokens with non-ASCII characters (e.g. Cyrillic ф)
-    private val NON_ASCII_SPEC_REGEX = Pattern.compile("%(\\d+)\\$[-+ #0(]*\\d*(?:\\.\\d+)?([^\\u0000-\\u007F])")
+    // Malformed positional or standard format tokens with non-ASCII characters (e.g. Cyrillic ф)
+    private val NON_ASCII_SPEC_REGEX = Pattern.compile("%(?:(\\d+)\\$)?[-+ #0(]*\\d*(?:\\.\\d+)?([^\\u0000-\\u007F])")
 
     // Comma instead of dot in format specifier (e.g. %1,1f or %1$,1f)
     private val COMMA_SPEC_REGEX = Pattern.compile("%(\\d+)(?:\\$,|,)\\d*[a-zA-Z]")
 
     /**
-     * Extracts distinct placeholder tokens from a source string (e.g., ["%1$s", "%2$d"]).
+     * Extracts distinct placeholder tokens from a source string (e.g., ["%1$s", "%2$d", "%s"]).
      */
     fun extractPlaceholders(sourceText: String): List<String> {
-        val matcher = POSITIONAL_TOKEN_REGEX.matcher(sourceText)
+        val sanitized = sourceText.replace("%%", "")
+        val matcher = FORMAT_TOKEN_REGEX.matcher(sanitized)
         val placeholders = mutableListOf<String>()
         while (matcher.find()) {
             val token = matcher.group(0)
@@ -68,14 +69,21 @@ object TranslationValidator {
 
         val availablePlaceholders = extractPlaceholders(sourceText)
         val transIndices = extractPositionalIndices(translatedText)
+        val sourceIndices = extractPositionalIndices(sourceText)
 
-        // 1. Missing positional placeholders
+        // 1. Missing placeholders (positional e.g. %1$s or standard e.g. %s)
         val missing = mutableListOf<String>()
         for (placeholder in availablePlaceholders) {
             val matcher = Pattern.compile("%(\\d+)\\$").matcher(placeholder)
             if (matcher.find()) {
                 val index = matcher.group(1)
                 if (index != null && !transIndices.contains(index)) {
+                    missing.add(placeholder)
+                }
+            } else {
+                val type = placeholder.last()
+                val hasMatchingSpecifier = Pattern.compile("%(?:\\d+\\$)?[^%]*$type").matcher(translatedText).find()
+                if (!hasMatchingSpecifier) {
                     missing.add(placeholder)
                 }
             }
@@ -85,7 +93,14 @@ object TranslationValidator {
             warnings.add("Missing required placeholder(s): ${missing.joinToString(", ")}. Dynamic values will not display.")
         }
 
-        // 2. Malformed non-ASCII format specifiers (CRASH RISK)
+        // 2. Extra positional placeholders (CRASH RISK: MissingFormatArgumentException)
+        val extraIndices = transIndices - sourceIndices
+        if (extraIndices.isNotEmpty()) {
+            hasCrashRisk = true
+            warnings.add("Unexpected placeholder index ${extraIndices.map { "%$it$" }.joinToString(", ")} not in original text. This will crash the app with MissingFormatArgumentException!")
+        }
+
+        // 3. Malformed non-ASCII format specifiers (CRASH RISK)
         val nonAsciiMatcher = NON_ASCII_SPEC_REGEX.matcher(translatedText)
         while (nonAsciiMatcher.find()) {
             val matchStr = nonAsciiMatcher.group(0) ?: ""
@@ -120,7 +135,7 @@ object TranslationValidator {
         // 5. Unescaped percent sign in formatted string
         if (availablePlaceholders.isNotEmpty()) {
             var temp = translatedText.replace("%%", "")
-            temp = POSITIONAL_TOKEN_REGEX.matcher(temp).replaceAll("")
+            temp = FORMAT_TOKEN_REGEX.matcher(temp).replaceAll("")
             if (temp.contains("%")) {
                 warnings.add("Unescaped '%' found. In formatted strings, literal percent signs must be escaped as '%%'.")
             }

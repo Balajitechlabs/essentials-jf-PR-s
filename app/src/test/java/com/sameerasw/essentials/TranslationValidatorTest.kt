@@ -93,4 +93,50 @@ class TranslationValidatorTest {
         val placeholders = TranslationValidator.extractPlaceholders(source)
         assertEquals(listOf("%1\$d", "%2\$s"), placeholders)
     }
+
+    @Test
+    fun commaFormatSpecifierWithoutDollar_flagsWarning() {
+        val source = "Remaining: %1$.1f km"
+        val translation = "Restant: %1,1f km"
+        val result = TranslationValidator.validate(source, translation)
+        assertFalse(result.isValid)
+        assertTrue(result.warnings.any { it.contains("comma instead of a decimal point") })
+        assertTrue(result.warnings.any { it.contains("%1$.1f") })
+    }
+
+    @Test
+    fun commaFormatSpecifierWithDollar_flagsWarning() {
+        val source = "Remaining: %1$.1f km"
+        val translation = "Restant: %1$,1f km"
+        val result = TranslationValidator.validate(source, translation)
+        assertFalse(result.isValid)
+        assertTrue(result.warnings.any { it.contains("comma instead of a decimal point") })
+        assertTrue(result.warnings.any { it.contains("%1$.1f") })
+    }
+
+    @Test
+    fun nonPositionalPlaceholder_extractsAndValidates() {
+        val source = "Hello %s, you have %d messages"
+        val placeholders = TranslationValidator.extractPlaceholders(source)
+        assertEquals(listOf("%s", "%d"), placeholders)
+
+        val validTrans = "Hola %s, tienes %d mensajes"
+        val validResult = TranslationValidator.validate(source, validTrans)
+        assertTrue(validResult.isValid)
+
+        val missingTrans = "Hola %s"
+        val missingResult = TranslationValidator.validate(source, missingTrans)
+        assertFalse(missingResult.isValid)
+        assertEquals(listOf("%d"), missingResult.missingPlaceholders)
+    }
+
+    @Test
+    fun extraPlaceholder_flagsCrashRisk() {
+        val source = "Travelling to %1\$s"
+        val translation = "Viajando a %1\$s en %2\$s"
+        val result = TranslationValidator.validate(source, translation)
+        assertFalse(result.isValid)
+        assertTrue(result.hasCrashRisk)
+        assertTrue(result.warnings.any { it.contains("Unexpected placeholder index") })
+    }
 }
