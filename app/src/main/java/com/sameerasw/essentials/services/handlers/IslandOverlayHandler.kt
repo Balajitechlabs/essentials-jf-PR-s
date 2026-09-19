@@ -151,6 +151,8 @@ class IslandOverlayHandler(
             if (settingsRepository.isIslandSuppressSystemHeadsUpEnabled()) {
                 settingsRepository.applyHeadsUpSuppression(true)
             }
+            updateIdlePill()
+            updateFlashlightState()
             applyCurrentMediaState()
             pollCalendarEvent()
             updateConsciousGateState()
@@ -788,6 +790,8 @@ class IslandOverlayHandler(
         }
 
         updateOverlay()
+        updateIdlePill()
+        updateFlashlightState()
         scheduleCalendarPoll()
     }
 
@@ -1065,8 +1069,6 @@ class IslandOverlayHandler(
         touchHandler.overlayView = overlayView
 
         updateOverlayPosition()
-        updateIdlePill()
-        updateFlashlightState()
     }
 
     private fun updateOverlayPosition() {
