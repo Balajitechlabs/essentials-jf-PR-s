@@ -33,6 +33,7 @@ import androidx.compose.foundation.clickable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -86,6 +87,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -134,10 +136,13 @@ import com.sameerasw.essentials.ui.features.tiles.QSTilesSearchResultCard
 import com.sameerasw.essentials.ui.modifiers.BlurDirection
 import com.sameerasw.essentials.ui.modifiers.progressiveBlur
 import com.sameerasw.essentials.ui.theme.EssentialsTheme
+import com.sameerasw.essentials.ui.core.sheets.PixelSearchFileActionSheet
 import com.sameerasw.essentials.utils.AppUtil
 import com.sameerasw.essentials.utils.ColorUtil
+import com.sameerasw.essentials.utils.FileSearchUtil
 import com.sameerasw.essentials.utils.FreezeManager
 import com.sameerasw.essentials.utils.HapticUtil
+import com.sameerasw.essentials.utils.PermissionUtils
 import com.sameerasw.essentials.utils.ShortcutUtil
 import com.sameerasw.essentials.utils.WindowingUtils
 import com.sameerasw.essentials.viewmodels.MainViewModel
@@ -382,6 +387,9 @@ fun PixelSearchResultsScreen(
     val viewModel: MainViewModel = viewModel()
     var appResults by remember { mutableStateOf<List<PixelSearchResultItem.AppItem>>(emptyList()) }
     var contactResults by remember { mutableStateOf<List<PixelSearchResultItem.ContactItem>>(emptyList()) }
+    var mediaResults by remember { mutableStateOf<List<PixelSearchResultItem.FileItem>>(emptyList()) }
+    var fileResults by remember { mutableStateOf<List<PixelSearchResultItem.FileItem>>(emptyList()) }
+    var selectedFileForAction by remember { mutableStateOf<PixelSearchResultItem.FileItem?>(null) }
     var systemSettingResults by remember { mutableStateOf<List<PixelSearchResultItem.SystemSettingItem>>(emptyList()) }
     var settingResults by remember { mutableStateOf<List<PixelSearchResultItem.SettingItem>>(emptyList()) }
     var matchingQsTiles by remember { mutableStateOf<List<QSTileInfo>>(emptyList()) }
@@ -390,6 +398,7 @@ fun PixelSearchResultsScreen(
 
     val isAppsEnabled = remember { repository.isPixelSearchResultAppsEnabled() }
     val isContactsEnabled = remember { repository.isPixelSearchResultContactsEnabled() }
+    val isFilesEnabled = remember { repository.isPixelSearchResultFilesEnabled() }
     val isSettingsEnabled = remember { repository.isPixelSearchResultSettingsEnabled() }
     val isShortcutsEnabled = remember { repository.isPixelSearchResultShortcutsEnabled() }
     val isWebEnabled = remember { repository.isPixelSearchResultWebEnabled() }
@@ -401,6 +410,8 @@ fun PixelSearchResultsScreen(
         if (trimmed.isEmpty()) {
             appResults = emptyList()
             contactResults = emptyList()
+            mediaResults = emptyList()
+            fileResults = emptyList()
             systemSettingResults = emptyList()
             settingResults = emptyList()
             matchingQsTiles = emptyList()
@@ -463,6 +474,14 @@ fun PixelSearchResultsScreen(
                 }
             }
 
+            if (isFilesEnabled && PermissionUtils.hasStoragePermission(context)) {
+                val fileSearchResults = FileSearchUtil.searchFiles(context, trimmed)
+                withContext(Dispatchers.Main) {
+                    mediaResults = fileSearchResults.mediaItems
+                    fileResults = fileSearchResults.documentItems
+                }
+            }
+
             if (isSettingsEnabled) {
                 val systemSettings = loadSystemSettings(trimmed)
                 val results =
@@ -514,7 +533,16 @@ fun PixelSearchResultsScreen(
         listState.scrollToItem(0)
     }
 
-    LaunchedEffect(selectedTab, appResults, contactResults, systemSettingResults, settingResults, shortcutResults) {
+    LaunchedEffect(
+        selectedTab,
+        appResults,
+        contactResults,
+        mediaResults,
+        fileResults,
+        systemSettingResults,
+        settingResults,
+        shortcutResults,
+    ) {
         if (!userHasScrolled && (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0)) {
             listState.scrollToItem(0)
         }
@@ -533,9 +561,11 @@ fun PixelSearchResultsScreen(
     // Identify which section is topmost
     val hasApps = (isAllTab || selectedTab == PixelSearchTab.APPS) && isAppsEnabled && appResults.isNotEmpty()
     val hasContacts = !hasApps && (isAllTab || selectedTab == PixelSearchTab.CONTACTS) && isContactsEnabled && contactResults.isNotEmpty()
-    val hasSystemSettings = !hasApps && !hasContacts && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()
-    val hasEssentials = !hasApps && !hasContacts && !hasSystemSettings && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())
-    val hasShortcuts = !hasApps && !hasContacts && !hasSystemSettings && !hasEssentials && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isShortcutsEnabled && shortcutResults.isNotEmpty()
+    val hasMedia = !hasApps && !hasContacts && (isAllTab || selectedTab == PixelSearchTab.MEDIA) && isFilesEnabled && mediaResults.isNotEmpty()
+    val hasFiles = !hasApps && !hasContacts && !hasMedia && (isAllTab || selectedTab == PixelSearchTab.FILES) && isFilesEnabled && fileResults.isNotEmpty()
+    val hasSystemSettings = !hasApps && !hasContacts && !hasMedia && !hasFiles && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()
+    val hasEssentials = !hasApps && !hasContacts && !hasMedia && !hasFiles && !hasSystemSettings && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())
+    val hasShortcuts = !hasApps && !hasContacts && !hasMedia && !hasFiles && !hasSystemSettings && !hasEssentials && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isShortcutsEnabled && shortcutResults.isNotEmpty()
 
     val highlightColor = MaterialTheme.colorScheme.secondaryContainer
     val normalCardColor = MaterialTheme.colorScheme.surfaceBright
@@ -546,7 +576,7 @@ fun PixelSearchResultsScreen(
                 launchApp(context, appResults.first().packageName)
                 onFinish()
             }
-            isContactsEnabled && contactResults.isNotEmpty() -> {
+            hasContacts -> {
                 contactResults.first().phoneNumber?.let {
                     val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))
                     context.startActivity(dialIntent)
@@ -556,11 +586,19 @@ fun PixelSearchResultsScreen(
                     onFinish()
                 }
             }
-            isSettingsEnabled && systemSettingResults.isNotEmpty() -> {
+            hasMedia -> {
+                launchFile(context, mediaResults.first())
+                onFinish()
+            }
+            hasFiles -> {
+                launchFile(context, fileResults.first())
+                onFinish()
+            }
+            hasSystemSettings -> {
                 context.startActivity(systemSettingResults.first().intent)
                 onFinish()
             }
-            isSettingsEnabled && settingResults.isNotEmpty() -> {
+            hasEssentials -> {
                 val setting = settingResults.first().searchableItem
                 val intent = Intent(context, FeatureSettingsActivity::class.java).apply {
                     putExtra("feature", setting.featureKey)
@@ -571,7 +609,7 @@ fun PixelSearchResultsScreen(
                 context.startActivity(intent)
                 onFinish()
             }
-            isShortcutsEnabled && shortcutResults.isNotEmpty() -> {
+            hasShortcuts -> {
                 context.startActivity(shortcutResults.first().intent)
                 onFinish()
             }
@@ -891,6 +929,206 @@ fun PixelSearchResultsScreen(
                     }
                 }
 
+                if ((isAllTab || selectedTab == PixelSearchTab.MEDIA) && isFilesEnabled && mediaResults.isNotEmpty()) {
+                    item(key = "media_header") {
+                        SearchSectionHeader(
+                            stringResource(R.string.pixel_search_section_media),
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                    item(key = "media_carousel") {
+                        val mediaCarouselState = rememberCarouselState { mediaResults.size }
+                        HorizontalMultiBrowseCarousel(
+                            state = mediaCarouselState,
+                            preferredItemWidth = 140.dp,
+                            itemSpacing = 8.dp,
+                            contentPadding = PaddingValues(horizontal = 0.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .animateItem(),
+                        ) { index ->
+                            val media = mediaResults[index]
+                            val isTopmost = index == 0 && hasMedia
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .maskClip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .clickable {
+                                        HapticUtil.performVirtualKeyHaptic(view)
+                                        launchFile(context, media)
+                                        onFinish()
+                                    },
+                            ) {
+                                AsyncImage(
+                                    model = media.uri,
+                                    contentDescription = media.displayName,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+
+                                if (media.isVideo || media.isGif) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(8.dp)
+                                            .background(
+                                                Color.Black.copy(alpha = 0.6f),
+                                                shape = RoundedCornerShape(8.dp),
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            if (media.isVideo) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.rounded_play_arrow_24),
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(12.dp),
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = "GIF",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        HapticUtil.performVirtualKeyHaptic(view)
+                                        selectedFileForAction = media
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(32.dp),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.rounded_more_vert_24),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.75f),
+                                                ),
+                                            ),
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = media.displayName,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            text = FileSearchUtil.formatFileSize(media.sizeBytes),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.75f),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // FILES
+                if ((isAllTab || selectedTab == PixelSearchTab.FILES) && isFilesEnabled && fileResults.isNotEmpty()) {
+                    item(key = "files_header") {
+                        SearchSectionHeader(
+                            stringResource(R.string.pixel_search_section_files),
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                    item(key = "files_cards") {
+                        RoundedCardContainer(modifier = Modifier.animateItem()) {
+                            fileResults.forEachIndexed { index, file ->
+                                val isTopmost = index == 0 && hasFiles
+                                ListItem(
+                                    onClick = {
+                                        HapticUtil.performVirtualKeyHaptic(view)
+                                        launchFile(context, file)
+                                        onFinish()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    leadingContent = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(ColorUtil.getPastelColorFor(file.displayName)),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(file.iconRes),
+                                                contentDescription = null,
+                                                tint = ColorUtil.getVibrantColorFor(file.displayName),
+                                                modifier = Modifier.size(22.dp),
+                                            )
+                                        }
+                                    },
+                                    supportingContent = {
+                                        Text(
+                                            text = FileSearchUtil.formatFileSize(file.sizeBytes),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                    trailingContent = {
+                                        IconButton(onClick = {
+                                            HapticUtil.performVirtualKeyHaptic(view)
+                                            selectedFileForAction = file
+                                        }) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.rounded_more_vert_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(
+                                        containerColor = if (isTopmost) highlightColor else normalCardColor,
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                ) {
+                                    Text(
+                                        text = file.displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // SETTINGS (System Settings)
                 if ((isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()) {
                     item(key = "system_settings_header") {
@@ -1044,7 +1282,7 @@ fun PixelSearchResultsScreen(
 
                 // WEB SEARCH
                 if ((isAllTab || selectedTab == PixelSearchTab.WEB) && isWebEnabled && query.isNotBlank()) {
-                    val isTopmost = !hasApps && !hasContacts && !hasSystemSettings && !hasEssentials && !hasShortcuts
+                    val isTopmost = !hasApps && !hasContacts && !hasMedia && !hasFiles && !hasSystemSettings && !hasEssentials && !hasShortcuts
                     item(key = "web_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_web),
@@ -1156,8 +1394,39 @@ fun PixelSearchResultsScreen(
                 )
             }
         }
+
+        selectedFileForAction?.let { fileItem ->
+            PixelSearchFileActionSheet(
+                fileItem = fileItem,
+                onDismissRequest = { selectedFileForAction = null },
+                onActionCompleted = {
+                    selectedFileForAction = null
+                    onFinish()
+                },
+            )
+        }
     }
 }
+}
+
+private fun launchFile(context: Context, item: PixelSearchResultItem.FileItem) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(item.uri, item.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        try {
+            val fallback = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(item.uri, "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(fallback)
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(context, item.displayName, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 }
 
 @Composable
