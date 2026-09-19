@@ -105,6 +105,8 @@ class MainViewModel : ViewModel() {
     val pinnedFeatureKeys = mutableStateOf<List<String>>(emptyList())
     val pinnedQsTileKeys = mutableStateOf<List<String>>(emptyList())
     val isNotificationListenerEnabled = mutableStateOf(false)
+    val isSensitiveNotificationAccessGranted = mutableStateOf(false)
+    val isAdbFallbackDialogVisible = mutableStateOf(false)
     val isMapsPowerSavingEnabled = mutableStateOf(false)
     val isNotificationLightingEnabled = mutableStateOf(false)
     val isOverlayPermissionGranted = mutableStateOf(false)
@@ -167,6 +169,11 @@ class MainViewModel : ViewModel() {
     val duoSlideMode = mutableStateOf("none")
     val isDuoSlideTrack = mutableStateOf(false)
     val isDuoSlideInvertDirection = mutableStateOf(false)
+    val isDuoShowOtpGlance = mutableStateOf(false)
+    val isDuoOtpAutoPaste = mutableStateOf(true)
+    val isDuoOtpAutoDismiss = mutableStateOf(true)
+    val duoOtpExpirySeconds = mutableIntStateOf(45)
+    val isDuoOtpAppFilterEnabled = mutableStateOf(false)
 
     val isIslandEnabled = mutableStateOf(false)
     val isIslandAutoDetect = mutableStateOf(true)
@@ -723,6 +730,21 @@ class MainViewModel : ViewModel() {
                     SettingsRepository.KEY_DUO_SLIDE_INVERT_DIRECTION ->
                         isDuoSlideInvertDirection.value = settingsRepository.isDuoSlideInvertDirectionEnabled()
 
+                    SettingsRepository.KEY_DUO_SHOW_OTP_GLANCE ->
+                        isDuoShowOtpGlance.value = settingsRepository.isDuoShowOtpGlanceEnabled()
+
+                    SettingsRepository.KEY_DUO_OTP_AUTO_PASTE ->
+                        isDuoOtpAutoPaste.value = settingsRepository.isDuoOtpAutoPasteEnabled()
+
+                    SettingsRepository.KEY_DUO_OTP_AUTO_DISMISS ->
+                        isDuoOtpAutoDismiss.value = settingsRepository.isDuoOtpAutoDismissEnabled()
+
+                    SettingsRepository.KEY_DUO_OTP_EXPIRY_SECONDS ->
+                        duoOtpExpirySeconds.intValue = settingsRepository.getDuoOtpExpirySeconds()
+
+                    SettingsRepository.KEY_DUO_OTP_APP_FILTER_ENABLED ->
+                        isDuoOtpAppFilterEnabled.value = settingsRepository.isDuoOtpAppFilterEnabled()
+
                     SettingsRepository.KEY_ISLAND_ENABLED ->
                         isIslandEnabled.value = settingsRepository.isIslandEnabled()
 
@@ -767,6 +789,7 @@ class MainViewModel : ViewModel() {
 
                     SettingsRepository.KEY_ISLAND_CATCH_UP_TIMEOUT_MS ->
                         islandCatchUpTimeoutMs.longValue = settingsRepository.getIslandCatchUpTimeoutMs()
+
 
                     SettingsRepository.KEY_STATUS_GLANCE_ENABLED ->
                         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
@@ -1739,6 +1762,8 @@ class MainViewModel : ViewModel() {
         ) == PackageManager.PERMISSION_GRANTED
         isNotificationListenerEnabled.value =
             PermissionUtils.hasNotificationListenerPermission(context)
+        isSensitiveNotificationAccessGranted.value =
+            PermissionUtils.hasSensitiveNotificationPermission(context)
         isOverlayPermissionGranted.value = PermissionUtils.canDrawOverlays(context)
         isNotificationLightingAccessibilityEnabled.value =
             PermissionUtils.isNotificationLightingAccessibilityServiceEnabled(context)
@@ -2117,6 +2142,11 @@ class MainViewModel : ViewModel() {
         duoSlideMode.value = settingsRepository.getDuoSlideMode()
         isDuoSlideTrack.value = settingsRepository.isDuoSlideTrackEnabled()
         isDuoSlideInvertDirection.value = settingsRepository.isDuoSlideInvertDirectionEnabled()
+        isDuoShowOtpGlance.value = settingsRepository.isDuoShowOtpGlanceEnabled()
+        isDuoOtpAutoPaste.value = settingsRepository.isDuoOtpAutoPasteEnabled()
+        isDuoOtpAutoDismiss.value = settingsRepository.isDuoOtpAutoDismissEnabled()
+        duoOtpExpirySeconds.intValue = settingsRepository.getDuoOtpExpirySeconds()
+        isDuoOtpAppFilterEnabled.value = settingsRepository.isDuoOtpAppFilterEnabled()
         isIslandEnabled.value = settingsRepository.isIslandEnabled()
         isIslandAutoDetect.value = settingsRepository.isIslandAutoDetectEnabled()
         islandCameraOffsetX.floatValue = settingsRepository.getIslandCameraOffsetX()
@@ -2144,6 +2174,7 @@ class MainViewModel : ViewModel() {
         isIslandShowTimeBattery.value = settingsRepository.isIslandShowTimeBatteryEnabled()
         isIslandShowFlashlight.value = settingsRepository.isIslandShowFlashlightEnabled()
         islandBatteryStyle.value = settingsRepository.getIslandBatteryStyle()
+
         isStatusGlanceEnabled.value = settingsRepository.isStatusGlanceEnabled()
         isStatusGlanceAutoDetect.value = settingsRepository.isStatusGlanceAutoDetectEnabled()
         statusGlanceOffsetX.floatValue = settingsRepository.getStatusGlanceOffsetX()
@@ -2430,7 +2461,6 @@ class MainViewModel : ViewModel() {
         isAodWallpaperKeepOnMedia.value =
             settingsRepository.isAodWallpaperKeepOnMediaEnabled()
         pixelSearchResultApps.value = settingsRepository.isPixelSearchResultAppsEnabled()
-        pixelSearchResultMedia.value = settingsRepository.isPixelSearchResultMediaEnabled()
         pixelSearchResultFiles.value = settingsRepository.isPixelSearchResultFilesEnabled()
         pixelSearchResultContacts.value = settingsRepository.isPixelSearchResultContactsEnabled()
         pixelSearchResultSettings.value = settingsRepository.isPixelSearchResultSettingsEnabled()
@@ -4112,8 +4142,7 @@ class MainViewModel : ViewModel() {
     }
 
     val pixelSearchResultApps = mutableStateOf(true)
-    val pixelSearchResultMedia = mutableStateOf(false)
-    val pixelSearchResultFiles = mutableStateOf(false)
+    val pixelSearchResultFiles = mutableStateOf(true)
     val pixelSearchResultContacts = mutableStateOf(true)
     val pixelSearchResultSettings = mutableStateOf(true)
     val pixelSearchResultShortcuts = mutableStateOf(true)
@@ -4124,11 +4153,6 @@ class MainViewModel : ViewModel() {
     fun setPixelSearchResultAppsEnabled(enabled: Boolean) {
         pixelSearchResultApps.value = enabled
         settingsRepository.setPixelSearchResultAppsEnabled(enabled)
-    }
-
-    fun setPixelSearchResultMediaEnabled(enabled: Boolean) {
-        pixelSearchResultMedia.value = enabled
-        settingsRepository.setPixelSearchResultMediaEnabled(enabled)
     }
 
     fun setPixelSearchResultFilesEnabled(enabled: Boolean) {
@@ -5124,6 +5148,48 @@ class MainViewModel : ViewModel() {
     fun setDuoSlideInvertDirection(enabled: Boolean) {
         isDuoSlideInvertDirection.value = enabled
         settingsRepository.setDuoSlideInvertDirection(enabled)
+    }
+
+    fun setDuoShowOtpGlance(enabled: Boolean) {
+        isDuoShowOtpGlance.value = enabled
+        settingsRepository.setDuoShowOtpGlanceEnabled(enabled)
+    }
+
+    fun setDuoOtpAutoPaste(enabled: Boolean) {
+        isDuoOtpAutoPaste.value = enabled
+        settingsRepository.setDuoOtpAutoPasteEnabled(enabled)
+    }
+
+    fun setDuoOtpAutoDismiss(enabled: Boolean) {
+        isDuoOtpAutoDismiss.value = enabled
+        settingsRepository.setDuoOtpAutoDismissEnabled(enabled)
+    }
+
+    fun setDuoOtpExpirySeconds(seconds: Int) {
+        duoOtpExpirySeconds.intValue = seconds
+        settingsRepository.setDuoOtpExpirySeconds(seconds)
+    }
+
+    fun setDuoOtpAppFilterEnabled(enabled: Boolean) {
+        isDuoOtpAppFilterEnabled.value = enabled
+        settingsRepository.setDuoOtpAppFilterEnabled(enabled)
+    }
+
+    fun loadDuoOtpSelectedApps(context: Context): List<AppSelection> = settingsRepository.loadDuoOtpSelectedApps()
+
+    fun saveDuoOtpSelectedApps(
+        context: Context,
+        apps: List<AppSelection>,
+    ) {
+        settingsRepository.saveDuoOtpSelectedApps(apps)
+    }
+
+    fun updateDuoOtpAppSelection(
+        context: Context,
+        packageName: String,
+        enabled: Boolean,
+    ) {
+        settingsRepository.updateDuoOtpAppSelection(packageName, enabled)
     }
 
     fun setStatusGlanceEnabled(enabled: Boolean) {
@@ -6479,6 +6545,7 @@ class MainViewModel : ViewModel() {
         val centerX = widthPx / 2
         val centerY = heightPx / 2
 
+
         val command =
             if (notificationLightingSystemMode.intValue == 0) {
                 "cmd statusbar charging-ripple"
@@ -6487,6 +6554,7 @@ class MainViewModel : ViewModel() {
             } else {
                 val posX = (notificationLightingIndicatorX.value / 100f * widthPx).toInt()
                 val posY = (notificationLightingIndicatorY.value / 100f * heightPx).toInt()
+
                 "cmd statusbar auth-ripple custom $posX $posY"
             }
 
@@ -7079,6 +7147,42 @@ class MainViewModel : ViewModel() {
     }
 
     /**
+     * Executes the request sensitive notification access permission operation.
+     *
+     * @param context [Context] Target context.
+     */
+    
+    fun revokeSensitiveNotificationAccess(context: Context) {
+        if (ShizukuUtils.isShizukuAvailable()) {
+            if (ShizukuUtils.hasPermission()) {
+                ShizukuUtils.runCommand("cmd appops set ${context.packageName} RECEIVE_SENSITIVE_NOTIFICATIONS default")
+                check(context)
+                Toast.makeText(context, "Sensitive Notification Access Revoked. Please restart device.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun requestSensitiveNotificationAccess(context: Context) {
+        if (ShizukuUtils.isShizukuAvailable()) {
+            if (ShizukuUtils.hasPermission()) {
+                ShizukuUtils.runCommand("cmd appops set ${context.packageName} RECEIVE_SENSITIVE_NOTIFICATIONS allow")
+                check(context)
+                // We show a toast to ask for restart, or we can open a dialog. The plan says a dialog or toast. 
+                // We can't show a dialog directly from VM without a state.
+                // Wait, let's just trigger a toast for simplicity, but the chat says "ask the user to restart the device".
+                // I'll show a toast for restarting the device to keep the UI clean, or use the fallback dialog.
+                // Let's use the fallback dialog to also show restart instructions? No, fallback dialog is for ADB.
+                // Let's show a toast for restart.
+                Toast.makeText(context, "Permission granted. Please restart your device to apply.", Toast.LENGTH_LONG).show()
+            } else {
+                ShizukuUtils.requestPermission()
+            }
+        } else {
+            isAdbFallbackDialogVisible.value = true
+        }
+    }
+
+    /**
      * Executes the request shizuku permission operation.
      */
     fun requestShizukuPermission() {
@@ -7131,6 +7235,7 @@ class MainViewModel : ViewModel() {
         isCaffeinateActive.value = false
     }
 
+    @Suppress("DEPRECATION")
     private fun isCaffeinateServiceRunning(context: Context): Boolean {
         val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         @Suppress("DEPRECATION")

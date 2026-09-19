@@ -160,6 +160,19 @@ object ShizukuUtils {
         }
     }
 
+    fun grantSensitiveNotificationPermission(): Boolean {
+        if (!hasPermission() || !isBinderAlive) return false
+
+        return try {
+            runCommand("cmd appops set com.sameerasw.essentials RECEIVE_SENSITIVE_NOTIFICATIONS allow")
+            true
+        } catch (
+            @Suppress("UNUSED_PARAMETER") e: Exception,
+        ) {
+            false
+        }
+    }
+
     fun getSystemBinder(name: String): IBinder? {
         if (!hasPermission() || !isBinderAlive) return null
 

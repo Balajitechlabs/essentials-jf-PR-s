@@ -354,7 +354,6 @@ class SettingsRepository(
         const val KEY_PIXEL_SEARCH_RESULT_SETTINGS = "pixel_search_result_settings"
         const val KEY_PIXEL_SEARCH_RESULT_SHORTCUTS = "pixel_search_result_shortcuts"
         const val KEY_PIXEL_SEARCH_RESULT_WEB = "pixel_search_result_web"
-        const val KEY_PIXEL_SEARCH_RESULT_MEDIA = "pixel_search_result_media"
         const val KEY_PIXEL_SEARCH_RESULT_FILES = "pixel_search_result_files"
         const val KEY_PIXEL_SEARCH_BUBBLES_WEB = "pixel_search_bubbles_web"
         const val KEY_PIXEL_SEARCH_ENGINE = "pixel_search_engine"
@@ -419,6 +418,12 @@ class SettingsRepository(
         const val KEY_DUO_SLIDE_MODE = "duo_slide_mode"
         const val KEY_DUO_SLIDE_TRACK = "duo_slide_track"
         const val KEY_DUO_SLIDE_INVERT_DIRECTION = "duo_slide_invert_direction"
+        const val KEY_DUO_SHOW_OTP_GLANCE = "duo_show_otp_glance"
+        const val KEY_DUO_OTP_AUTO_PASTE = "duo_otp_auto_paste"
+        const val KEY_DUO_OTP_AUTO_DISMISS = "duo_otp_auto_dismiss"
+        const val KEY_DUO_OTP_EXPIRY_SECONDS = "duo_otp_expiry_seconds"
+        const val KEY_DUO_OTP_APP_FILTER_ENABLED = "duo_otp_app_filter_enabled"
+        const val KEY_DUO_OTP_SELECTED_APPS = "duo_otp_selected_apps"
 
         // Island
         const val KEY_ISLAND_ENABLED = "island_enabled"
@@ -3218,10 +3223,7 @@ class SettingsRepository(
     fun isPixelSearchResultWebEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_WEB, true)
     fun setPixelSearchResultWebEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_WEB, enabled)
 
-    fun isPixelSearchResultMediaEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_MEDIA, false)
-    fun setPixelSearchResultMediaEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_MEDIA, enabled)
-
-    fun isPixelSearchResultFilesEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_FILES, false)
+    fun isPixelSearchResultFilesEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_RESULT_FILES, true)
     fun setPixelSearchResultFilesEnabled(enabled: Boolean) = putBoolean(KEY_PIXEL_SEARCH_RESULT_FILES, enabled)
 
     fun isPixelSearchBubblesWebEnabled(): Boolean = getBoolean(KEY_PIXEL_SEARCH_BUBBLES_WEB, false)
@@ -3379,6 +3381,32 @@ class SettingsRepository(
 
     fun isDuoSlideInvertDirectionEnabled(): Boolean = getBoolean(KEY_DUO_SLIDE_INVERT_DIRECTION, false)
     fun setDuoSlideInvertDirection(enabled: Boolean) = putBoolean(KEY_DUO_SLIDE_INVERT_DIRECTION, enabled)
+
+    fun isDuoShowOtpGlanceEnabled(): Boolean = getBoolean(KEY_DUO_SHOW_OTP_GLANCE, false)
+    fun setDuoShowOtpGlanceEnabled(enabled: Boolean) = putBoolean(KEY_DUO_SHOW_OTP_GLANCE, enabled)
+
+    fun isDuoOtpAutoPasteEnabled(): Boolean = getBoolean(KEY_DUO_OTP_AUTO_PASTE, true)
+    fun setDuoOtpAutoPasteEnabled(enabled: Boolean) = putBoolean(KEY_DUO_OTP_AUTO_PASTE, enabled)
+
+    fun isDuoOtpAutoDismissEnabled(): Boolean = getBoolean(KEY_DUO_OTP_AUTO_DISMISS, true)
+    fun setDuoOtpAutoDismissEnabled(enabled: Boolean) = putBoolean(KEY_DUO_OTP_AUTO_DISMISS, enabled)
+
+    fun getDuoOtpExpirySeconds(): Int = getInt(KEY_DUO_OTP_EXPIRY_SECONDS, 45)
+    fun setDuoOtpExpirySeconds(seconds: Int) = putInt(KEY_DUO_OTP_EXPIRY_SECONDS, seconds)
+
+    fun isDuoOtpAppFilterEnabled(): Boolean = getBoolean(KEY_DUO_OTP_APP_FILTER_ENABLED, false)
+    fun setDuoOtpAppFilterEnabled(enabled: Boolean) = putBoolean(KEY_DUO_OTP_APP_FILTER_ENABLED, enabled)
+
+    fun loadDuoOtpSelectedApps() = loadAppSelection(KEY_DUO_OTP_SELECTED_APPS)
+    fun saveDuoOtpSelectedApps(apps: List<AppSelection>) = saveAppSelection(KEY_DUO_OTP_SELECTED_APPS, apps)
+    fun updateDuoOtpAppSelection(
+        packageName: String,
+        enabled: Boolean,
+    ) = updateAppSelection(KEY_DUO_OTP_SELECTED_APPS, packageName, enabled)
+
+    fun getDuoOtpSelectedAppPackages(): Set<String> {
+        return loadDuoOtpSelectedApps().filter { it.isEnabled }.map { it.packageName }.toSet()
+    }
 
     // Island
     fun isIslandEnabled(): Boolean = getBoolean(KEY_ISLAND_ENABLED, false)

@@ -495,6 +495,7 @@ object PermissionUtils {
      * @param context [Context] Target context.
      * @return The resulting Boolean data.
      */
+    @Suppress("DEPRECATION")
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
         val mode =
@@ -591,7 +592,7 @@ object PermissionUtils {
         }
     }
 
-    fun hasMediaPermissions(context: Context): Boolean {
+    fun hasStoragePermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasImages = androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
@@ -605,16 +606,36 @@ object PermissionUtils {
                 context,
                 android.Manifest.permission.READ_MEDIA_AUDIO,
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            hasImages && hasVideo && hasAudio
+            (hasImages || hasVideo || hasAudio) || hasManageExternalStoragePermission(context)
         } else {
             androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED || hasManageExternalStoragePermission(context)
         }
     }
 
-    fun hasStoragePermission(context: Context): Boolean {
-        return hasMediaPermissions(context) || hasManageExternalStoragePermission(context)
+    /**
+     * Checks if the app has the RECEIVE_SENSITIVE_NOTIFICATIONS AppOp.
+     */
+    @Suppress("DEPRECATION")
+    fun hasSensitiveNotificationPermission(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true // Only required on Android 14+
+
+        try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            val mode = appOps.unsafeCheckOpNoThrow(
+                "android:receive_sensitive_notifications",
+                android.os.Process.myUid(),
+                context.packageName,
+            )
+            return mode == android.app.AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            // Fallback: check via Shizuku if available, else assume false
+            if (ShizukuUtils.isShizukuAvailable() && ShizukuUtils.hasPermission()) {
+                // We'll rely on the ViewModel state to maintain this if we can't check
+            }
+            return false
+        }
     }
 }

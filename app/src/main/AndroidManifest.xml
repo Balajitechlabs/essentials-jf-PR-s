@@ -5,8 +5,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission android:name="android.permission.RECEIVE_SENSITIVE_NOTIFICATIONS" />
+
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
     <uses-permission
+
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -277,12 +280,8 @@
 
         <activity
             android:name=".ui.activities.PixelSearchResultsActivity"
-            android:autoRemoveFromRecents="true"
-            android:excludeFromRecents="true"
             android:exported="false"
-            android:label="@string/essential_search_label"
-            android:launchMode="singleInstance"
-            android:taskAffinity="com.sameerasw.essentials.search"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Essentials.WallpaperTranslucent"
             android:windowSoftInputMode="stateVisible|adjustResize" />
 
