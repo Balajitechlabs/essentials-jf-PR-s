@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,9 +56,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
+import com.sameerasw.essentials.domain.model.PixelSearchTab
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
@@ -196,7 +201,7 @@ class PixelSearchResultsActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PixelSearchResultsScreen(
     initialQuery: String,
@@ -211,6 +216,8 @@ fun PixelSearchResultsScreen(
 
     var query by remember { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
+    var selectedTab by remember { mutableStateOf(PixelSearchTab.ALL) }
+    val isAllTab = selectedTab == PixelSearchTab.ALL
 
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val dismissThresholdPx = with(density) { 180.dp.toPx() }
@@ -502,7 +509,12 @@ fun PixelSearchResultsScreen(
         performSearch(query)
     }
 
-    LaunchedEffect(appResults, contactResults, systemSettingResults, settingResults, shortcutResults) {
+    LaunchedEffect(selectedTab) {
+        userHasScrolled = false
+        listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(selectedTab, appResults, contactResults, systemSettingResults, settingResults, shortcutResults) {
         if (!userHasScrolled && (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0)) {
             listState.scrollToItem(0)
         }
@@ -516,13 +528,14 @@ fun PixelSearchResultsScreen(
     val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarHeightPx = with(LocalDensity.current) { statusBarHeight.toPx() }
     val bottomBlurHeightPx = with(LocalDensity.current) { 140.dp.toPx() }
+    val topBlurHeightPx = with(LocalDensity.current) { (statusBarHeight + 56.dp).toPx() }
 
     // Identify which section is topmost
-    val hasApps = isAppsEnabled && appResults.isNotEmpty()
-    val hasContacts = !hasApps && isContactsEnabled && contactResults.isNotEmpty()
-    val hasSystemSettings = !hasApps && !hasContacts && isSettingsEnabled && systemSettingResults.isNotEmpty()
-    val hasEssentials = !hasApps && !hasContacts && !hasSystemSettings && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())
-    val hasShortcuts = !hasApps && !hasContacts && !hasSystemSettings && !hasEssentials && isShortcutsEnabled && shortcutResults.isNotEmpty()
+    val hasApps = (isAllTab || selectedTab == PixelSearchTab.APPS) && isAppsEnabled && appResults.isNotEmpty()
+    val hasContacts = !hasApps && (isAllTab || selectedTab == PixelSearchTab.CONTACTS) && isContactsEnabled && contactResults.isNotEmpty()
+    val hasSystemSettings = !hasApps && !hasContacts && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()
+    val hasEssentials = !hasApps && !hasContacts && !hasSystemSettings && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())
+    val hasShortcuts = !hasApps && !hasContacts && !hasSystemSettings && !hasEssentials && (isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isShortcutsEnabled && shortcutResults.isNotEmpty()
 
     val highlightColor = MaterialTheme.colorScheme.secondaryContainer
     val normalCardColor = MaterialTheme.colorScheme.surfaceBright
@@ -576,22 +589,97 @@ fun PixelSearchResultsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(scrimColor)
-            .progressiveBlur(
-                blurRadius = 40f,
-                height = statusBarHeightPx * 1.2f,
-                direction = BlurDirection.TOP,
-            ),
+            .background(scrimColor),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) },
         ) {
+            // Pinned top category filter tabs
+            val tabs = remember { PixelSearchTab.entries }
+            val carouselState = rememberCarouselState { tabs.size }
+
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .zIndex(20f)
+                        .padding(top = statusBarHeight),
+            ) {
+                HorizontalMultiBrowseCarousel(
+                    state = carouselState,
+                    preferredItemWidth = 112.dp,
+                    itemSpacing = 8.dp,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .height(44.dp),
+                ) { index ->
+                    val tab = tabs[index]
+                    val isSelected = selectedTab == tab
+                    val containerColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }
+                    val contentColor =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .maskClip(CircleShape)
+                                .background(containerColor)
+                                .clickable {
+                                    HapticUtil.performVirtualKeyHaptic(view)
+                                    selectedTab = tab
+                                }
+                                .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            tab.iconRes?.let { iconRes ->
+                                Icon(
+                                    painter = painterResource(iconRes),
+                                    contentDescription = null,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            Text(
+                                text = stringResource(tab.labelRes),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = contentColor,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .imePadding()
+                    .progressiveBlur(
+                        blurRadius = 40f,
+                        height = topBlurHeightPx,
+                        direction = BlurDirection.TOP,
+                    )
                     .progressiveBlur(
                         blurRadius = 40f,
                         height = bottomBlurHeightPx,
@@ -605,13 +693,13 @@ fun PixelSearchResultsScreen(
                         .nestedScroll(overscrollNestedScrollConnection)
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(
-                        top = statusBarHeight + 16.dp,
+                        top = statusBarHeight + 56.dp,
                         bottom = 120.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                 // APPS
-                if (isAppsEnabled && appResults.isNotEmpty()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.APPS) && isAppsEnabled && appResults.isNotEmpty()) {
                     item(key = "apps_header") {
                         SearchSectionHeader(stringResource(R.string.pixel_search_section_apps), Modifier.animateItem())
                     }
@@ -697,7 +785,7 @@ fun PixelSearchResultsScreen(
                 }
 
                 // CONTACTS
-                if (isContactsEnabled && contactResults.isNotEmpty()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.CONTACTS) && isContactsEnabled && contactResults.isNotEmpty()) {
                     item(key = "contacts_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_contacts),
@@ -804,7 +892,7 @@ fun PixelSearchResultsScreen(
                 }
 
                 // SETTINGS (System Settings)
-                if (isSettingsEnabled && systemSettingResults.isNotEmpty()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && systemSettingResults.isNotEmpty()) {
                     item(key = "system_settings_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_system_settings),
@@ -836,7 +924,7 @@ fun PixelSearchResultsScreen(
                 }
 
                 // ESSENTIALS
-                if (isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())) {
+                if ((isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isSettingsEnabled && (matchingQsTiles.isNotEmpty() || settingResults.isNotEmpty())) {
                     item(key = "essentials_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_essentials),
@@ -923,7 +1011,7 @@ fun PixelSearchResultsScreen(
                 }
 
                 // SHORTCUTS
-                if (isShortcutsEnabled && shortcutResults.isNotEmpty()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.SETTINGS) && isShortcutsEnabled && shortcutResults.isNotEmpty()) {
                     item(key = "shortcuts_header") {
                         SearchSectionHeader(
                             stringResource(R.string.pixel_search_section_shortcuts),
@@ -955,7 +1043,7 @@ fun PixelSearchResultsScreen(
                 }
 
                 // WEB SEARCH
-                if (isWebEnabled && query.isNotBlank()) {
+                if ((isAllTab || selectedTab == PixelSearchTab.WEB) && isWebEnabled && query.isNotBlank()) {
                     val isTopmost = !hasApps && !hasContacts && !hasSystemSettings && !hasEssentials && !hasShortcuts
                     item(key = "web_header") {
                         SearchSectionHeader(
