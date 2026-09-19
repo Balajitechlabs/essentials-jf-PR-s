@@ -95,6 +95,7 @@ object ActionRegistry {
         val essentialsActions =
             listOf(
                 Action.SometimesEssentials(),
+                Action.EssentialSearch,
             )
 
         return listOf(
