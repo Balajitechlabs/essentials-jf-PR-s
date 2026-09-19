@@ -43,24 +43,6 @@ class SettingsRepository(
     init {
         migrateUsageAccessKey()
         migrateRemapStringToAction()
-        migrateWatchSyncDefaultsOff()
-    }
-
-    private fun migrateWatchSyncDefaultsOff() {
-        if (getBoolean(KEY_WATCH_SYNC_DEFAULTS_MIGRATION_DONE)) return
-        val isExistingInstall =
-            try {
-                val info = context.packageManager.getPackageInfo(context.packageName, 0)
-                info.lastUpdateTime > info.firstInstallTime
-            } catch (_: Exception) {
-                true
-            }
-        if (isExistingInstall) {
-            listOf("watch_call_sync_enabled", "watch_sync_location_reached_enabled").forEach {
-                if (!contains(it)) putBoolean(it, true)
-            }
-        }
-        putBoolean(KEY_WATCH_SYNC_DEFAULTS_MIGRATION_DONE, true)
     }
 
     private fun migrateUsageAccessKey() {
@@ -202,7 +184,6 @@ class SettingsRepository(
         const val KEY_BUTTON_REMAP_HAPTIC_TYPE = "button_remap_haptic_type"
         const val KEY_FLASHLIGHT_HAPTIC_TYPE = "flashlight_haptic_type" // Legacy
         const val KEY_BUTTON_REMAP_MIGRATION_DONE = "button_remap_action_migration_done"
-        const val KEY_WATCH_SYNC_DEFAULTS_MIGRATION_DONE = "watch_sync_defaults_off_migration_done"
         const val KEY_BUTTON_REMAP_PAUSE_ON_VOLUME_DIALOG = "button_remap_pause_on_volume_dialog"
 
         const val KEY_DYNAMIC_NIGHT_LIGHT_ENABLED = "dynamic_night_light_enabled"

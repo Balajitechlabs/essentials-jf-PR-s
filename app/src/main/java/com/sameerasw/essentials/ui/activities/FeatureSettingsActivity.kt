@@ -281,7 +281,7 @@ class FeatureSettingsActivity : AppCompatActivity() {
                                 } else if (key == "watch_sync_sound_mode_enabled") {
                                     watchSyncSoundModeEnabled = p.getBoolean(key, false)
                                 } else if (key == "watch_sync_location_reached_enabled") {
-                                    watchSyncLocationReachedEnabled = p.getBoolean(key, true)
+                                    watchSyncLocationReachedEnabled = p.getBoolean(key, false)
                                 }
                             }
                         prefs.registerOnSharedPreferenceChangeListener(listener)
