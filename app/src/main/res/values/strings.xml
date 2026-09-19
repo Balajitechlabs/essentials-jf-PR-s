@@ -2515,6 +2515,7 @@
     <string name="pixel_search_results_files_desc">Search documents, audio, and downloaded files</string>
     <string name="perm_all_files_title">All files access</string>
     <string name="perm_all_files_desc">Allows Essentials to index and search documents, audio, and downloaded files on your device.</string>
+    <string name="essential_search_label">Essential Search</string>
     <string name="pixel_search_tab_all">All</string>
     <string name="pixel_search_tab_apps">Apps</string>
     <string name="pixel_search_tab_media">Media</string>
