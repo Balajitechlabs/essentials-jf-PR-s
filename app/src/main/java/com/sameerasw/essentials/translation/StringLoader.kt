@@ -170,9 +170,14 @@ object StringLoader {
             val localeParts = localeCode.split("-")
             val locale =
                 if (localeParts.size > 1) {
-                    java.util.Locale(localeParts[0], localeParts[1])
+                    java.util.Locale.Builder()
+                        .setLanguage(localeParts[0])
+                        .setRegion(localeParts[1])
+                        .build()
                 } else {
-                    java.util.Locale(localeParts[0])
+                    java.util.Locale.Builder()
+                        .setLanguage(localeParts[0])
+                        .build()
                 }
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {

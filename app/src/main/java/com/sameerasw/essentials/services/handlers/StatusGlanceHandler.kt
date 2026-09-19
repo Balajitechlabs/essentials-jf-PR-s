@@ -146,6 +146,9 @@ class StatusGlanceHandler(
 
     fun updateState() {
         mainHandler.post {
+            if (windowManager == null) {
+                windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            }
             val isEnabled = settingsRepository.isStatusGlanceEnabled()
 
             if (isEnabled) {
@@ -216,6 +219,9 @@ class StatusGlanceHandler(
     }
 
     private fun syncConfigToView() {
+        if (settingsRepository.isStatusGlanceEnabled() && (!isOverlayAdded || glanceView == null)) {
+            createOverlay()
+        }
         glanceView?.let { v ->
             val isNightMode = (service.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             v.isDarkTheme = isNightMode
@@ -269,13 +275,19 @@ class StatusGlanceHandler(
     }
 
     private fun createOverlay() {
-        if (isOverlayAdded || windowManager == null) return
+        if (isOverlayAdded) return
+        if (windowManager == null) {
+            windowManager = service.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        }
+        val wm = windowManager ?: return
 
-        glanceView = StatusGlanceView(service)
+        if (glanceView == null) {
+            glanceView = StatusGlanceView(service)
+        }
         val params = getOverlayLayoutParams()
 
         try {
-            windowManager?.addView(glanceView, params)
+            wm.addView(glanceView, params)
             isOverlayAdded = true
             updateGlancePosition()
         } catch (e: Exception) {
@@ -503,6 +515,7 @@ class StatusGlanceHandler(
                 val timeframe = settingsRepository.getStatusGlanceCalendarTimeframe()
                 val selectedCalIds = settingsRepository.getStatusGlanceCalendarSelectedCalendars()
                     .mapNotNull { it.toLongOrNull() }.toSet()
+                val showAllDay = settingsRepository.isStatusGlanceCalendarShowAllDayEnabled()
 
                 val maxTimeMillis: Long = when (timeframe) {
                     "15m" -> now + (15 * 60 * 1000L)
@@ -562,6 +575,7 @@ class StatusGlanceHandler(
                     val beginIndex = it.getColumnIndex(CalendarContract.Instances.BEGIN)
                     val statusIndex = it.getColumnIndex(CalendarContract.Instances.SELF_ATTENDEE_STATUS)
                     val calIdIndex = it.getColumnIndex(CalendarContract.Instances.CALENDAR_ID)
+                    val allDayIndex = it.getColumnIndex(CalendarContract.Instances.ALL_DAY)
 
                     while (it.moveToNext()) {
                         val calId = it.getLong(calIdIndex)
@@ -570,6 +584,10 @@ class StatusGlanceHandler(
                         }
 
                         if (statusIndex != -1 && it.getInt(statusIndex) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) {
+                            continue
+                        }
+
+                        if (!showAllDay && allDayIndex != -1 && it.getInt(allDayIndex) != 0) {
                             continue
                         }
 

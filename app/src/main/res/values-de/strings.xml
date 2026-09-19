@@ -1170,7 +1170,7 @@ ADB-Debugging-Zugriff direkt über die Schnelleinstellungen aktivieren oder deak
     <string name="location_reached_fsi_desc">Benötigt, um dein Gerät bei der Ankunft zu wecken. Tippe zum Gewähren.</string>
     <string name="location_reached_dist_m">%1$d m</string>
     <string name="location_reached_dist_km">%1$.1f km</string>
-    <string name="location_reached_service_title">Reisealarm aktiv</string>
+    <string name="location_reached_service_title">Reise nach %1$s</string>
     <string name="location_reached_service_remaining">%1$s verbleibend (%2$d%%)</string>
     <string name="location_reached_channel_name">Reisefortschritt</string>
     <string name="location_reached_channel_desc">Zeigt die Entfernung zum Zielort in Echtzeit an</string>
@@ -1436,9 +1436,7 @@ Für Anpassungen der Skalierung sind möglicherweise zusätzlich Shizuku- oder R
     <!-- Shut-Up! Feature -->
     <string name="feat_shut_up_title">Halt die Klappe!</string>
     <string name="feat_shut_up_desc">Ich weiß, was ich tue</string>
-    <string name="shut_up_description">Shut-Up! umgeht App-Beschränkungen und prüft Entwickleroptionen, Barrierefreiheit und Debugging, indem diese beim Starten sensibler Apps dynamisch ausgeblendet werden.
-
-Verwenden Sie die benutzerdefinierten Tastenkombinationen, um sicherzustellen, dass die Einstellungen vor dem Start der App ausgeblendet werden</string>
+    <string name="shut_up_description">Halt die Klappe! umgeht App-Beschränkungen und prüft Entwickleroptionen, Barrierefreiheit und Debugging, indem diese beim Starten sensibler Apps dynamisch ausgeblendet werden. Verwenden Sie die benutzerdefinierten Tastenkombinationen, um sicherzustellen, dass die Einstellungen vor dem Start der App ausgeblendet werden</string>
     <string name="shut_up_select_apps_title">Apps auswählen </string>
     <string name="shut_up_select_apps_desc">Wähle Apps, auf welche die Halt-die-Klappe!-Logik angewendet werden sollen</string>
     <string name="shut_up_settings_title">Shut-Up! Settings</string>
@@ -1778,4 +1776,19 @@ Zudem muss die Einstellung unter Umständen mehrfach angewendet werden, damit si
     <string name="watch_notif_sync_icons_desc">App-Symbole mit dem Launcher der Uhr für die Benachrichtigungsanzeige synchronisieren</string>
     <string name="watch_wireless_debugging_ip_title">IP-Addresse</string>
     <string name="diy_genai_lazy_title">Ich bin faul, mach es für mich</string>
+    <string name="feat_conscious_gate_desc">Pause vor dem Öffnen der ausgewählten Apps</string>
+    <string name="feat_conscious_gate_title">Bewusstes Tor</string>
+    <string name="conscious_gate_enable_title">Bewusstes Tor aktivieren</string>
+    <string name="conscious_gate_select_apps_title">Geschützte Apps auswählen</string>
+    <string name="conscious_gate_select_apps_desc">Wähle aus, welche Apps vor dem Öffnen einen Bildschirm mit einem achtsamen, bewussten Tor anzeigen</string>
+    <string name="conscious_gate_delay_title">Pausenverzögerung</string>
+    <string name="conscious_gate_delay_desc">Wie lange bleibt \"Weiter\" deaktiviert</string>
+    <string name="conscious_gate_reappear_title">Nach der Nutzung erneut anzeigen</string>
+    <string name="conscious_gate_reappear_desc">Den Bildschirm mit dem bewussten Tor nach kontinuierlicher Nutzung erneut anzeigen</string>
+    <string name="conscious_gate_preview_button">Vorschau des Bewussten Tor Bildschirms</string>
+    <string name="about_desc_conscious_gate">Fügt einen kurzen Bildschirm für bewusstes Tor  hinzu, bevor Sie Apps öffnen, die Sie bewusster nutzen möchten, z. B. soziale Medien.
+
+Die Schaltfläche \"Weiter\" bleibt für einige Sekunden deaktiviert, damit Sie einen Moment Zeit zum Überlegen haben. Die Pause kann optional wieder angezeigt werden, wenn Sie die App nach einer festgelegten Zeit weiter verwenden</string>
+    <string name="qs_secure_sensitive_tiles_title">Sichere sensible Kacheln</string>
+    <string name="qs_secure_sensitive_tiles_desc">Anforderung zum Entsperren vor dem Auslösen sensibler QS-Kacheln im gesperrten Zustand</string>
 </resources>
